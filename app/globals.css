@@ -98,6 +98,12 @@ button:focus-visible,a:focus-visible { outline:3px solid #819eb6; outline-offset
 .hero-card>div.relative { padding:1.6rem 1.8rem; max-width:600px; }
 .hero-kicker { display:flex; align-items:center; gap:.5rem; font-size:.8125rem; font-weight:600; letter-spacing:.04em; color:#fbd77d; }
 .hero-kicker svg { display:none; }
+.hero-trial { margin-top:1.1rem; padding:.9rem 1rem; border:1px solid #f5bf4266; border-radius:.65rem; background:#082b3bcc; }
+.hero-trial strong { display:block; color:#ffdb85; font-size:1.05rem; line-height:1.4; }
+.hero-card .hero-trial p { margin-top:.4rem; font-size:.8rem; line-height:1.55; color:#f1f5f9; }
+.trial-heading { color:#00758c; font-size:1.1rem; line-height:1.5; }
+.signup-trial { padding:1rem; border:1px solid #b7dce1; border-radius:.65rem; background:#eef9fa; font-size:.85rem; line-height:1.55; }
+.signup-trial strong { color:#006f83; }.signup-trial p { margin-top:.5rem; }
 .hero-card h1 { margin:.65rem 0; font-size:clamp(1.75rem,3vw,2.35rem); line-height:1.15; letter-spacing:-.025em; font-weight:700; }
 .hero-card p { margin:0; max-width:480px; color:#e4ebf0; font-size:1rem; line-height:1.6; }
 .hero-card .mt-6 { margin-top:1.1rem; }

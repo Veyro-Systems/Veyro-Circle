@@ -99,19 +99,41 @@ export async function getServerProfile(uid: string) {
     },
     country: fields.place?.mapValue?.fields?.country?.stringValue === "SE" ? "SE" as const : "DK" as const,
     stripeCustomerId: fields.stripeCustomerId?.stringValue,
+    stripeSubscriptionId: fields.stripeSubscriptionId?.stringValue,
+    circlePlusStartedAt: fields.circlePlusStartedAt?.timestampValue,
+    circlePlusTrialStartedAt: fields.circlePlusTrialStartedAt?.timestampValue,
     subscriptionPlan: fields.subscriptionPlan?.stringValue === "plus" ? "plus" as const : "free" as const,
   };
 }
 
-export async function updateSubscription(uid: string, values: { customerId?: string; subscriptionId?: string; active: boolean }) {
+export async function findUserByStripeCustomer(customerId:string) {
+  const project=encodeURIComponent(serverConfig("NEXT_PUBLIC_FIREBASE_PROJECT_ID"));
+  const response=await fetch(`https://firestore.googleapis.com/v1/projects/${project}/databases/(default)/documents:runQuery`,{
+    method:"POST",headers:{authorization:`Bearer ${await serviceToken()}`,"content-type":"application/json"},
+    body:JSON.stringify({structuredQuery:{from:[{collectionId:"users"}],where:{fieldFilter:{field:{fieldPath:"stripeCustomerId"},op:"EQUAL",value:{stringValue:customerId}}},limit:2}}),
+  });
+  if(!response.ok)throw Error("Stripe-kundens profil kunne ikke findes.");
+  const rows=await response.json() as Array<{document?:{name:string}}>;
+  const users=rows.flatMap(row=>row.document?[row.document.name.split("/").at(-1)!]:[]);
+  if(users.length>1)throw Error("Stripe-kunden er knyttet til flere profiler.");
+  return users[0];
+}
+
+export async function updateSubscription(uid: string, values: { customerId?: string; subscriptionId?: string; active: boolean; status?:string; trialEnd?:string; cancelAtPeriodEnd?:boolean; trialUsed?:boolean }) {
+  const existing=await getFirestoreDocument(`users/${uid}`);
+  if(!existing)throw Error("Brugerprofilen findes ikke.");
   const fields: Record<string, FirestoreField> = {
     subscriptionPlan:{stringValue:values.active ? "plus" : "free"},
-    subscriptionStatus:{stringValue:values.active ? "active" : "inactive"},
+    subscriptionStatus:{stringValue:values.status ?? (values.active ? "active" : "inactive")},
     subscriptionUpdatedAt:{timestampValue:new Date().toISOString()},
   };
   if (values.customerId) fields.stripeCustomerId = {stringValue:values.customerId};
   if (values.subscriptionId) fields.stripeSubscriptionId = {stringValue:values.subscriptionId};
+  if(!existing.fields?.circlePlusStartedAt)fields.circlePlusStartedAt={timestampValue:new Date().toISOString()};
+  if(values.trialUsed && !existing.fields?.circlePlusTrialStartedAt)fields.circlePlusTrialStartedAt={timestampValue:new Date().toISOString()};
+  if(values.trialEnd)fields.subscriptionTrialEnd={timestampValue:values.trialEnd};
+  if(values.cancelAtPeriodEnd!==undefined)fields.subscriptionCancelAtPeriodEnd={booleanValue:values.cancelAtPeriodEnd};
   const masks = Object.keys(fields).map(key=>`updateMask.fieldPaths=${encodeURIComponent(key)}`).join("&");
-  const response = await fetch(`${documentUrl(uid)}?${masks}`, { method:"PATCH", headers:{authorization:`Bearer ${await serviceToken()}`,"content-type":"application/json"}, body:JSON.stringify({fields}) });
+  const response = await fetch(`${documentUrl(uid)}?${masks}&currentDocument.updateTime=${encodeURIComponent(existing.updateTime!)}`, { method:"PATCH", headers:{authorization:`Bearer ${await serviceToken()}`,"content-type":"application/json"}, body:JSON.stringify({fields}) });
   if (!response.ok) throw new Error("Abonnementsstatus kunne ikke gemmes");
 }

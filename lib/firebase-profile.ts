@@ -10,6 +10,10 @@ export type CircleCloudProfile = Profile & {
   preferredLanguage: Lang;
   verificationStatus: "pending" | "verified";
   subscriptionPlan: ListingPlan;
+  subscriptionStatus:string;
+  subscriptionTrialEnd?:string;
+  subscriptionCancelAtPeriodEnd:boolean;
+  hasPlusHistory:boolean;
 };
 
 export async function loadCircleProfile(uid: string): Promise<CircleCloudProfile | null> {
@@ -30,6 +34,10 @@ export async function loadCircleProfile(uid: string): Promise<CircleCloudProfile
     preferredLanguage: data.preferredLanguage === "sv" ? "sv" : "da",
     verificationStatus: data.verificationStatus === "verified" ? "verified" : "pending",
     subscriptionPlan: data.subscriptionPlan === "plus" ? "plus" : "free",
+    subscriptionStatus:typeof data.subscriptionStatus === "string" ? data.subscriptionStatus : "",
+    subscriptionTrialEnd:typeof data.subscriptionTrialEnd?.toDate === "function" ? data.subscriptionTrialEnd.toDate().toISOString() : undefined,
+    subscriptionCancelAtPeriodEnd:data.subscriptionCancelAtPeriodEnd===true,
+    hasPlusHistory:!!(data.stripeSubscriptionId||data.circlePlusStartedAt||data.circlePlusTrialStartedAt),
   };
 }
 

@@ -6,7 +6,7 @@ test("Firebase example lists every required public web variable", async () => {
   const env = await readFile(new URL("../.env.example", import.meta.url), "utf8");
   for (const key of ["API_KEY","AUTH_DOMAIN","PROJECT_ID","STORAGE_BUCKET","MESSAGING_SENDER_ID","APP_ID"])
     assert.match(env, new RegExp(`NEXT_PUBLIC_FIREBASE_${key}=`));
-  for (const line of env.trim().split("\n")) assert.match(line, /^[A-Z0-9_]+=$/, "example values must stay empty");
+  for (const line of env.trim().split(/\r?\n/)) assert.match(line, /^[A-Z0-9_]+=$/, "example values must stay empty");
 });
 
 test("Firestore rules keep profile and listing mutations server-side", async () => {

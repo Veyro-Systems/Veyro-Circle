@@ -1,9 +1,15 @@
 import { serverConfig } from "@/lib/server-config";
 
-export async function stripeRequest(path: string, body: URLSearchParams) {
-  const response = await fetch(`https://api.stripe.com/v1${path}`, { method:"POST", headers:{authorization:`Bearer ${serverConfig("STRIPE_SECRET_KEY")}`,"content-type":"application/x-www-form-urlencoded"}, body });
+export class StripeRequestError extends Error {
+  constructor(public readonly status: number, public readonly code?: string) {
+    super("Stripe kunne ikke gennemføre handlingen. Prøv igen eller kontakt support.");
+  }
+}
+
+export async function stripeRequest(path: string, body?: URLSearchParams, idempotencyKey?: string) {
+  const response = await fetch(`https://api.stripe.com/v1${path}`, { method:body ? "POST" : "GET", headers:{authorization:`Bearer ${serverConfig("STRIPE_SECRET_KEY")}`,"content-type":"application/x-www-form-urlencoded",...(idempotencyKey ? {"Idempotency-Key":idempotencyKey} : {})}, body, cache:"no-store", signal:AbortSignal.timeout(15_000) });
   const data = await response.json() as Record<string, unknown>;
-  if (!response.ok) throw new Error(typeof data.error === "object" && data.error && "message" in data.error ? String((data.error as {message:unknown}).message) : "Stripe kunne ikke gennemføre handlingen");
+  if (!response.ok) throw new StripeRequestError(response.status, (data.error as {code?:string}|undefined)?.code);
   return data;
 }
 
@@ -15,9 +21,9 @@ export async function verifyStripeWebhook(payload: string, signatureHeader: stri
   const parts = signatureHeader.split(",").map(part=>part.split("="));
   const timestamp = parts.find(([key])=>key==="t")?.[1];
   const signatures = parts.filter(([key])=>key==="v1").map(([,value])=>value);
-  if (!timestamp || Math.abs(Date.now()/1000-Number(timestamp)) > 300) throw new Error("Stripe-signaturen er udløbet");
+  if (!timestamp || !/^\d+$/.test(timestamp) || Math.abs(Date.now()/1000-Number(timestamp)) > 300) throw new Error("Stripe-signaturen er udløbet");
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(serverConfig("STRIPE_WEBHOOK_SECRET")), {name:"HMAC",hash:"SHA-256"}, false, ["sign"]);
   const digest = hex(new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${timestamp}.${payload}`))));
   if (!signatures.some(value=>safeEqual(value,digest))) throw new Error("Stripe-signaturen er ugyldig");
-  return JSON.parse(payload) as { type:string; data:{object:Record<string, unknown>} };
+  return JSON.parse(payload) as { id:string; livemode:boolean; type:string; data:{object:Record<string, unknown>} };
 }

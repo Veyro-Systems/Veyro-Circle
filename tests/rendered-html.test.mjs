@@ -1,33 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 
-const developmentPreviewMeta =
-  /<meta(?=[^>]*\bname=["']codex-preview["'])(?=[^>]*\bcontent=["']development["'])[^>]*>/i;
-
-test("renders development preview metadata", async () => {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
-
-  const response = await worker.fetch(
-    new Request("http://localhost/", {
-      headers: { accept: "text/html" },
-    }),
-    {
-      ASSETS: {
-        fetch: async () => new Response("Not found", { status: 404 }),
-      },
-    },
-    {
-      waitUntil() {},
-      passThroughOnException() {},
-    },
-  );
-
-  assert.equal(response.status, 200);
-  assert.match(
-    response.headers.get("content-type") ?? "",
-    /^text\/html\b/i,
-  );
-  assert.match(await response.text(), developmentPreviewMeta);
+test("Next production build emits the Circle homepage with metadata and JavaScript", async () => {
+  const html=await readFile(new URL("../.next/server/app/index.html",import.meta.url),"utf8");
+  assert.match(html,/<!DOCTYPE html>/i);
+  assert.match(html,/<title>Veyro Circle/);
+  assert.match(html,/<meta name="description" content="Lån, lej og del/);
+  assert.match(html,/<script[^>]+src="\/_next\/static\//);
+  assert.doesNotMatch(html,/codex-preview/);
 });

@@ -14,8 +14,8 @@ const vite = await createServer({
   configFile: false,
   root,
   resolve: { alias: { "@": root } },
-  plugins:[{name:"test-only-loan-export",transform(code,id){if(id === path.join(root,"app/page.tsx")) return code + "\nexport { RequestsView, DepositSummary, SignatureBox };";}}],
-  server: { middlewareMode: true },
+  plugins:[{name:"test-only-loan-export",transform(code,id){if(id.replaceAll("\\","/") === path.join(root,"app/page.tsx").replaceAll("\\","/")) return code + "\nexport { RequestsView, DepositSummary, SignatureBox, SubscriptionView };";}}],
+  server: { middlewareMode: true, hmr:false, ws:false },
 });
 
 after(async () => {
@@ -32,6 +32,22 @@ test("owner deposit is displayed in both languages with no borrower input",async
   const request=page.slice(page.indexOf('<Dialog open={showRequest}'),page.indexOf('<Dialog open={notificationsOpen}'));
   assert.match(request,/<DepositSummary/);assert.doesNotMatch(request,/setDeposit|depositInput|newDepositInput/);
   assert.match(page,/open=\{!!selected && !showRequest\}/);
+});
+
+test("subscription view explains the trial, renewal prices, card and cancellation in both languages",async()=>{
+  const {SubscriptionView}=await vite.ssrLoadModule("/app/page.tsx");
+  for(const lang of ['da','sv']){
+    const common={lang,used:0,onBack(){},onUpgrade(){},onManage(){}};
+    const html=renderToStaticMarkup(React.createElement(SubscriptionView,{...common,plan:'free',billingDetails:{trialEligible:true,hasSubscription:false,status:'',cancelAtPeriodEnd:false}}));
+    assert.match(html,/180/);assert.match(html,/49 DKK/);assert.match(html,/69 SEK/);
+    assert.ok(html.includes(lang==='da'?'Start 180 dages gratis prøveperiode':'Starta 180 dagars gratis provperiod'));
+    assert.ok(html.includes(lang==='da'?'betalingskort':'betalkort'));
+    const trial=renderToStaticMarkup(React.createElement(SubscriptionView,{...common,plan:'plus',billingDetails:{trialEligible:false,hasSubscription:true,status:'trialing',trialEnd:'2027-04-18T10:00:00Z',cancelAtPeriodEnd:true}}));
+    assert.ok(trial.includes(lang==='da'?'Prøveperioden er opsagt':'Provperioden är uppsagd'));
+    assert.ok(trial.includes(lang==='da'?'Der opkræves ingen abonnementsbetaling':'Ingen prenumerationsavgift tas ut'));
+    const returning=renderToStaticMarkup(React.createElement(SubscriptionView,{...common,plan:'free',billingDetails:{trialEligible:false,hasSubscription:false,status:'canceled',cancelAtPeriodEnd:false}}));
+    assert.doesNotMatch(returning,/Start 180|Starta 180/);
+  }
 });
 test("signing controls show actionable reasons rather than silently waiting for own signature",async()=>{
   const {SignatureBox}=await vite.ssrLoadModule("/app/page.tsx");
@@ -80,7 +96,7 @@ async function readCssTree(directory) {
 }
 
 test("emits the catalog's animation and scrolling utilities", async () => {
-  const css = await readCssTree(path.join(root, "dist"));
+  const css = await readCssTree(path.join(root, ".next", "static"));
 
   assert.match(css, /--tw-enter-opacity/);
   assert.match(css, /scrollbar-width:\s*thin/);
