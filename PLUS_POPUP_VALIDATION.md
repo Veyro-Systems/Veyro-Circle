@@ -1,6 +1,6 @@
 # Circle Plus: popup og sikkert tilbud før Checkout
 
-Kontroldato: 20. oktober 2026. Dette er en lokal opfølgning på den tidligere 180-dages implementering i `1d45af9`. **Ingen push, merge eller Netlify-deploy i denne opfølgning.** Udgivelse afventer brugerens godkendelse.
+Kontroldato: 20. oktober 2026. Dette er en opfølgning på den tidligere 180-dages implementering i `1d45af9`. Efter brugerens udtrykkelige godkendelse er implementeringen i `20c73bc` pushet til `main` og publiceret på Netlify. Se publiceringskontrollen nedenfor.
 
 ## Resultat
 
@@ -30,7 +30,17 @@ Eksisterende Live-priser, læseverificeret tidligere i samme arbejdssession:
 | Live Danmark | `price_1UShHhLn6dV7DIk4QLCZ8Zd5` | 49 DKK/måned |
 | Live Sverige | `price_1UShHhLn6dV7DIk4C31veoXs` | 69 SEK/måned |
 
-Begge eksisterende miljøvariabler `STRIPE_PRICE_DKK` og `STRIPE_PRICE_SEK` bevares. Ingen yderligere manuelle Live-ændringer er nødvendige for denne kodeændring. Den opdaterede popup og de nye Checkout-vilkår kommer først på produktionssiden efter en godkendt push og deploy.
+Begge eksisterende miljøvariabler `STRIPE_PRICE_DKK` og `STRIPE_PRICE_SEK` bevares. Ingen yderligere manuelle Live-ændringer er nødvendige for denne kodeændring. Den opdaterede popup og de nye Checkout-vilkår er nu publiceret på produktionssiden.
+
+## Godkendt publicering
+
+- Brugerens godkendelse: `Push og deploy`.
+- Implementeringscommit: `20c73bc8e309e6f6b374bf870cb5ff0c3656b558`, pushet til `main` efter kontrol af en ren arbejdsmappe og seneste remote-reference.
+- Netlify-deploy: `6ad7d25d36dd0b8106e89784`, status **ready**, publiceret **20. oktober 2026 kl. 22:43:43 CEST**. Netlifys `published_deploy.commit_ref` matcher implementeringscommittet.
+- Produktionsside: [veyro-circle.netlify.app](https://veyro-circle.netlify.app/).
+- Driftskontrol kl. 22:43:59 CEST: forside **200**, offentligt annoncefeed **200**, serverkonfiguration og Firebase-serveradgang begge klar. Uautoriseret Checkout og usigneret webhook afvises begge med **400**.
+- Browserkontrol efter genindlæsning: forside og abonnementsoversigt indlæses. Den eksisterende aktive Plus-konto viser fortsat fuld adgang og 20-pladsgrænsen; den tilbydes ikke en ny gratis prøveperiode. Ingen ny Live-Checkout eller betaling er startet under kontrollen.
+- Denne dokumentationsopfølgning ændrer ingen programkode. Den efterfølgende publicering af dokumentationscommittet kontrolleres separat i de lokale deploy-resultater.
 
 ## Automatiserede kontroller
 
