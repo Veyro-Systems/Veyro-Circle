@@ -54,6 +54,15 @@ Kontrolleret læsebaseret før udgivelse:
 - Eksisterende kundeportal tillader opsigelse ved periodens slutning uden proratering og opdatering af betalingsmetode.
 - Eksisterende webhook-endpoint: `we_1USi3KLn6dV7DIk4GaOLBb4w`, API-version `2026-08-26.dahlia`.
 
-Efter godkendte kontroller skal den eksisterende webhook-hændelsesliste suppleres med `checkout.session.async_payment_succeeded`, `customer.subscription.created`, `customer.subscription.paused`, `customer.subscription.resumed`, `invoice.paid` og `invoice.payment_failed`. De tre eksisterende hændelser bevares. URL, API-version og signing secret bevares.
+Efter beståede kontroller og publicering blev den eksisterende webhook-hændelsesliste suppleret med `checkout.session.async_payment_succeeded`, `customer.subscription.created`, `customer.subscription.paused`, `customer.subscription.resumed`, `invoice.paid` og `invoice.payment_failed`. En efterfølgende API-læsning bekræftede alle ni hændelser og status `enabled`. De tre eksisterende hændelser, URL, API-version og signing secret blev bevaret.
+
+### Resultat af udgivelsen
+
+- Implementeringen er committed og pushet direkte til `main`: `70581e16cddd43b34f711e7f31159ead43cddf9f`.
+- Netlify-deployment `6ad7c9404a9b20f78b25b7bd` publicerede dette commit med status `ready` den 20. oktober 2026 kl. **22:05:07 CEST**.
+- [Produktionssiden](https://veyro-circle.netlify.app/) er åbnet i browseren efter publicering. Heroen viser 180-dages tilbuddet, begge efterfølgende månedspriser, kortregistrering og opsigelse før første betaling.
+- HTTP-kontrol efter publicering: forside **200**, annoncefeed **200**, uautoriseret Checkout **400**, usigneret webhook **400**. Serverkonfigurationen og Firebase-serveradgangen meldte begge klar.
+- Dataoprydningen er fortsat synlig i det offentlige feed: ingen annoncer med den berørte ejers UID. Backup og detaljer om oprydningen ligger kun lokalt uden for Git.
+- Dokumentationsopdateringer efter implementeringscommittet ændrer ingen programkode. Netlifys efterfølgende publicering af den endelige `main` kontrolleres særskilt.
 
 Ingen API-nøgler, webhook-secrets, produktpriser eller skatteindstillinger ændres. Alle backups fra dataoprydning ligger uden for repositoryet og skal aldrig med i en commit.
