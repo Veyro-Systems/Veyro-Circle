@@ -1,6 +1,5 @@
 "use client";
 import { COMPANY_IDENTITY } from "@/lib/company";
-import { trialCopy } from "@/lib/circle-plus-copy";
 
 import { useEffect, useState } from "react";
 import {
@@ -113,7 +112,7 @@ export function CircleAuthScreen({ lang, setLang,onBrowse }: { lang: Lang; setLa
       <div className="auth-language"><button className={lang === "da" ? "active" : ""} onClick={()=>setLang("da")}>Dansk</button><button className={lang === "sv" ? "active" : ""} onClick={()=>setLang("sv")}>Svenska</button></div>
       <div><p className="eyebrow">Veyro Circle</p><h1>{mode === "login" ? (da ? "Log ind" : "Logga in") : mode === "register" ? (da ? "Opret konto" : "Skapa konto") : (da ? "Glemt adgangskode" : "Glömt lösenord")}</h1><p>{mode === "reset" ? (da ? "Indtast din e-mail, så sender vi et sikkert nulstillingslink." : "Ange din e-postadress så skickar vi en säker återställningslänk.") : (da ? "Del, lån og lej ting i dit lokalområde." : "Dela, låna och hyr saker i ditt närområde.")}</p></div>
       <form onSubmit={submit}>
-        {mode === "register" && <aside className="signup-trial"><strong>{trialCopy[lang].headline}</strong><p>{trialCopy[lang].terms}</p><p>{da?"Din gratis Circle-konto opretter ikke et abonnement. Prøveperioden starter, når du vælger Circle Plus og registrerer dit kort hos Stripe.":"Ditt kostnadsfria Circle-konto skapar ingen prenumeration. Provperioden börjar när du väljer Circle Plus och registrerar ditt kort hos Stripe."}</p></aside>}
+        {mode === "register" && <aside className="signup-trial"><strong>Veyro Circle Plus</strong><p>{da?"Din Circle-konto er gratis. Hvis du vil annoncere med Circle Plus, viser vi din pris og eventuelle prøveperiode, når din konto er kontrolleret. Du ser alle betalingsvilkår hos Stripe, før du bekræfter abonnementet.":"Ditt Circle-konto är gratis. Om du vill annonsera med Circle Plus visar vi ditt pris och eventuell provperiod när ditt konto har kontrollerats. Du ser alla betalningsvillkor hos Stripe innan du bekräftar prenumerationen."}</p></aside>}
         {mode === "register" && <label className="field-label">{da ? "Fulde navn" : "Fullständigt namn"}<input autoComplete="name" required value={name} onChange={e=>setName(e.target.value)} /></label>}
         <label className="field-label">E-mail<input type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)} /></label>
         {mode !== "reset" && <label className="field-label">{da ? "Adgangskode" : "Lösenord"}<input type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} required minLength={8} value={password} onChange={e=>setPassword(e.target.value)} /></label>}

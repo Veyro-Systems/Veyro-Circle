@@ -1,6 +1,7 @@
 "use client";
 import { COMPANY_IDENTITY } from "@/lib/company";
 import { trialCopy } from "@/lib/circle-plus-copy";
+import { CirclePlusOffer } from "@/components/circle-plus-offer";
 
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { ListingReviews,ReviewForm } from "@/components/circle-reviews";
@@ -21,7 +22,7 @@ import { agreementsChanged, loadBookedPeriods, loadCircleAgreements, saveCircleA
 import { agreementErrorText, agreementNotices, agreementStage, circleToday, decisionAllowed, isArchived, noticeLabels, overlaps, stageLabels, type AgreementNotice, type Decision, type WorkflowAgreement } from "@/lib/agreement-workflow";
 import { sendCircleMessage, subscribeToCircleMessages, type CircleMessage } from "@/lib/firebase-messages";
 import { deleteCircleListing, saveCircleListing, subscribeToCircleListings, type CircleListingRecord } from "@/lib/firebase-listings";
-import { openBilling } from "@/lib/billing-client";
+import { openBilling, BillingOfferChangedError } from "@/lib/billing-client";
 import { PlacePicker, CountrySelect, ProfileForm } from "@/components/marketplace-fields";
 import { CommunityMap } from "@/components/community-map";
 import { AgreementJourney } from "@/components/agreement-journey";
@@ -52,7 +53,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 type Lang = "da" | "sv";
-type BillingDetails = {trialEligible:boolean|null;hasSubscription:boolean;status:string;trialEnd?:string;cancelAtPeriodEnd:boolean};
+type BillingDetails = {trialEligible:boolean|null;hasSubscription:boolean;status:string;trialEnd?:string;cancelAtPeriodEnd:boolean;offerUid?:string;country?:Country;offerError?:boolean};
 type Tab = "saved" | "wanted" | "home" | "map" | "items" | "requests" | "profile" | "subscription";
 type AgreementSignature = { dataUrl: string; signedAt: string };
 type Loan = WorkflowAgreement & AgreementPhotos & AgreementSchedule & { id: string; item: Listing; from: string; to: string; days: number; total: number; deposit: number; message: string; handoverNote?: string; returnNote?: string; borrower: Profile; borrowerUid?: string; lenderUid?: string; borrowerSignature?: AgreementSignature; lenderSignature?: AgreementSignature; borrowerReturnSignature?: AgreementSignature; lenderReturnSignature?: AgreementSignature; returnedAt?: string; returnCondition?: "good" | "remarks"; saved?: boolean };
@@ -179,6 +180,7 @@ export default function HomePage() {
   const [showRequest, setShowRequest] = useState(false);
   const [newName, setNewName] = useState("");
   const [profile, setProfile] = useState<Profile | null>(null);
+  const hasProfile=profile!==null;
   const [origin, setOrigin] = useState<Place | null>(null);
   const [radius, setRadius] = useState("all");
   const [priceFilter, setPriceFilter] = useState("all");
@@ -219,6 +221,8 @@ export default function HomePage() {
   const [requestPreparing, setRequestPreparing] = useState(false);
   const [listingPlan, setListingPlan] = useState<ListingPlan>("free");
   const [billingDetails,setBillingDetails]=useState<BillingDetails>({trialEligible:null,hasSubscription:false,status:"",cancelAtPeriodEnd:false});
+  const [offerRevision,setOfferRevision]=useState(0);
+  const currentOffer:BillingDetails=billingDetails.offerUid===user?.uid ? billingDetails : {...billingDetails,trialEligible:null,hasSubscription:false,country:undefined};
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [billingBusy, setBillingBusy] = useState(false);
@@ -260,9 +264,16 @@ export default function HomePage() {
       toast.error(lang === "da" ? "Betaling er ikke konfigureret endnu." : "Betalning är inte konfigurerad ännu.");
       return;
     }
+    if(action==="checkout" && (currentOffer.trialEligible===null || !currentOffer.country))return;
     setBillingBusy(true);
-    try { await openBilling(user, action); }
-    catch (error) { toast.error(error instanceof Error ? error.message : (lang === "da" ? "Stripe kunne ikke åbnes." : "Stripe kunde inte öppnas.")); setBillingBusy(false); }
+    try { await openBilling(user, action,action==="checkout"?{expectedTrialEligible:currentOffer.trialEligible!,expectedCountry:currentOffer.country!,lang}:undefined); }
+    catch (error) {
+      if(error instanceof BillingOfferChangedError){
+        setBillingDetails(previous=>({...previous,trialEligible:null}));setOfferRevision(value=>value+1);
+        toast.info(lang==="da"?"Dit tilbud er ændret. Gennemgå den opdaterede pris, før du fortsætter.":"Ditt erbjudande har ändrats. Kontrollera det uppdaterade priset innan du fortsätter.");
+      }else toast.error(error instanceof Error ? error.message : (lang === "da" ? "Stripe kunne ikke åbnes." : "Stripe kunde inte öppnas."));
+      setBillingBusy(false);
+    }
   }
 
   useEffect(() => {
@@ -277,7 +288,7 @@ export default function HomePage() {
         const next = { defaultRadiusKm: cloud.defaultRadiusKm, name: cloud.name, email: user.email || cloud.email, phone: cloud.phone, street: cloud.street, place: cloud.place, taxAcknowledgement: cloud.taxAcknowledgement };
         setProfile(next); setLang(cloud.preferredLanguage); setOrigin(cloud.place);setRadius(String(defaultSearchRadius(cloud.defaultRadiusKm))); setNewPlace(cloud.place); setNewCountry(cloud.place.country);
         setListingPlan(cloud.subscriptionPlan === "plus" ? "plus" : "free");
-        setBillingDetails({trialEligible:cloud.hasPlusHistory?false:null,hasSubscription:cloud.subscriptionPlan==="plus",status:cloud.subscriptionStatus,trialEnd:cloud.subscriptionTrialEnd,cancelAtPeriodEnd:cloud.subscriptionCancelAtPeriodEnd});
+        setBillingDetails(previous=>({...previous,trialEligible:cloud.hasPlusHistory?false:previous.trialEligible,hasSubscription:cloud.subscriptionPlan==="plus",status:cloud.subscriptionStatus,trialEnd:cloud.subscriptionTrialEnd,cancelAtPeriodEnd:cloud.subscriptionCancelAtPeriodEnd}));
       } else setTab("profile");
     }).catch(() => reportProfileError())
       .finally(() => active && setProfileLoading(false));
@@ -285,18 +296,20 @@ export default function HomePage() {
   }, [configured, user?.email, user?.emailVerified, user?.uid]);
 
   useEffect(()=>{
-    if(!user?.emailVerified || (!showUpgrade && tab!=="subscription"))return;
+    if(!user?.emailVerified || !hasProfile)return;
     let active=true;
     const check=async()=>{
+      setBillingDetails(previous=>({...previous,offerUid:user.uid,trialEligible:null,offerError:false,country:undefined}));
       try{
         const response=await fetch("/api/stripe/checkout",{headers:{authorization:`Bearer ${await user.getIdToken()}`},cache:"no-store"});
         if(!response.ok)throw Error();
-        const data=await response.json() as {trialEligible:boolean;hasSubscription:boolean};
+        const data=await response.json() as {trialEligible:boolean;hasSubscription:boolean;country:Country};
+        if(typeof data.trialEligible!=="boolean" || typeof data.hasSubscription!=="boolean" || !["DK","SE"].includes(data.country))throw Error();
         if(active)setBillingDetails(previous=>({...previous,...data}));
-      }catch{if(active)toast.error(lang==="da"?"Abonnementet kunne ikke kontrolleres. Prøv igen.":"Prenumerationen kunde inte kontrolleras. Försök igen.");}
+      }catch{if(active)setBillingDetails(previous=>({...previous,trialEligible:null,offerError:true}));}
     };
     void check();return()=>{active=false;};
-  },[showUpgrade,tab,user,lang]);
+  },[showUpgrade,tab,user,lang,profile?.place.country,hasProfile,offerRevision]);
 
   useEffect(()=>{
     if(!user?.emailVerified)return;
@@ -725,7 +738,7 @@ export default function HomePage() {
               <div className="relative z-10 max-w-[540px] p-6 text-white sm:p-8 lg:p-10">
                 <span className="hero-kicker"><Sparkles size={15} />{t.heroKicker}</span>
                 <h1>{t.heroTitle}</h1><p>{t.heroText}</p>
-                <div className="hero-trial"><strong>{trialCopy[lang].headline}</strong><p>{trialCopy[lang].terms}</p></div>
+                {currentOffer.trialEligible===true&&!currentOffer.hasSubscription && <div className="hero-trial"><strong>{trialCopy[lang].headline}</strong><p>{trialCopy[lang].terms}</p></div>}
                 <div className="mt-6 flex flex-wrap gap-3">
                   <Button onClick={() => document.getElementById("specific-listing-search")?.focus()} className="h-12 rounded-lg bg-[#f5bf42] px-6 font-semibold text-[#172936] hover:bg-[#ffcf62]"><Search className="mr-2" size={18} />{t.heroButton}</Button>
                   <Button onClick={openAdd} variant="outline" className="h-12 rounded-lg border-white/35 bg-white/12 px-6 font-bold text-white backdrop-blur hover:bg-white/20 hover:text-white"><PackagePlus className="mr-2" size={18} />{t.addItem}</Button>
@@ -799,7 +812,7 @@ export default function HomePage() {
           {tab === "requests" && <RequestsView t={t} loans={loans} lang={lang} userUid={user?.uid ?? ""} loading={agreementsLoading} loadError={agreementsError} direction={loanDirection} setDirection={setLoanDirection} archive={loanArchive} setArchive={setLoanArchive} onChat={setChatLoan} onAgreement={openAgreement} onDecision={(loan,action)=>setPendingDecision({loan,action})} />}
           {tab === "profile" && <ProfileView lang={lang} profile={profile} authenticatedEmail={user?.email || undefined} onSave={saveProfile}
             onLogout={logout} onSubscription={() => setTab("subscription")} />}
-          {tab === "subscription" && <SubscriptionView lang={lang} plan={listingPlan} billingDetails={billingDetails} used={listings.filter(item => item.owned).length} onBack={() => setTab("profile")} onUpgrade={() => setShowUpgrade(true)} onManage={() => billing("portal")} />}
+          {tab === "subscription" && <SubscriptionView lang={lang} plan={listingPlan} billingDetails={currentOffer} used={listings.filter(item => item.owned).length} onBack={() => setTab("profile")} onUpgrade={() => setShowUpgrade(true)} onManage={() => billing("portal")} />}
         </section>
 
         <aside className="hidden xl:block">
@@ -972,19 +985,9 @@ export default function HomePage() {
       </Dialog>
 
       <Dialog open={showUpgrade} onOpenChange={setShowUpgrade}>
-        <DialogContent className="form-dialog max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-xl sm:max-w-[520px]">
-          <DialogHeader><DialogTitle className="flex items-center gap-3 text-2xl font-bold"><span className="plus-icon"><Crown size={23} /></span>Veyro Circle Plus</DialogTitle><DialogDescription>{lang === "da" ? "Det er gratis at søge og sende forespørgsler. For at annoncere skal du have Plus, som giver op til 20 aktive ting." : "Det är gratis att söka och skicka förfrågningar. För att annonsera behöver du Plus, som ger upp till 20 aktiva saker."}</DialogDescription></DialogHeader>
-          {billingDetails.trialEligible && <strong className="trial-heading">{trialCopy[lang].headline}</strong>}
-          <div className="upgrade-price"><strong>{billingDetails.trialEligible ? "0 kr." : profile?.place.country === "SE" ? "69 SEK" : "49 DKK"}</strong><span>{billingDetails.trialEligible ? (lang==="da"?"i 180 dage":"i 180 dagar") : (lang === "da" ? "om måneden" : "per månad")}</span></div>
-          <ul className="upgrade-benefits">
-            <li><Check size={18} />{lang === "da" ? "Op til 20 aktive ting" : "Upp till 20 aktiva saker"}</li>
-            <li><Check size={18} />{lang === "da" ? "Både gratis deling og betalt udlejning" : "Både gratis delning och betald uthyrning"}</li>
-            <li><Check size={18} />{lang === "da" ? "Ingen provision på den private lejeaftale" : "Ingen provision på den privata uthyrningen"}</li>
-          </ul>
-          <p className="demo-note">{billingDetails.hasSubscription ? (lang==="da"?"Du har allerede et abonnement. Åbn Stripe for at administrere det.":"Du har redan en prenumeration. Öppna Stripe för att hantera den.") : billingDetails.trialEligible===false ? trialCopy[lang].returning : trialCopy[lang].terms}</p>
-          {billingDetails.trialEligible && <p className="demo-note">{trialCopy[lang].card}</p>}
-          <Button disabled={billingBusy || billingDetails.trialEligible===null} className="h-auto min-h-13 whitespace-normal rounded-xl bg-[#008EAC] py-3 text-base font-bold text-white hover:bg-[#006F88]" onClick={() => billing(billingDetails.hasSubscription?"portal":"checkout")}>{billingBusy ? (lang === "da" ? "Åbner sikker betaling…" : "Öppnar säker betalning…") : billingDetails.trialEligible===null ? (lang==="da"?"Kontrollerer abonnement…":"Kontrollerar prenumeration…") : billingDetails.hasSubscription ? (lang==="da"?"Administrer abonnement":"Hantera prenumeration") : billingDetails.trialEligible ? trialCopy[lang].button : (lang === "da" ? "Køb Circle Plus" : "Köp Circle Plus")}</Button>
-          <Button variant="ghost" className="h-11 rounded-xl" onClick={() => setShowUpgrade(false)}>{lang === "da" ? "Ikke nu" : "Inte nu"}</Button>
+        <DialogContent className="form-dialog circle-plus-dialog max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-xl sm:max-w-[520px]">
+          <DialogHeader><DialogTitle className="flex items-center gap-3 text-2xl font-bold"><span className="plus-icon"><Crown size={23}/></span>Veyro Circle Plus</DialogTitle><DialogDescription>{lang==="da"?"Del og udlej dine ting i lokalområdet.":"Dela och hyr ut dina saker i närområdet."}</DialogDescription></DialogHeader>
+          <CirclePlusOffer lang={lang} country={currentOffer.country??profile?.place.country??"DK"} trialEligible={currentOffer.trialEligible} hasSubscription={currentOffer.hasSubscription} busy={billingBusy} error={currentOffer.offerError} onContinue={()=>void billing(currentOffer.hasSubscription?"portal":"checkout")} onRetry={()=>setOfferRevision(value=>value+1)} onClose={()=>setShowUpgrade(false)}/>
         </DialogContent>
       </Dialog>
 
@@ -1240,7 +1243,7 @@ function SubscriptionView({ lang, plan, billingDetails, used, onBack, onUpgrade,
     <section className={`membership-card ${plan==="plus"?"is-plus":""}`}>
       <div className="membership-top"><div className="membership-icon"><Crown size={22}/></div><div><p className="eyebrow">{lang==="da"?"Dit abonnement":"Din prenumeration"}</p><h2>{plan==="plus"?"Veyro Circle Plus":lang==="da"?"Gratis søgning og forespørgsler":"Gratis sökning och förfrågningar"}</h2></div><span className="plan-badge">{trialing?(lang==="da"?"Gratis prøveperiode":"Gratis provperiod"):plan==="plus"?"Aktiv":"0 kr."}</span></div>
       <div className="membership-usage"><div><span>{lang==="da"?"Aktive ting":"Aktiva saker"}</span><b>{used} {lang==="da"?"af":"av"} {limit}</b></div><Progress value={limit?Math.min(100,used/limit*100):0}/></div>
-      {plan==="plus" ? <p>{lang==="da"?"Du har fuld Circle Plus-adgang med op til 20 aktive ting.":"Du har full Circle Plus-åtkomst med upp till 20 aktiva saker."}</p> : billingDetails.trialEligible===false ? <p>{trialCopy[lang].returning}</p> : <><p>{trialCopy[lang].headline}</p><p>{trialCopy[lang].terms}</p></>}
+      {plan==="plus" ? <p>{lang==="da"?"Du har fuld Circle Plus-adgang med op til 20 aktive ting.":"Du har full Circle Plus-åtkomst med upp till 20 aktiva saker."}</p> : billingDetails.trialEligible===false ? <p>{trialCopy[lang].returning}</p> : billingDetails.trialEligible===true ? <><p>{trialCopy[lang].headline}</p><p>{trialCopy[lang].terms}</p></> : <p>{lang==="da"?"Se din pris og berettigelse, før du tilmelder dig Circle Plus.":"Se ditt pris och din behörighet innan du registrerar dig för Circle Plus."}</p>}
       {trialing && <p>{billingDetails.cancelAtPeriodEnd ? (lang==="da"?`Prøveperioden er opsagt og slutter ${end}. Der opkræves ingen abonnementsbetaling.`:`Provperioden är uppsagd och slutar ${end}. Ingen prenumerationsavgift tas ut.`) : (lang==="da"?`Gratis til ${end}. Herefter fortsætter abonnementet automatisk til 49 DKK/md. i Danmark eller 69 SEK/md. i Sverige. Opsig før første betaling fra knappen nedenfor.`:`Gratis till ${end}. Därefter fortsätter prenumerationen automatiskt för 49 DKK/mån i Danmark eller 69 SEK/mån i Sverige. Säg upp före första betalningen via knappen nedan.`)}</p>}
       {plan==="free" ? <Button type="button" onClick={onUpgrade} className="membership-cta h-auto whitespace-normal py-3"><Crown size={17}/>{billingDetails.trialEligible?trialCopy[lang].button:(lang==="da"?"Se Veyro Circle Plus":"Se Veyro Circle Plus")}</Button> : <Button type="button" onClick={onManage} variant="outline" className="membership-cta manage-subscription">{lang==="da"?"Administrer abonnement":"Hantera prenumeration"}</Button>}
     </section>

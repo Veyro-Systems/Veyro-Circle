@@ -64,7 +64,7 @@ function harness(t,options={}){
     if(path==='/checkout/sessions' && method==='POST'){
       const key=init.headers['Idempotency-Key'];
       let session=idempotency.get(key);
-      if(!session){session={id:`cs_${sessions.size+1}`,url:'https://checkout.stripe.test/session',status:'open',customer:body.get('customer'),currency:body.get('line_items[0][price]')==='price_se_existing'?'sek':'dkk'};sessions.set(session.id,session);idempotency.set(key,session);}
+      if(!session){session={id:`cs_${sessions.size+1}`,url:'https://checkout.stripe.test/session',status:'open',customer:body.get('customer'),currency:body.get('line_items[0][price]')==='price_se_existing'?'sek':'dkk',locale:body.get('locale'),payment_method_types:[body.get('payment_method_types[0]')]};sessions.set(session.id,session);idempotency.set(key,session);}
       if(loseResponse){loseResponse=false;throw Error('Network response lost');}
       return Response.json(session);
     }
@@ -76,7 +76,7 @@ function harness(t,options={}){
     throw Error(`Unexpected test request ${path}`);
   };
   const checkout=load('@/app/api/stripe/checkout/route');const webhook=load('@/app/api/stripe/webhook/route');
-  const request=()=>new Request('https://circle.example.invalid/api/stripe/checkout',{method:'POST',body:JSON.stringify({country:'SE',trial_period_days:999})});
+  const request=(offer={})=>new Request('https://circle.example.invalid/api/stripe/checkout',{method:'POST',body:JSON.stringify({country:'SE',trial_period_days:999,expectedTrialEligible:true,expectedCountry:profile.country,lang:profile.country==='SE'?'sv':'da',...offer})});
   const event=async(type,object,extra={})=>{
     const payload=JSON.stringify({id:'evt_test',livemode:false,type,data:{object},...extra});
     const time=String(Math.floor(Date.now()/1000));
@@ -90,17 +90,20 @@ const subscription=(status='trialing',extra={})=>({id:'sub_one',customer:'cus_on
 
 for(const country of ['DK','SE'])test(`new ${country} member receives 180 days, stored country price and mandatory payment collection`,async t=>{
   const h=harness(t,{profile:{country}});const r=await h.checkout.POST(h.request());assert.equal(r.status,200);
-  const body=created(h)[0].body;assert.equal(body.get('subscription_data[trial_period_days]'),'180');assert.equal(body.get('payment_method_collection'),'always');
+  const body=created(h)[0].body;assert.equal(body.get('subscription_data[trial_period_days]'),'180');assert.equal(body.get('payment_method_collection'),'always');assert.equal(body.get('payment_method_types[0]'),'card');
   assert.equal(body.get('line_items[0][price]'),country==='SE'?'price_se_existing':'price_dk_existing');
-  assert.equal(body.get('subscription_data[trial_settings][end_behavior][missing_payment_method]'),'cancel');assert.equal(body.has('payment_method_types'),false);
+  assert.equal(body.get('subscription_data[trial_settings][end_behavior][missing_payment_method]'),'cancel');
+  assert.equal(body.get('locale'),country==='SE'?'sv':'da');
+  const terms=body.get('custom_text[submit][message]');assert.match(terms,/180/);assert.match(terms,country==='SE'?/69 SEK/:/49 DKK/);assert.match(terms,/automatisk/);assert.doesNotMatch(terms,country==='SE'?/49 DKK/:/69 SEK/);
 });
-test('eligibility inspection is read-only',async t=>{const h=harness(t);const r=await h.checkout.GET(h.request());assert.deepEqual(await r.json(),{trialEligible:true,hasSubscription:false});assert.equal(h.customers.length,0);assert.equal(h.documents.size,0);});
+test('eligibility inspection is read-only and returns the server-selected country',async t=>{const h=harness(t);const r=await h.checkout.GET(h.request());assert.deepEqual(await r.json(),{trialEligible:true,hasSubscription:false,country:'DK'});assert.equal(h.customers.length,0);assert.equal(h.documents.size,0);});
 for(const field of ['stripeSubscriptionId','circlePlusStartedAt','circlePlusTrialStartedAt'])test(`permanent ${field} history prevents another trial`,async t=>{
-  const h=harness(t,{profile:{[field]:'previous-history'}});assert.equal((await h.checkout.POST(h.request())).status,200);assert.equal(created(h)[0].body.has('subscription_data[trial_period_days]'),false);
+  const h=harness(t,{profile:{[field]:'previous-history'}});assert.equal((await h.checkout.POST(h.request({expectedTrialEligible:false}))).status,200);assert.equal(created(h)[0].body.has('subscription_data[trial_period_days]'),false);
+  assert.match(created(h)[0].body.get('custom_text[submit][message]'),/ikke berettiget/);
 });
 test('canceled history across paginated legacy email customers prevents another trial',async t=>{
   const h=harness(t,{customers:[{id:'cus_empty'},{id:'cus_old'}],paginateCustomers:true,subscriptions:[subscription('canceled',{customer:'cus_old'})]});
-  assert.equal((await h.checkout.POST(h.request())).status,200);assert.equal(created(h)[0].body.has('subscription_data[trial_period_days]'),false);
+  assert.equal((await h.checkout.POST(h.request({expectedTrialEligible:false}))).status,200);assert.equal(created(h)[0].body.has('subscription_data[trial_period_days]'),false);
   assert.ok(h.calls.filter(c=>c.path==='/customers'&&c.method==='GET').length>=2);
 });
 test('a subscription to another Veyro product does not consume the Circle Plus trial',async t=>{
@@ -109,9 +112,26 @@ test('a subscription to another Veyro product does not consume the Circle Plus t
 });
 test('a retired Circle Plus price still consumes the trial even without UID metadata',async t=>{
   const h=harness(t,{customers:[{id:'cus_one'}],subscriptions:[subscription('canceled',{metadata:{},items:{data:[{price:{id:'price_retired',product:'prod_circle_plus'}}]}})]});
-  assert.equal((await h.checkout.POST(h.request())).status,200);assert.equal(created(h)[0].body.has('subscription_data[trial_period_days]'),false);
+  assert.equal((await h.checkout.POST(h.request({expectedTrialEligible:false}))).status,200);assert.equal(created(h)[0].body.has('subscription_data[trial_period_days]'),false);
+});
+test('an advertised trial never falls back to a paid checkout when server history has changed',async t=>{
+  const h=harness(t,{customers:[{id:'cus_one'}],subscriptions:[subscription('canceled')]});
+  const response=await h.checkout.POST(h.request());assert.equal(response.status,409);assert.equal((await response.json()).code,'BILLING_OFFER_CHANGED');assert.equal(created(h).length,0);assert.equal(h.calls.filter(c=>c.method==='POST').length,0);
+});
+test('missing acceptance or a different displayed country blocks checkout without creating Stripe resources',async t=>{
+  const h=harness(t);for(const offer of [{expectedTrialEligible:undefined},{expectedCountry:'SE'},{expectedTrialEligible:false}]){
+    const response=await h.checkout.POST(h.request(offer));assert.equal(response.status,409);assert.equal((await response.json()).code,'BILLING_OFFER_CHANGED');
+  }assert.equal(h.customers.length,0);assert.equal(created(h).length,0);
+});
+test('a session containing older offer terms is expired instead of reused',async t=>{
+  const h=harness(t);await h.checkout.POST(h.request());h.documents.get('billingCheckouts/user-one').fields.offerVersion={stringValue:'1'};await h.checkout.POST(h.request());
+  assert.equal(h.sessions.get('cs_1').status,'expired');assert.equal(created(h).length,2);
 });
 test('existing active profile creates no Stripe resources',async t=>{const h=harness(t,{profile:{subscriptionPlan:'plus'}});assert.equal((await h.checkout.POST(h.request())).status,400);assert.equal(h.calls.length,0);});
+test('an open session offering non-card methods is expired before a new card signup',async t=>{
+  const h=harness(t);await h.checkout.POST(h.request());h.sessions.get('cs_1').payment_method_types=['card','klarna'];await h.checkout.POST(h.request());
+  assert.equal(h.sessions.get('cs_1').status,'expired');assert.equal(created(h).length,2);assert.equal(created(h)[1].body.get('payment_method_types[0]'),'card');
+});
 for(const status of ['active','trialing','past_due','incomplete','unpaid','paused'])test(`Stripe ${status} history blocks a duplicate despite a stale free profile`,async t=>{
   const h=harness(t,{customers:[{id:'cus_one'}],subscriptions:[subscription(status)]});assert.equal((await h.checkout.POST(h.request())).status,400);assert.equal(created(h).length,0);
 });

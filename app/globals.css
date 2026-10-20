@@ -483,6 +483,27 @@ button:focus-visible,a:focus-visible { outline:3px solid #819eb6; outline-offset
 .upgrade-benefits { display:grid; gap:.75rem; margin:0; padding:0; list-style:none; }
 .upgrade-benefits li { display:flex; align-items:center; gap:.7rem; color:#3f4658; font-weight:650; }
 .upgrade-benefits svg { flex:none; color:#16845f; }
+.circle-plus-dialog { gap:1rem; }
+.circle-plus-offer { display:grid; gap:1rem; min-width:0; }
+.plus-offer-price { display:grid; gap:.4rem; align-items:start; }
+.plus-offer-price.is-trial { border:1px solid #e4bf57; background:linear-gradient(125deg,#fff7d9,#ffefba); color:#173340; }
+.plus-offer-price strong { font-size:clamp(1.65rem,7vw,2.1rem); line-height:1.12; letter-spacing:-.035em; }
+.plus-offer-price span { color:inherit; font-size:.95rem; font-weight:650; }
+.plus-offer-price small { color:inherit; font-size:.8rem; line-height:1.45; opacity:.85; }
+.plus-offer-terms,.plus-ineligible,.plus-existing { font-size:.8125rem; line-height:1.55; color:#526574; }
+.plus-ineligible { color:#5c4750; }
+.plus-offer-status { display:flex; flex-wrap:wrap; align-items:center; gap:.65rem; min-height:7rem; color:#526574; font-size:.9rem; }
+.plus-offer-status p { flex-basis:100%; }
+.plus-offer-cta { width:100%; min-height:48px; height:auto; padding:.85rem 1rem; white-space:normal; border-radius:.7rem; background:#008eac; color:white; font-size:1rem; font-weight:700; }
+.plus-offer-cta:hover { background:#006f88; }
+.plus-offer-dismiss { min-height:32px; margin-top:-.5rem; color:#526574; font-size:.875rem; cursor:pointer; }
+.plus-offer-dismiss:focus-visible { outline:2px solid #008eac; outline-offset:2px; }
+@media(max-width:480px) {
+  .circle-plus-dialog,.circle-plus-offer { gap:.8rem; }
+  .circle-plus-offer .upgrade-benefits { gap:.55rem; }
+  .circle-plus-offer .upgrade-benefits li { font-size:.9rem; line-height:1.4; }
+  .plus-offer-price { padding:.9rem; }
+}
 .membership-card { margin-top:1.25rem; border:1px solid #dce2ef; border-radius:.85rem; padding:1.25rem; background:linear-gradient(135deg,#f8faff,#eef3ff); }
 .subscription-page { display:grid; align-content:start; gap:1.25rem; }.subscription-page .membership-card { margin-top:0; }
 .membership-card.is-plus { border-color:#d8b54f; background:linear-gradient(135deg,#fff9e8,#eef5ff 68%); }

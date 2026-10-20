@@ -40,13 +40,30 @@ test("subscription view explains the trial, renewal prices, card and cancellatio
     const common={lang,used:0,onBack(){},onUpgrade(){},onManage(){}};
     const html=renderToStaticMarkup(React.createElement(SubscriptionView,{...common,plan:'free',billingDetails:{trialEligible:true,hasSubscription:false,status:'',cancelAtPeriodEnd:false}}));
     assert.match(html,/180/);assert.match(html,/49 DKK/);assert.match(html,/69 SEK/);
-    assert.ok(html.includes(lang==='da'?'Start 180 dages gratis prøveperiode':'Starta 180 dagars gratis provperiod'));
+    assert.ok(html.includes(lang==='da'?'Start 180 dage gratis':'Starta 180 dagar gratis'));
     assert.ok(html.includes(lang==='da'?'betalingskort':'betalkort'));
     const trial=renderToStaticMarkup(React.createElement(SubscriptionView,{...common,plan:'plus',billingDetails:{trialEligible:false,hasSubscription:true,status:'trialing',trialEnd:'2027-04-18T10:00:00Z',cancelAtPeriodEnd:true}}));
     assert.ok(trial.includes(lang==='da'?'Prøveperioden er opsagt':'Provperioden är uppsagd'));
     assert.ok(trial.includes(lang==='da'?'Der opkræves ingen abonnementsbetaling':'Ingen prenumerationsavgift tas ut'));
     const returning=renderToStaticMarkup(React.createElement(SubscriptionView,{...common,plan:'free',billingDetails:{trialEligible:false,hasSubscription:false,status:'canceled',cancelAtPeriodEnd:false}}));
     assert.doesNotMatch(returning,/Start 180|Starta 180/);
+  }
+});
+
+test('Plus offer shows a country-specific trial and blocks uncertain or ineligible trial offers',async()=>{
+  const {CirclePlusOffer}=await vite.ssrLoadModule('/components/circle-plus-offer.tsx');
+  const common={busy:false,hasSubscription:false,onContinue(){},onRetry(){},onClose(){}};
+  for(const [lang,country,headline,price,otherPrice] of [['da','DK','180 DAGE GRATIS','49 DKK','69 SEK'],['sv','SE','180 DAGAR GRATIS','69 SEK','49 DKK'],['da','SE','180 DAGE GRATIS','69 SEK','49 DKK']]){
+    const html=renderToStaticMarkup(React.createElement(CirclePlusOffer,{...common,lang,country,trialEligible:true}));
+    assert.ok(html.includes(headline));assert.ok(html.includes(price));assert.ok(!html.includes(otherPrice));assert.match(html,/180 gratis/);assert.match(html,/automatisk/);assert.doesNotMatch(html,/0 kr\./);
+    const returning=renderToStaticMarkup(React.createElement(CirclePlusOffer,{...common,lang,country,trialEligible:false}));
+    assert.match(returning,/ikke berettiget|inte berättigat/);assert.ok(returning.includes(price));assert.doesNotMatch(returning,/180|GRATIS|Starta? 180/);
+    for(const error of [false,true]){
+      const unknown=renderToStaticMarkup(React.createElement(CirclePlusOffer,{...common,lang,country,trialEligible:null,error}));
+      assert.doesNotMatch(unknown,/180|49 DKK|69 SEK/);assert.match(unknown,/disabled/);if(error)assert.match(unknown,/role="alert"/);
+    }
+    const active=renderToStaticMarkup(React.createElement(CirclePlusOffer,{...common,lang,country,hasSubscription:true,trialEligible:false}));
+    assert.match(active,/Administrer abonnement|Hantera prenumeration/);assert.doesNotMatch(active,/180|Køb Circle Plus|Köp Circle Plus/);
   }
 });
 test("signing controls show actionable reasons rather than silently waiting for own signature",async()=>{
