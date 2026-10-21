@@ -12,7 +12,7 @@ function harness(t,options={}){
   const subscriptions=structuredClone(options.subscriptions??[]);
   const documents=new Map();const sessions=new Map();const idempotency=new Map();
   const calls=[];const updates=[];let version=0;let loseResponse=options.loseResponse;
-  const config={STRIPE_SECRET_KEY:'unit-test-credential',STRIPE_WEBHOOK_SECRET:'unit-webhook-signing',STRIPE_PRICE_DKK:'price_dk_existing',STRIPE_PRICE_SEK:'price_se_existing'};
+  const config={STRIPE_SECRET_KEY:'unit-test-credential',STRIPE_WEBHOOK_SECRET:'unit-webhook-signing',STRIPE_PRICE_DKK:'price_dk_existing',STRIPE_PRICE_SEK:'price_se_existing',STRIPE_PRICE_NOK:'price_no_existing'};
   const firebase={
     verifyFirebaseRequest:async()=>{if(options.unauthenticated)throw Error('Login required');return {localId:'user-one',email:'member@example.invalid'};},
     getServerProfile:async()=>({...profile}),
@@ -45,7 +45,7 @@ function harness(t,options={}){
     calls.push({path,method,body,key:init.headers?.['Idempotency-Key']});
     const failure=(status,code)=>Response.json({error:{code,message:'sensitive-test-marker'}},{status});
     if(options.stripeFailure)return failure(options.stripeFailure,'api_error');
-    if(path.startsWith('/prices/'))return Response.json({id:path.split('/').at(-1),product:'prod_circle_plus'});
+    if(path.startsWith('/prices/'))return Response.json({id:path.split('/').at(-1),product:'prod_circle_plus',...(path.endsWith('price_no_existing')?{active:true,currency:'nok',unit_amount:6900,recurring:{interval:'month',interval_count:1},...options.nokPrice}:{})});
     if(path.startsWith('/customers/') && method==='GET'){
       if(options.customerFailure)return failure(options.customerFailure,options.customerFailure===404?'resource_missing':'permission_denied');
       const customer=customers.find(c=>c.id===path.split('/').at(-1));return customer?Response.json(customer):failure(404,'resource_missing');
@@ -64,7 +64,7 @@ function harness(t,options={}){
     if(path==='/checkout/sessions' && method==='POST'){
       const key=init.headers['Idempotency-Key'];
       let session=idempotency.get(key);
-      if(!session){session={id:`cs_${sessions.size+1}`,url:'https://checkout.stripe.test/session',status:'open',customer:body.get('customer'),currency:body.get('line_items[0][price]')==='price_se_existing'?'sek':'dkk',locale:body.get('locale'),payment_method_types:[body.get('payment_method_types[0]')]};sessions.set(session.id,session);idempotency.set(key,session);}
+      if(!session){session={id:`cs_${sessions.size+1}`,url:'https://checkout.stripe.test/session',status:'open',customer:body.get('customer'),currency:body.get('line_items[0][price]')==='price_no_existing'?'nok':body.get('line_items[0][price]')==='price_se_existing'?'sek':'dkk',locale:body.get('locale'),payment_method_types:[body.get('payment_method_types[0]')]};sessions.set(session.id,session);idempotency.set(key,session);}
       if(loseResponse){loseResponse=false;throw Error('Network response lost');}
       return Response.json(session);
     }
@@ -76,7 +76,7 @@ function harness(t,options={}){
     throw Error(`Unexpected test request ${path}`);
   };
   const checkout=load('@/app/api/stripe/checkout/route');const webhook=load('@/app/api/stripe/webhook/route');
-  const request=(offer={})=>new Request('https://circle.example.invalid/api/stripe/checkout',{method:'POST',body:JSON.stringify({country:'SE',trial_period_days:999,expectedTrialEligible:true,expectedCountry:profile.country,lang:profile.country==='SE'?'sv':'da',...offer})});
+  const request=(offer={})=>new Request('https://circle.example.invalid/api/stripe/checkout',{method:'POST',body:JSON.stringify({country:'SE',trial_period_days:999,expectedTrialEligible:true,expectedCountry:profile.country,lang:profile.country==='NO'?'nb':profile.country==='SE'?'sv':'da',...offer})});
   const event=async(type,object,extra={})=>{
     const payload=JSON.stringify({id:'evt_test',livemode:false,type,data:{object},...extra});
     const time=String(Math.floor(Date.now()/1000));
@@ -88,13 +88,13 @@ function harness(t,options={}){
 const created=h=>h.calls.filter(c=>c.path==='/checkout/sessions'&&c.method==='POST');
 const subscription=(status='trialing',extra={})=>({id:'sub_one',customer:'cus_one',status,metadata:{uid:'user-one'},items:{data:[{price:{id:'price_dk_existing',product:'prod_circle_plus'}}]},trial_end:1800000000,cancel_at_period_end:false,...extra});
 
-for(const country of ['DK','SE'])test(`new ${country} member receives 180 days, stored country price and mandatory payment collection`,async t=>{
+for(const country of ['DK','SE','NO'])test(`new ${country} member receives 180 days, stored country price and mandatory payment collection`,async t=>{
   const h=harness(t,{profile:{country}});const r=await h.checkout.POST(h.request());assert.equal(r.status,200);
   const body=created(h)[0].body;assert.equal(body.get('subscription_data[trial_period_days]'),'180');assert.equal(body.get('payment_method_collection'),'always');assert.equal(body.get('payment_method_types[0]'),'card');
-  assert.equal(body.get('line_items[0][price]'),country==='SE'?'price_se_existing':'price_dk_existing');
+  assert.equal(body.get('line_items[0][price]'),country==='NO'?'price_no_existing':country==='SE'?'price_se_existing':'price_dk_existing');
   assert.equal(body.get('subscription_data[trial_settings][end_behavior][missing_payment_method]'),'cancel');
-  assert.equal(body.get('locale'),country==='SE'?'sv':'da');
-  const terms=body.get('custom_text[submit][message]');assert.match(terms,/180/);assert.match(terms,country==='SE'?/69 SEK/:/49 DKK/);assert.match(terms,/automatisk/);assert.doesNotMatch(terms,country==='SE'?/49 DKK/:/69 SEK/);
+  assert.equal(body.get('locale'),country==='NO'?'nb':country==='SE'?'sv':'da');
+  const terms=body.get('custom_text[submit][message]');assert.match(terms,/180/);assert.match(terms,country==='NO'?/69 NOK/:country==='SE'?/69 SEK/:/49 DKK/);assert.match(terms,/automatisk/);assert.doesNotMatch(terms,country==='SE'?/49 DKK/:/69 SEK/);
 });
 test('eligibility inspection is read-only and returns the server-selected country',async t=>{const h=harness(t);const r=await h.checkout.GET(h.request());assert.deepEqual(await r.json(),{trialEligible:true,hasSubscription:false,country:'DK'});assert.equal(h.customers.length,0);assert.equal(h.documents.size,0);});
 for(const field of ['stripeSubscriptionId','circlePlusStartedAt','circlePlusTrialStartedAt'])test(`permanent ${field} history prevents another trial`,async t=>{
@@ -207,3 +207,9 @@ test('persisting trial and canceled states preserves profile fields and permanen
   await exports.updateSubscription('user-one',{customerId:'cus_one',subscriptionId:'sub_one',active:false,status:'canceled',trialUsed:true,cancelAtPeriodEnd:false});
   assert.deepEqual(patches[1].subscriptionPlan,{stringValue:'free'});assert.deepEqual(patches[1].subscriptionStatus,{stringValue:'canceled'});
 });
+
+test('Norwegian price configuration fails closed before offering or creating a subscription',async t=>{
+ for(const nokPrice of [{currency:'sek'},{unit_amount:7900},{active:false},{recurring:{interval:'year',interval_count:1}},{product:'prod_other'}]){const h=harness(t,{profile:{country:'NO'},nokPrice});assert.equal((await h.checkout.GET(h.request())).status,503);assert.equal((await h.checkout.POST(h.request())).status,400);assert.equal(created(h).length,0);}
+});
+test('Norwegian account keeps NOK price when interface is Danish',async t=>{const h=harness(t,{profile:{country:'NO'}});assert.equal((await h.checkout.POST(h.request({lang:'da'}))).status,200);const b=created(h)[0].body;assert.equal(b.get('line_items[0][price]'),'price_no_existing');assert.equal(b.get('locale'),'da');assert.match(b.get('custom_text[submit][message]'),/69 NOK/);});
+test('moving a returning Plus member to Norway never resets trial eligibility',async t=>{const h=harness(t,{profile:{country:'NO',circlePlusStartedAt:'2026-01-01'}});assert.equal((await h.checkout.POST(h.request({expectedTrialEligible:false}))).status,200);assert.equal(created(h)[0].body.has('subscription_data[trial_period_days]'),false);});

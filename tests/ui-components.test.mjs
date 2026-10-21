@@ -283,10 +283,10 @@ test("new loan and notification controls have mobile sizing and focus styling",a
 test("map and loans omit visible page titles but retain accessible headings",async()=>{
   const page=await readFile(path.join(root,"app/page.tsx"),"utf8");
   const map=page.slice(page.indexOf('{tab === "map" &&'),page.indexOf('{tab === "map" &&')+1000);
-  assert.match(map,/<h1 className="sr-only">\{lang === "da" \? "Kort" : "Karta"\}<\/h1>/);
+  assert.match(map,/<h1 className="sr-only">[\s\S]*?<\/h1>/);
   assert.doesNotMatch(map,/<header>|className="page-title"|className="eyebrow"/);
   const {RequestsView}=await vite.ssrLoadModule("/app/page.tsx");
-  for (const [lang,title,refresh] of [["da","Mine lån","Opdatér"],["sv","Mina lån","Uppdatera"]]) {
+  for (const [lang,title,refresh] of [["da","Mine lån","Opdatér"],["sv","Mina lån","Uppdatera"],["nb","Mine lån","Oppdater"]]) {
     const html=renderToStaticMarkup(React.createElement(RequestsView,{
       t:{requests:title},loans:[],lang,userUid:"viewer",loading:false,loadError:false,
       direction:"borrower",archive:false,setDirection(){},setArchive(){},onChat(){},onAgreement(){},onDecision(){},
@@ -316,4 +316,19 @@ test("agreement journey is accessible, translated and excluded from the print do
   assert.match(page,/Ejeren skal først godkende forespørgslen\. Derefter kan I gemme noten/);
   const css=await readFile(path.join(root,"app/globals.css"),"utf8");
   assert.match(css,/@media\(max-width:480px\) \{ \.journey-steps \{ grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+});
+
+test('Norwegian onboarding, tour and NOK offer render complete copy without granting an unverified trial',async()=>{
+ const {CircleAuthScreen}=await vite.ssrLoadModule('/components/circle-auth.tsx');
+ const {CircleTourSlide}=await vite.ssrLoadModule('/components/circle-tour.tsx');
+ const {CirclePlusOffer}=await vite.ssrLoadModule('/components/circle-plus-offer.tsx');
+ const {TaxGuidance}=await vite.ssrLoadModule('/components/tax-guidance.tsx');
+ const entry=renderToStaticMarkup(React.createElement(CircleAuthScreen,{lang:'nb',setLang(){},onBrowse(){}}));
+ assert.match(entry,/Logg inn/);assert.match(entry,/Se annonser uten innlogging/);assert.match(entry,/Se omvisning/);assert.match(entry,/69 NOK/);assert.match(entry,/legal\/nb#privacy/);assert.match(entry,/lang="nb"/);assert.doesNotMatch(entry,/undefined/);
+ for(let step=0;step<4;step++){const html=renderToStaticMarkup(React.createElement(CircleTourSlide,{lang:'nb',step}));assert.equal((html.match(/<li/g)||[]).length,3);assert.doesNotMatch(html,/undefined/);}
+ const common={lang:'nb',country:'NO',busy:false,hasSubscription:false,onContinue(){},onRetry(){},onClose(){}};
+ const eligible=renderToStaticMarkup(React.createElement(CirclePlusOffer,{...common,trialEligible:true}));assert.match(eligible,/180 DAGER GRATIS/);assert.match(eligible,/69 NOK/);assert.match(eligible,/Start 180 dager gratis/);assert.match(eligible,/automatisk/);
+ const returning=renderToStaticMarkup(React.createElement(CirclePlusOffer,{...common,trialEligible:false}));assert.match(returning,/ikke berettiget/);assert.match(returning,/69 NOK/);assert.doesNotMatch(returning,/180|GRATIS/);
+ const unknown=renderToStaticMarkup(React.createElement(CirclePlusOffer,{...common,trialEligible:null}));assert.match(unknown,/disabled/);assert.doesNotMatch(unknown,/180|69 NOK/);
+ const tax=renderToStaticMarkup(React.createElement(TaxGuidance,{lang:'nb',country:'NO'}));assert.match(tax,/Skatteetaten/);assert.match(tax,/50 000 NOK/);assert.doesNotMatch(tax,/undefined/);
 });

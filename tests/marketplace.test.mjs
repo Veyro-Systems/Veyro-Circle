@@ -1,15 +1,9 @@
+import {createTsLoader} from "./load-typescript.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
-import ts from "typescript";
 // Load the pure TypeScript module without starting a browser or development server.
-const source = new URL("../lib/marketplace.ts", import.meta.url);
-const compiled = ts.transpileModule(readFileSync(source, "utf8"), {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
-}).outputText;
-const m = {};
-new Function("require", "exports", compiled)(createRequire(source), m);
+const m = createTsLoader()('@/lib/marketplace');
+
 test("owner deposit accepts empty or zero and bounded decimal amounts",()=>{
   for(const input of ["","0","0,00"," 0.0 "]) assert.equal(m.parseDeposit(input),0);
   assert.equal(m.parseDeposit("250,50"),25050);assert.equal(m.parseDeposit("100000"),10000000);

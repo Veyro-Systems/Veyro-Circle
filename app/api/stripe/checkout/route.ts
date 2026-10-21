@@ -3,6 +3,7 @@ import { serverConfig } from "@/lib/server-config";
 import { stripeRequest } from "@/lib/stripe-server";
 import { billingContext, CIRCLE_PLUS_TRIAL_DAYS } from "@/lib/circle-billing";
 import { circlePlusOffer, trialCopy } from "@/lib/circle-plus-copy";
+import { regions, isLang } from "@/lib/region";
 
 const headers={"cache-control":"private, no-store"};
 export async function GET(request:Request) {
@@ -31,12 +32,12 @@ export async function POST(request: Request) {
     const context=await billingContext(user.localId,user.email,profile);
     if(context.blocking)throw Error("Der findes allerede et abonnement. Administrer det fra din konto.");
     if(accepted?.expectedTrialEligible!==context.eligible || accepted?.expectedCountry!==profile.country)return Response.json({code:"BILLING_OFFER_CHANGED",error:"Tilbuddet har ændret sig. Kontrollér prisen igen, før du fortsætter."},{status:409,headers});
-    const lang=accepted.lang==="sv"?"sv":accepted.lang==="da"?"da":profile.country==="SE"?"sv":"da";
+    const lang=isLang(accepted.lang) ? accepted.lang : regions[profile.country].lang;
     const oldSessionId=previous?.fields?.sessionId?.stringValue;
     if(oldSessionId){
       const old=await stripeRequest(`/checkout/sessions/${encodeURIComponent(oldSessionId)}`);
       if(old.status==="open"){
-        if(previous?.fields?.trialEligible?.booleanValue===context.eligible && old.customer===context.customerId && old.currency===(profile.country==="SE"?"sek":"dkk") && old.locale===lang && previous.fields.offerVersion?.stringValue==="2" && Array.isArray(old.payment_method_types) && old.payment_method_types.length===1 && old.payment_method_types[0]==="card")return Response.json({url:old.url},{headers});
+        if(previous?.fields?.trialEligible?.booleanValue===context.eligible && old.customer===context.customerId && old.currency===regions[profile.country].currency.toLowerCase() && old.locale===lang && previous.fields.offerVersion?.stringValue==="2" && Array.isArray(old.payment_method_types) && old.payment_method_types.length===1 && old.payment_method_types[0]==="card")return Response.json({url:old.url},{headers});
         await stripeRequest(`/checkout/sessions/${encodeURIComponent(oldSessionId)}/expire`,new URLSearchParams());
       }
     }
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
     }
     const origin = new URL(request.url).origin;
     const body = new URLSearchParams({
-      mode:"subscription", "line_items[0][price]":serverConfig(profile.country === "SE" ? "STRIPE_PRICE_SEK" : "STRIPE_PRICE_DKK"), "line_items[0][quantity]":"1",
+      mode:"subscription", "line_items[0][price]":serverConfig(regions[profile.country].priceKey), "line_items[0][quantity]":"1",
       success_url:`${origin}/?checkout=success`, cancel_url:`${origin}/?checkout=cancelled`,
       customer:customerId, payment_method_collection:"always","payment_method_types[0]":"card",locale:lang,
       "metadata[uid]":user.localId, "subscription_data[metadata][uid]":user.localId,

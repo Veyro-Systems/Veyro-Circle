@@ -6,11 +6,9 @@ test("Stripe checkout requires verified Firebase identity and server-selected co
   const checkout = await readFile(new URL("../app/api/stripe/checkout/route.ts", import.meta.url), "utf8");
   assert.match(checkout, /verifyFirebaseRequest/);
   assert.match(checkout, /getServerProfile/);
-  assert.match(checkout, /STRIPE_PRICE_SEK/);
-  assert.match(checkout, /STRIPE_PRICE_DKK/);
   // The body acknowledges the displayed offer; price selection stays server-side.
   // Behavioral coverage in billing-trial verifies forged client country/trial data.
-  assert.match(checkout, /serverConfig\(profile\.country === "SE" \? "STRIPE_PRICE_SEK" : "STRIPE_PRICE_DKK"\)/);
+  assert.match(checkout, /serverConfig\(regions\[profile\.country\]\.priceKey\)/);
 });
 
 test("Stripe webhook verifies its signature before changing Firestore", async () => {

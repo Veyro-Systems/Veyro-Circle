@@ -47,14 +47,14 @@ export async function POST(request:Request) {
   try {
     const identity = await verifyFirebaseRequest(request);
     const profile = await getServerProfile(identity.localId);
-    if(profile.subscriptionPlan!=="plus")return error("Circle Plus kræves for at oprette og udgive annoncer. 49 DKK eller 69 SEK pr. måned for op til 20 aktive ting.",403);
+    if(profile.subscriptionPlan!=="plus")return error("Circle Plus kræves for at oprette og udgive annoncer. 49 DKK, 69 SEK eller 69 NOK pr. måned for op til 20 aktive ting.",403);
     const body = await request.json() as {listing?:ListingPayload};
     const listing = body.listing;
     const id = listing?.id ?? "";
     const name = listing?.name?.trim() ?? "";
     const description = listing?.description?.trim() ?? "";
     const place = listing?.place ?? {};
-    const country = place.country === "SE" ? "SE" : place.country === "DK" ? "DK" : "";
+    const country = place.country === "NO" ? "NO" : place.country === "SE" ? "SE" : place.country === "DK" ? "DK" : "";
     const photos = Array.isArray(listing?.photos) ? listing.photos.slice(0, 2) : [];
     if (!/^[A-Za-z0-9_-]{20,80}$/.test(id) || !name || name.length > 120 || description.length > 1500 || !categories.has(listing?.category ?? "")) return error("Annonceoplysningerne er ugyldige.");
     if (!place.id || typeof place.id !== "string" || !place.city || typeof place.city !== "string" || !place.postcode || typeof place.postcode !== "string" || country !== profile.country) return error("Vælg en gyldig by i dit profilland.");

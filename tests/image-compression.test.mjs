@@ -1,15 +1,8 @@
+import {createTsLoader} from "./load-typescript.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
-import ts from "typescript";
 
-const source = new URL("../lib/image-compression.ts", import.meta.url);
-const compiled = ts.transpileModule(readFileSync(source, "utf8"), {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
-}).outputText;
-const m = {};
-new Function("require", "exports", compiled)(createRequire(source), m);
+const m = createTsLoader()('@/lib/image-compression');
 
 test("listing uploads are limited to two compressed images", () => {
   assert.equal(m.MAX_LISTING_IMAGES, 2);

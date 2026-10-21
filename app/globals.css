@@ -88,6 +88,7 @@ button:focus-visible,a:focus-visible { outline:3px solid #819eb6; outline-offset
 .brand-lockup span { padding-left:.75rem; border-left:1px solid #42606c; }
 .icon-button { display:flex; width:2.5rem; height:2.5rem; align-items:center; justify-content:center; border:1px solid var(--border); border-radius:7px; background:white; color:#4b6070; }
 .language-button { display:flex; height:2.5rem; align-items:center; gap:.35rem; border:1px solid var(--border); border-radius:7px; background:white; padding:0 .65rem; color:#42576a; font-size:.875rem; font-weight:600; }
+.language-button select { min-width:0; max-width:56px; border:0; background:transparent; color:inherit; font:inherit; cursor:pointer; }
 .side-nav { display:flex; width:100%; align-items:center; gap:.75rem; border:0; border-radius:7px; padding:.85rem .9rem; background:transparent; color:#586a7a; font-weight:600; }
 .side-nav:hover { background:#fff; }
 .side-nav.active { background:var(--primary); color:#fff; }

@@ -1,11 +1,8 @@
+import {createTsLoader} from "./load-typescript.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import ts from "typescript";
-function load(file,deps={}) {
-  const code=ts.transpileModule(readFileSync(new URL(file,import.meta.url),"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
-  const exports={};new Function("require","exports",code)(name=>deps[name],exports);return exports;
-}
+function load(file,deps={}) { return createTsLoader(deps)("@/"+file.replace(/^\.\.\//,"")); }
+
 const policy=load("../lib/agreement-workflow.ts");
 const {agreementGuidance:guide}=load("../lib/agreement-guidance.ts",{"./agreement-workflow":policy});
 const a={id:"ticket",borrowerUid:"borrower",lenderUid:"lender",from:"2026-10-08",to:"2026-10-09",requestStatus:"requested"};

@@ -4,7 +4,7 @@ import { agreementsChanged } from "@/lib/firebase-agreements";
 import { compressListingImage } from "@/lib/image-compression";
 import type { AgreementPhoto, PhotoPhase } from "@/lib/agreement-photos";
 
-export function photoError(cause:unknown, lang:"da"|"sv") {
+export function photoError(cause:unknown, lang:"da" | "sv" | "nb") {
   const code=cause instanceof Error ? cause.message : "PHOTO_FAILED";
   const messages:Record<string,[string,string]>={
     PHOTO_LOGIN:["Log ind igen for at se eller gemme billeder.","Logga in igen för att se eller spara bilder."],

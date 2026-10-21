@@ -20,15 +20,15 @@ export async function GET(request:Request) {
     });
     if (!response.ok) throw new Error("Brugerfordelingen kunne ikke hentes fra Firebase.");
     const rows = await response.json() as UserDocument[];
-    const groups = new Map<string,{country:"DK"|"SE";postcode:string;city:string;lat:number;lon:number;count:number}>();
+    const groups = new Map<string,{country:"DK" | "SE" | "NO";postcode:string;city:string;lat:number;lon:number;count:number}>();
     for (const row of rows) {
       const place = row.document?.fields?.place?.mapValue?.fields as Record<string, NumberField> | undefined;
-      const country = place?.country?.stringValue === "SE" ? "SE" : place?.country?.stringValue === "DK" ? "DK" : null;
+      const country = place?.country?.stringValue === "NO" ? "NO" : place?.country?.stringValue === "SE" ? "SE" : place?.country?.stringValue === "DK" ? "DK" : null;
       const postcode = place?.postcode?.stringValue?.trim() ?? "";
       const city = place?.city?.stringValue?.trim() ?? "";
       const lat = place?.lat?.doubleValue ?? Number(place?.lat?.integerValue);
       const lon = place?.lon?.doubleValue ?? Number(place?.lon?.integerValue);
-      if (!country || !postcode || !city || !Number.isFinite(lat) || !Number.isFinite(lon) || lat < 54 || lat > 70 || lon < 4 || lon > 25) continue;
+      if (!country || !postcode || !city || !Number.isFinite(lat) || !Number.isFinite(lon) || lat < 54 || lat > 81 || lon < 4 || lon > 33) continue;
       const key = `${country}:${postcode}`;
       const current = groups.get(key);
       if (current) current.count += 1;

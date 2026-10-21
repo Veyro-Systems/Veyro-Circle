@@ -1,3 +1,5 @@
+
+import { nbText } from "@/lib/norwegian-copy";
 // Shared, pure policy: both the API and the UI use the same lifecycle.
 export type RequestStatus = "requested" | "accepted" | "declined" | "cancelled";
 export type Decision = "accept" | "decline" | "cancel";
@@ -39,7 +41,7 @@ export function circleToday(now = new Date()) {
 export const stageLabels = {
   da: {requested:"Afventer ejerens svar", accepted:"Godkendt · afventer udlevering", handedOver:"Udleveret · afventer retur", returned:"Tilbageleveret · afsluttet", declined:"Afvist", cancelled:"Annulleret"},
   sv: {requested:"Inväntar ägarens svar", accepted:"Godkänd · inväntar utlämning", handedOver:"Utlämnad · inväntar retur", returned:"Återlämnad · avslutad", declined:"Avböjd", cancelled:"Avbruten"},
-};
+ nb: {requested:nbText["Afventer ejerens svar"], accepted:nbText["Godkendt · afventer udlevering"], handedOver:nbText["Udleveret · afventer retur"], returned:nbText["Tilbageleveret · afsluttet"], declined:nbText["Afvist"], cancelled:nbText["Annulleret"]} };
 export type AgreementNotice = {id:string;agreementId:string;kind:string;at:string;read:boolean};
 export function agreementNotices(a: WorkflowAgreement, uid: string, today = circleToday()): AgreementNotice[] {
   if (uid !== a.borrowerUid && uid !== a.lenderUid) return [];
@@ -55,18 +57,35 @@ export function agreementNotices(a: WorkflowAgreement, uid: string, today = circ
   if (stage === "handedOver" && !myReturn && a.to <= today) add(a.to < today ? "overdue" : "returnDue", `return:${today > a.to ? "overdue" : "due"}`, a.to);
   return result;
 }
-export const noticeLabels: Record<"da"|"sv",Record<string,string>> = {
+export const noticeLabels: Record<"da" | "sv" | "nb",Record<string,string>> = {
   da:{requested:"Ny låneforespørgsel",accepted:"Forespørgslen er godkendt",declined:"Forespørgslen er afvist",cancelled:"Aftalen er annulleret",message:"Ny besked",signature:"Ny underskrift",note:"Aftalens noter er opdateret",returned:"Tilbageleveringen er afsluttet",handover:"Din underskrift ved udlevering mangler",returnDue:"Aftalt tilbagelevering er i dag",overdue:"Returkvitteringen mangler efter afleveringsdatoen",updated:"Aftalen er opdateret"},
   sv:{requested:"Ny låneförfrågan",accepted:"Förfrågan är godkänd",declined:"Förfrågan har avböjts",cancelled:"Avtalet har avbrutits",message:"Nytt meddelande",signature:"Ny signatur",note:"Avtalets anteckningar har uppdaterats",returned:"Återlämningen är avslutad",handover:"Din signatur vid utlämning saknas",returnDue:"Avtalad återlämning är i dag",overdue:"Returkvittot saknas efter återlämningsdatumet",updated:"Avtalet har uppdaterats"},
-};
+ nb: {requested:nbText["Ny låneforespørgsel"],accepted:nbText["Forespørgslen er godkendt"],declined:nbText["Forespørgslen er afvist"],cancelled:nbText["Aftalen er annulleret"],message:nbText["Ny besked"],signature:nbText["Ny underskrift"],note:nbText["Aftalens noter er opdateret"],returned:nbText["Tilbageleveringen er afsluttet"],handover:nbText["Din underskrift ved udlevering mangler"],returnDue:nbText["Aftalt tilbagelevering er i dag"],overdue:nbText["Returkvitteringen mangler efter afleveringsdatoen"],updated:nbText["Aftalen er opdateret"]} };
 noticeLabels.da.pickupDue = "Den aftalte afhentningsdato er nået";
 noticeLabels.sv.pickupDue = "Det avtalade hämtningsdatumet har nåtts";
 noticeLabels.da.photos = "Aftalens billeder er opdateret";
 noticeLabels.sv.photos = "Avtalets bilder har uppdaterats";
+noticeLabels.nb.photos = "Avtalens bilder er oppdatert";
+noticeLabels.nb.pickupDue = "Den avtalte hentedatoen er nådd";
 
-export function agreementErrorText(cause:unknown, lang:"da"|"sv") {
+export function agreementErrorText(cause:unknown, lang:"da" | "sv" | "nb") {
   const message = cause instanceof Error ? cause.message : "Aftalen kunne ikke opdateres.";
   if (lang === "da") return message;
+  if (lang === "nb") {
+    if (message.includes("to forskellige konti")) return "Avtalen må være knyttet til to forskjellige kontoer. Opprett en ny forespørsel på riktig annonse.";
+    if (message.includes("pris eller depositum er ændret")) return "Prisen eller depositumet er endret. Lukk forespørselen og åpne annonsen igjen.";
+    if (message.includes("blokeret af ejeren")) return "Tingen er blokkert av eieren i perioden.";
+    if (message.includes("booket")) return "Tingen er allerede bestilt i deler av perioden. Velg andre datoer.";
+    if (message.includes("Noten er ændret") || message.includes("Billederne er ændret") || message.includes("ændret samtidig")) return "Avtalen, notatet eller bildene er endret. Oppdater avtalen og se gjennom den før du signerer.";
+    if (message.includes("Ejeren skal godkende")) return "Eieren må godkjenne forespørselen først.";
+    if (message.includes("Perioden er udløbet")) return "Perioden er utløpt. Send en ny forespørsel.";
+    if (message.includes("ikke længere aktiv") || message.includes("Annoncen findes ikke")) return "Annonsen er ikke lenger aktiv.";
+    if (message.includes("Begge profiler")) return "Begge profilene må være fullstendige før en forespørsel.";
+    if (message.includes("Vælg gyldige datoer")) return "Velg gyldige datoer fra i dag, maksimalt 366 dager.";
+    if (message.includes("allerede gemt")) return "Avtalen er allerede lagret. Oppdater oversikten.";
+    if (message.includes("låst")) return "Notatet er låst fordi en part allerede har signert.";
+    return "Handlingen kunne ikke fullføres. Oppdater avtalen og prøv igjen.";
+  }
   if (message.includes("to forskellige konti")) return "Avtalet måste vara kopplat till två olika konton. Skapa en ny förfrågan på rätt annons.";
   if (message.includes("pris eller depositum er ændret")) return "Annonsens pris eller deposition har ändrats. Stäng förfrågan och öppna annonsen igen.";
   if (message.includes("blokeret af ejeren")) return "Saken är blockerad av ägaren under perioden.";

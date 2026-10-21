@@ -1,5 +1,6 @@
 import { stripeRequest, StripeRequestError } from "@/lib/stripe-server";
 import { serverConfig } from "@/lib/server-config";
+import { COUNTRIES, regions } from "@/lib/region";
 
 export const CIRCLE_PLUS_TRIAL_DAYS = 180;
 export type BillingProfile = { subscriptionPlan:string; stripeCustomerId?:string; stripeSubscriptionId?:string; circlePlusStartedAt?:string; circlePlusTrialStartedAt?:string };
@@ -25,11 +26,15 @@ async function all(path:string) {
 // A stale Sandbox ID is not a valid Live customer. Outages and permission
 // failures must never silently create a replacement or grant a trial.
 export async function circlePlusCatalog() {
-  const priceIds=[serverConfig("STRIPE_PRICE_DKK"),serverConfig("STRIPE_PRICE_SEK")];
+  const priceIds=COUNTRIES.map(country=>serverConfig(regions[country].priceKey));
   const products=new Set<string>();
   for(const priceId of priceIds){
     const price=await stripeRequest(`/prices/${encodeURIComponent(priceId)}`);
     if(!stripeId(price.product))throw Error("Circle Plus-prisen kunne ikke kontrolleres.");
+    if(priceId===serverConfig("STRIPE_PRICE_NOK")){
+      const recurring=price.recurring as {interval?:string;interval_count?:number}|undefined;
+      if(price.active!==true || price.currency!=="nok" || price.unit_amount!==6900 || recurring?.interval!=="month" || recurring.interval_count!==1 || !products.has(stripeId(price.product)))throw Error("Den norske Circle Plus-pris kunne ikke kontrolleres.");
+    }
     products.add(stripeId(price.product));
   }
   return {priceIds,products};

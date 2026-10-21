@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import { NextResponse } from "next/server";
 import { commitFirestoreWrites, firestoreDocumentName, getFirestoreDocument, verifyFirebaseRequest, type FirestoreField } from "@/lib/firebase-server";
 import { serverConfig } from "@/lib/server-config";
+import { storedLanguage } from "@/lib/region";
 
 type Payload = {
   defaultRadiusKm?:number; name?:string; email?:string; phone?:string; street?:string;
@@ -18,6 +19,7 @@ function canonicalPhone(phone: string, country: string) {
   let digits = phone.replace(/\D/g, "");
   if (digits.startsWith("00")) digits = digits.slice(2);
   if (country === "DK" && digits.length === 8) digits = `45${digits}`;
+  if (country === "NO" && digits.length === 8) digits = `47${digits}`;
   if (country === "SE" && digits.startsWith("0")) digits = `46${digits.slice(1)}`;
   return digits;
 }
@@ -37,11 +39,11 @@ export async function POST(request: Request) {
     if (body.defaultRadiusKm !== undefined && ![2,5,10,20,50,100].includes(body.defaultRadiusKm)) return error("INVALID_SEARCH_RADIUS");
     const name = body.name?.trim() ?? ""; const email = body.email?.trim().toLowerCase() ?? "";
     const phone = body.phone?.trim() ?? ""; const street = body.street?.trim() ?? ""; const place = body.place;
-    const language = body.preferredLanguage === "sv" ? "sv" : "da";
-    if (!name || name.length > 100 || !street || street.length > 200 || !place?.id || !place.city || !place.postcode || !["DK","SE"].includes(place.country ?? "")) return error("Navn, adresse, postnummer og by skal udfyldes korrekt.");
+    const language = storedLanguage(body.preferredLanguage);
+    if (!name || name.length > 100 || !street || street.length > 200 || !place?.id || !place.city || !place.postcode || !["DK","SE","NO"].includes(place.country ?? "")) return error("Navn, adresse, postnummer og by skal udfyldes korrekt.");
     if (email !== identity.email.toLowerCase()) return error("E-mailadressen skal være den samme som dit login.");
     const phoneCanonical = canonicalPhone(phone, place.country!);
-    if (!/^45\d{8}$/.test(phoneCanonical) && !/^46\d{7,10}$/.test(phoneCanonical)) return error("Indtast et gyldigt dansk eller svensk telefonnummer.");
+    if (!/^45\d{8}$/.test(phoneCanonical) && !/^46\d{7,10}$/.test(phoneCanonical) && !/^47\d{8}$/.test(phoneCanonical)) return error("Indtast et gyldigt dansk, svensk eller norsk telefonnummer.");
 
     const phoneKey = fingerprint(`phone:${phoneCanonical}`);
     const compositeKey = fingerprint(["profile", normal(name), normal(street), place.postcode, normal(place.city), place.country, phoneCanonical].join("|"));
@@ -87,7 +89,7 @@ export async function PATCH(request:Request) {
   let identity;try{identity=await verifyFirebaseRequest(request);}catch{return error("AUTH_REQUIRED",401);}
   try {
     const {preferredLanguage}=await request.json();
-    if(!["da","sv"].includes(preferredLanguage))return error("INVALID_LANGUAGE");
+    if(!["da","sv","nb"].includes(preferredLanguage))return error("INVALID_LANGUAGE");
     const path=`users/${identity.localId}`;
     if(!await getFirestoreDocument(path))return error("PROFILE_REQUIRED",404);
     await commitFirestoreWrites([{update:{name:firestoreDocumentName(path),fields:{preferredLanguage:text(preferredLanguage),updatedAt:timestamp(new Date().toISOString())}},updateMask:{fieldPaths:["preferredLanguage","updatedAt"]},currentDocument:{exists:true}}]);

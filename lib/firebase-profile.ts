@@ -3,6 +3,7 @@
 import { doc, getDoc } from "firebase/firestore";
 import type { User } from "firebase/auth";
 import { db } from "@/lib/firebase-client";
+import { storedLanguage } from "@/lib/region";
 import { defaultSearchRadius, type Lang, type ListingPlan, type Profile } from "@/lib/marketplace";
 
 export type CircleCloudProfile = Profile & {
@@ -31,7 +32,7 @@ export async function loadCircleProfile(uid: string): Promise<CircleCloudProfile
     street: data.street,
     place: data.place,
     taxAcknowledgement: data.taxAcknowledgement,
-    preferredLanguage: data.preferredLanguage === "sv" ? "sv" : "da",
+    preferredLanguage: storedLanguage(data.preferredLanguage),
     verificationStatus: data.verificationStatus === "verified" ? "verified" : "pending",
     subscriptionPlan: data.subscriptionPlan === "plus" ? "plus" : "free",
     subscriptionStatus:typeof data.subscriptionStatus === "string" ? data.subscriptionStatus : "",

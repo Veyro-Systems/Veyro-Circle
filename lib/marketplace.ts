@@ -1,8 +1,8 @@
 import postalRecords from "../data/postal-places.json";
 import type { TaxAcknowledgement } from "./tax-guidance";
+import { regions, locales, type Country, type Lang } from "./region";
 
-export type Country = "DK" | "SE";
-export type Lang = "da" | "sv";
+export type { Country, Lang } from "./region";
 export type ListingPlan = "free" | "plus";
 export const FREE_LISTING_LIMIT = 0;
 export const PLUS_LISTING_LIMIT = 20;
@@ -51,8 +51,8 @@ export function parseDeposit(value:string):number|null {
   return !text || /^0+(?:[.,]0{1,2})?$/.test(text) ? 0 : parseDailyPrice(text);
 }
 export function money(minorUnits: number, country: Country, lang: Lang) {
-  return new Intl.NumberFormat(lang === "da" ? "da-DK" : "sv-SE", {
-    style: "currency", currency: country === "DK" ? "DKK" : "SEK", currencyDisplay: "code",
+  return new Intl.NumberFormat(locales[lang], {
+    style: "currency", currency: regions[country].currency, currencyDisplay: "code",
     minimumFractionDigits: minorUnits % 100 ? 2 : 0, maximumFractionDigits: 2,
   }).format(minorUnits / 100);
 }

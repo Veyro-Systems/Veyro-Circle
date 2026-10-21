@@ -7,7 +7,7 @@ const headers={"cache-control":"no-store"};
 export async function GET(request:Request) {
   try {
     let uid="";if(request.headers.has("authorization")){try{uid=(await verifyFirebaseRequest(request)).localId;}catch{return Response.json({error:"AUTH_REQUIRED"},{status:401});}}
-    const rows=(await Promise.all([queryRecords("wanted","country","DK"),queryRecords("wanted","country","SE")])).flat().filter(r=>r.status==="open"&&Date.parse(String(r.expiresAt))>Date.now()).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))).slice(0,100);
+    const rows=(await Promise.all([queryRecords("wanted","country","DK"),queryRecords("wanted","country","SE"),queryRecords("wanted","country","NO")])).flat().filter(r=>r.status==="open"&&Date.parse(String(r.expiresAt))>Date.now()).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))).slice(0,100);
     return Response.json({items:rows.map(r=>({id:r.id,title:r.title,description:r.description,place:r.place,country:r.country,from:r.from,to:r.to,author:r.author,createdAt:r.createdAt,owned:r.ownerUid===uid,offers:r.ownerUid===uid?r.offers??[]:[]}))},{headers});
   }catch{return Response.json({error:"WANTED_UNAVAILABLE"},{status:503});}
 }

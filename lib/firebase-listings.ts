@@ -29,7 +29,7 @@ export type CircleListingContact = { name:string; street:string; phone:string; p
 
 function cleanRecord(id: string, value: Record<string, unknown>): CircleListingRecord | null {
   const place = value.place as Place | undefined;
-  if (!value.active || typeof value.ownerUid !== "string" || typeof value.name !== "string" || !place?.id || !["DK", "SE"].includes(place.country)) return null;
+  if (!value.active || typeof value.ownerUid !== "string" || typeof value.name !== "string" || !place?.id || !["DK", "SE", "NO"].includes(place.country)) return null;
   const photos = Array.isArray(value.photos) ? value.photos.filter(photo => {
     const candidate = photo as Partial<CompressedListingImage>;
     return typeof candidate.src === "string" && typeof candidate.storagePath === "string";

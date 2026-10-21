@@ -16,7 +16,7 @@ async function update(request:Request,remove:boolean) {
       if (old?.fields?.uid?.stringValue === uid) await commitFirestoreWrites([{delete:firestoreDocumentName(path),currentDocument:{updateTime:old.updateTime}}]);
     } else {
       if (process.env.CIRCLE_PUSH_ENABLED !== "true") return Response.json({error:"PUSH_NOT_CONFIGURED"},{status:503,headers});
-      await commitFirestoreWrites([{update:{name:firestoreDocumentName(path),fields:{uid:{stringValue:uid},token:{stringValue:token},lang:{stringValue:lang === "sv" ? "sv" : "da"},updatedAt:{timestampValue:new Date().toISOString()},expiresAt:{timestampValue:new Date(Date.now()+30*86400000).toISOString()}}},currentDocument:old ? {updateTime:old.updateTime} : {exists:false}}]);
+      await commitFirestoreWrites([{update:{name:firestoreDocumentName(path),fields:{uid:{stringValue:uid},token:{stringValue:token},lang:{stringValue:lang === "nb" ? "nb" : lang === "sv" ? "sv" : "da"},updatedAt:{timestampValue:new Date().toISOString()},expiresAt:{timestampValue:new Date(Date.now()+30*86400000).toISOString()}}},currentDocument:old ? {updateTime:old.updateTime} : {exists:false}}]);
     }
     return Response.json({ok:true},{headers});
   } catch { return Response.json({error:"PUSH_SAVE_FAILED"},{status:500,headers}); }

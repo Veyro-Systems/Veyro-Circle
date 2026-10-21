@@ -1,19 +1,13 @@
+import {createTsLoader} from "./load-typescript.mjs";
 import test, {afterEach} from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {createRequire} from "node:module";
-import ts from "typescript";
 import sharp from "sharp";
 
 const jpeg=await sharp({create:{width:40,height:30,channels:3,background:"#008eac"}}).jpeg().toBuffer();
 
-function load(file, dependencies = {}) {
-  const url = new URL(file,import.meta.url);
-  const code = ts.transpileModule(readFileSync(url,"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
-  const exports = {};
-  new Function("require","exports",code)(name=>dependencies[name] ?? createRequire(url)(name),exports);
-  return exports;
-}
+function load(file,deps={}) { return createTsLoader(deps)("@/"+file.replace(/^\.\.\//,"")); }
+
 const policy = load("../lib/agreement-workflow.ts");
 const market = load("../lib/marketplace.ts");
 const photoPolicy = load("../lib/agreement-photos.ts");

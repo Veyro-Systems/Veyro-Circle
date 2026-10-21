@@ -106,7 +106,7 @@ export async function compressListingImage(file: File): Promise<CompressedListin
   };
 }
 
-export function formatImageSize(bytes: number, lang: "da" | "sv") {
+export function formatImageSize(bytes: number, lang: "da" | "sv" | "nb") {
   const kilobytes = Math.max(1, Math.round(bytes / 1024));
-  return lang === "da" ? `${kilobytes} KB efter komprimering` : `${kilobytes} KB efter komprimering`;
+  return (lang === "nb" ? `${kilobytes} KB etter komprimering` : (lang === "da" ? `${kilobytes} KB efter komprimering` : `${kilobytes} KB efter komprimering`));
 }

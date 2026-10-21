@@ -1,4 +1,8 @@
 "use client";
+import { nbText } from "@/lib/norwegian-copy";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import { regions, isLang } from "@/lib/region";
+
 import { COMPANY_IDENTITY } from "@/lib/company";
 import { trialCopy } from "@/lib/circle-plus-copy";
 import { CirclePlusOffer } from "@/components/circle-plus-offer";
@@ -36,8 +40,8 @@ import { compressListingImage, formatImageSize, MAX_LISTING_IMAGES, type Compres
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
-  Bell, Bike, CalendarDays, Camera, Check, ChevronDown, CircleUserRound, Drill,
-  SprayCan, Heart, Home, ImagePlus, Languages, MapPin, Map as MapIcon, MessageCircle,
+  Bell, Bike, CalendarDays, Camera, Check, CircleUserRound, Drill,
+  SprayCan, Heart, Home, ImagePlus, MapPin, Map as MapIcon, MessageCircle,
   PackagePlus, PartyPopper, Pencil, Search, ShieldCheck, Sparkles, TentTree,
   Trash2, Truck, Utensils, Wrench, X, Crown, FileSignature, Printer, LockKeyhole,
   LogOut, LoaderCircle, Send, Save, RefreshCw, List, LayoutGrid,
@@ -53,13 +57,13 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-type Lang = "da" | "sv";
+type Lang = "da" | "sv" | "nb";
 type BillingDetails = {trialEligible:boolean|null;hasSubscription:boolean;status:string;trialEnd?:string;cancelAtPeriodEnd:boolean;offerUid?:string;country?:Country;offerError?:boolean};
 type Tab = "saved" | "wanted" | "home" | "map" | "items" | "requests" | "profile" | "subscription";
 type AgreementSignature = { dataUrl: string; signedAt: string };
 type Loan = WorkflowAgreement & AgreementPhotos & AgreementSchedule & { id: string; item: Listing; from: string; to: string; days: number; total: number; deposit: number; message: string; handoverNote?: string; returnNote?: string; borrower: Profile; borrowerUid?: string; lenderUid?: string; borrowerSignature?: AgreementSignature; lenderSignature?: AgreementSignature; borrowerReturnSignature?: AgreementSignature; lenderReturnSignature?: AgreementSignature; returnedAt?: string; returnCondition?: "good" | "remarks"; saved?: boolean };
 type Listing = {
-  id: string; name: string; owner: string; city: string; country: "DK" | "SE";
+  id: string; name: string; owner: string; city: string; country: "DK" | "SE" | "NO";
   ownerStreet: string; ownerPhone: string; ownerUid?: string;
   distance: number; category: string; icon: typeof Drill; color: string;
   publishable?:boolean;description: string; details?:Record<string,string>;createdAt?:string; rating: number; availability: string;
@@ -67,15 +71,15 @@ type Listing = {
 };
 
 const categories = [
-  { id: "all", da: "Alt", sv: "Allt", icon: Sparkles },
-  { id: "transport", da: "Transport", sv: "Transport", icon: Truck },
-  { id: "tools", da: "Værktøj", sv: "Verktyg", icon: Wrench },
-  { id: "garden", da: "Have", sv: "Trädgård", icon: SprayCan },
-  { id: "leisure", da: "Fritid", sv: "Fritid", icon: TentTree },
-  { id: "party", da: "Fest", sv: "Fest", icon: PartyPopper },
-  { id: "kitchen", da: "Køkken", sv: "Kök", icon: Utensils },
-  { id: "bike", da: "Cykler", sv: "Cyklar", icon: Bike },
-  { id: "other", da: "Andet", sv: "Övrigt", icon: PackagePlus },
+  { id: "all", da: "Alt", sv: "Allt", icon: Sparkles , nb: nbText["Alt"] },
+  { id: "transport", da: "Transport", sv: "Transport", icon: Truck , nb: nbText["Transport"] },
+  { id: "tools", da: "Værktøj", sv: "Verktyg", icon: Wrench , nb: nbText["Værktøj"] },
+  { id: "garden", da: "Have", sv: "Trädgård", icon: SprayCan , nb: nbText["Have"] },
+  { id: "leisure", da: "Fritid", sv: "Fritid", icon: TentTree , nb: nbText["Fritid"] },
+  { id: "party", da: "Fest", sv: "Fest", icon: PartyPopper , nb: nbText["Fest"] },
+  { id: "kitchen", da: "Køkken", sv: "Kök", icon: Utensils , nb: nbText["Køkken"] },
+  { id: "bike", da: "Cykler", sv: "Cyklar", icon: Bike , nb: nbText["Cykler"] },
+  { id: "other", da: "Andet", sv: "Övrigt", icon: PackagePlus , nb: nbText["Andet"] },
 ];
 
 const categoryColors: Record<string, string> = {
@@ -106,7 +110,7 @@ function listingFromCloud(record: CircleListingRecord, currentUid: string): List
 
 const copy = {
   da: {
-    search: "Hvad vil du låne?", nearby: "Begge lande", denmark: "Danmark", sweden: "Sverige",
+    search: "Hvad vil du låne?", nearby: "Alle lande", denmark: "Danmark", sweden: "Sverige",
     heroKicker: "Del mere i dit lokalområde", heroTitle: "Brug mere. Køb mindre.",
     heroText: "Lån gratis eller lej til en overkommelig pris. Find ting i nærheden, og del det, du ikke bruger hver dag.",
     heroButton: "Find noget at låne", addItem: "Tilføj en ting", popular: "Ting i dit søgeområde",
@@ -124,7 +128,7 @@ const copy = {
     memberSince: "Medlem siden 2026", verify: "Bekræftet Circle-profil", country: "Land", language: "Sprog",
   },
   sv: {
-    search: "Vad vill du låna?", nearby: "Båda länderna", denmark: "Danmark", sweden: "Sverige",
+    search: "Vad vill du låna?", nearby: "Alla länder", denmark: "Danmark", sweden: "Sverige",
     heroKicker: "Dela mer i ditt närområde", heroTitle: "Använd mer. Köp mindre.",
     heroText: "Låna gratis eller hyr till ett överkomligt pris. Hitta saker i närheten och dela det du inte använder varje dag.",
     heroButton: "Hitta något att låna", addItem: "Lägg till en sak", popular: "Saker i ditt sökområde",
@@ -141,21 +145,45 @@ const copy = {
     loans: "genomförda lån", saved: "kr sparade i gemenskapen", itemsShared: "saker delade",
     memberSince: "Medlem sedan 2026", verify: "Bekräftad Circle-profil", country: "Land", language: "Språk",
   },
-};
+ nb: {
+    search: nbText["Hvad vil du låne?"], nearby: nbText["Begge lande"], denmark: nbText["Danmark"], sweden: nbText["Sverige"],
+    heroKicker: nbText["Del mere i dit lokalområde"], heroTitle: nbText["Brug mere. Køb mindre."],
+    heroText: nbText["Lån gratis eller lej til en overkommelig pris. Find ting i nærheden, og del det, du ikke bruger hver dag."],
+    heroButton: nbText["Find noget at låne"], addItem: nbText["Tilføj en ting"], popular: nbText["Ting i dit søgeområde"],
+    viewAll: nbText["Se alle"], free: nbText["Gratis"], borrow: nbText["Spørg om at låne"], navHome: nbText["Hjem"],
+    navItems: nbText["Mine ting"], navRequests: nbText["Mine lån"], navProfile: nbText["Konto"], results: nbText["ting fundet"],
+    noResults: nbText["Ingen ting matcher din søgning endnu."], addTitle: nbText["Hvad vil du dele?"],
+    addDescription: nbText["Vælg gratis udlån eller angiv en pris pr. dag. Kun by og postnummer vises."], itemName: nbText["Navn på tingen"],
+    city: nbText["By"], description: nbText["Kort beskrivelse"], publish: nbText["Opret annonce"], photo: nbText["Tilføj billeder"],
+    requestTitle: nbText["Vælg hvornår du vil låne"], from: nbText["Fra"], to: nbText["Til"], message: nbText["Besked til ejeren"],
+    send: nbText["Send forespørgsel"], trust: nbText["Trygt at dele"],
+    trustText: nbText["Din adresse vises ikke i søgeresultater. Aftal altid afhentning og aflevering med ejeren."],
+    requests: nbText["Mine lån"], outgoing: nbText["Sendte"], incoming: nbText["Modtagne"], approved: nbText["Godkendt"],
+    awaiting: nbText["Afventer svar"], activeLoan: nbText["Aktivt lån"], chat: nbText["Skriv besked"], impact: nbText["Din effekt"],
+    loans: nbText["gennemførte lån"], saved: nbText["kr. sparet i fællesskabet"], itemsShared: nbText["ting delt"],
+    memberSince: nbText["Medlem siden 2026"], verify: nbText["Bekræftet Circle-profil"], country: nbText["Land"], language: nbText["Sprog"],
+  } };
 
 export default function HomePage() {
   const { user, loading: authLoading, configured } = useCircleAuth();
   const [lang, setLang] = useState<Lang>("da");
   const [languageSaving,setLanguageSaving]=useState(false);
-  const reportProfileError=useEffectEvent(()=>toast.error(lang === "da" ? "Profilen kunne ikke hentes fra Firebase." : "Profilen kunde inte hämtas från Firebase."));
+  const reportProfileError=useEffectEvent(()=>toast.error((lang === "nb" ? nbText["Profilen kunne ikke hentes fra Firebase."] : (lang === "da" ? "Profilen kunne ikke hentes fra Firebase." : "Profilen kunde inte hämtas från Firebase."))));
   async function changeLanguage(next:Lang) {
     if(languageSaving)return;
     setLang(next);
+    try{localStorage.setItem("circle:language",next);}catch{}
+    const languageUrl=new URL(window.location.href);
+    if(languageUrl.searchParams.has("lang")){languageUrl.searchParams.set("lang",next);window.history.replaceState(null,"",languageUrl);}
     if(!user?.emailVerified)return;
     setLanguageSaving(true);
-    try{await saveCircleLanguage(user,next);}catch{toast.error(next==="da"?"Sproget er skiftet, men kunne ikke gemmes på kontoen. Prøv igen.":"Språket har ändrats men kunde inte sparas på kontot. Försök igen.");}finally{setLanguageSaving(false);}
+    try{await saveCircleLanguage(user,next);}catch{toast.error(next==="nb"?"Språket er endret, men kunne ikke lagres på kontoen. Prøv igjen.":next==="da"?"Sproget er skiftet, men kunne ikke gemmes på kontoen. Prøv igen.":"Språket har ändrats men kunde inte sparas på kontot. Försök igen.");}finally{setLanguageSaving(false);}
   }
   useEffect(()=>{document.documentElement.lang=lang;},[lang]);
+  useEffect(()=>{
+    let saved:unknown;try{saved=new URL(window.location.href).searchParams.get("lang") || localStorage.getItem("circle:language");}catch{}
+    if(isLang(saved)){const value=saved;queueMicrotask(()=>setLang(value));}
+  },[]);
   const [prefs,setPrefs]=useState<Preferences>({favorites:[],searches:[]});
   const [onlyFavorites,setOnlyFavorites]=useState(false);
   const [listingView,setListingView]=useState<"list"|"kanban">("kanban");
@@ -255,14 +283,14 @@ export default function HomePage() {
 
   useEffect(() => {
     const status = new URLSearchParams(window.location.search).get("checkout");
-    if (status === "success") toast.success(lang === "da" ? "Tak. Stripe behandler dit Circle Plus-abonnement." : "Tack. Stripe behandlar din Circle Plus-prenumeration.");
-    if (status === "cancelled") toast.info(lang === "da" ? "Betalingen blev afbrudt. Der er ikke trukket penge." : "Betalningen avbröts. Inga pengar har dragits.");
+    if (status === "success") toast.success((lang === "nb" ? nbText["Tak. Stripe behandler dit Circle Plus-abonnement."] : (lang === "da" ? "Tak. Stripe behandler dit Circle Plus-abonnement." : "Tack. Stripe behandlar din Circle Plus-prenumeration.")));
+    if (status === "cancelled") toast.info((lang === "nb" ? nbText["Betalingen blev afbrudt. Der er ikke trukket penge."] : (lang === "da" ? "Betalingen blev afbrudt. Der er ikke trukket penge." : "Betalningen avbröts. Inga pengar har dragits.")));
     if (status) history.replaceState({}, "", window.location.pathname);
   }, [lang]);
 
   async function billing(action: "checkout" | "portal") {
     if (!configured || !user) {
-      toast.error(lang === "da" ? "Betaling er ikke konfigureret endnu." : "Betalning är inte konfigurerad ännu.");
+      toast.error((lang === "nb" ? nbText["Betaling er ikke konfigureret endnu."] : (lang === "da" ? "Betaling er ikke konfigureret endnu." : "Betalning är inte konfigurerad ännu.")));
       return;
     }
     if(action==="checkout" && (currentOffer.trialEligible===null || !currentOffer.country))return;
@@ -271,8 +299,8 @@ export default function HomePage() {
     catch (error) {
       if(error instanceof BillingOfferChangedError){
         setBillingDetails(previous=>({...previous,trialEligible:null}));setOfferRevision(value=>value+1);
-        toast.info(lang==="da"?"Dit tilbud er ændret. Gennemgå den opdaterede pris, før du fortsætter.":"Ditt erbjudande har ändrats. Kontrollera det uppdaterade priset innan du fortsätter.");
-      }else toast.error(error instanceof Error ? error.message : (lang === "da" ? "Stripe kunne ikke åbnes." : "Stripe kunde inte öppnas."));
+        toast.info((lang === "nb" ? nbText["Dit tilbud er ændret. Gennemgå den opdaterede pris, før du fortsætter."] : (lang==="da"?"Dit tilbud er ændret. Gennemgå den opdaterede pris, før du fortsætter.":"Ditt erbjudande har ändrats. Kontrollera det uppdaterade priset innan du fortsätter.")));
+      }else toast.error(error instanceof Error ? error.message : ((lang === "nb" ? nbText["Stripe kunne ikke åbnes."] : (lang === "da" ? "Stripe kunne ikke åbnes." : "Stripe kunde inte öppnas."))));
       setBillingBusy(false);
     }
   }
@@ -378,11 +406,11 @@ export default function HomePage() {
       setListingsLoading(false);setListingsError(false);
       const linkedId=new URLSearchParams(window.location.search).get("listing");
       if(linkedId){const linked=records.find(r=>r.id===linkedId);if(linked){setAuthOpen(false);setSelected(listingFromCloud(linked,user?.uid??""));window.history.replaceState(null,"",window.location.pathname);}}
-      setListings(records.map(record => ({...listingFromCloud(record, user?.uid ?? ""),availability:lang === "da" ? "Forespørg om datoer" : "Fråga om datum"})));
+      setListings(records.map(record => ({...listingFromCloud(record, user?.uid ?? ""),availability:(lang === "nb" ? nbText["Forespørg om datoer"] : (lang === "da" ? "Forespørg om datoer" : "Fråga om datum"))})));
     }, error => {
       setListingsLoading(false);setListingsError(true);
       console.error("Circle listings could not be loaded", error);
-      toast.error(lang === "da" ? "Annoncerne kunne ikke hentes fra Firebase." : "Annonserna kunde inte hämtas från Firebase.");
+      toast.error((lang === "nb" ? nbText["Annoncerne kunne ikke hentes fra Firebase."] : (lang === "da" ? "Annoncerne kunne ikke hentes fra Firebase." : "Annonserna kunde inte hämtas från Firebase.")));
     });
   }, [configured, lang, user?.emailVerified, user?.uid]);
 
@@ -434,7 +462,7 @@ export default function HomePage() {
   }
   function openHome() { setOnlyFavorites(false); setTab("home"); }
   function applySearch(filter:SearchFilter){setQuery(filter.query);setCategory(filter.category);setPriceFilter(filter.price);setRadius(filter.radius);setOrigin(places.find(p=>p.id===filter.placeId)??null);setSearchFrom("");setSearchTo("");setOnlyFavorites(false);setTab("home");setNotificationsOpen(false);}
-  async function favorite(item:Listing){if(!user){setAuthOpen(true);return;}setFavoriteBusy(item.id);try{setPrefs(await communityFetch("/api/preferences",{action:"favorite",id:item.id,enabled:!prefs.favorites.includes(item.id)}));}catch{toast.error(lang==="da"?"Favoritten kunne ikke gemmes. Prøv igen.":"Favoriten kunde inte sparas. Försök igen.");}finally{setFavoriteBusy(null);}}
+  async function favorite(item:Listing){if(!user){setAuthOpen(true);return;}setFavoriteBusy(item.id);try{setPrefs(await communityFetch("/api/preferences",{action:"favorite",id:item.id,enabled:!prefs.favorites.includes(item.id)}));}catch{toast.error((lang === "nb" ? nbText["Favoritten kunne ikke gemmes. Prøv igen."] : (lang==="da"?"Favoritten kunne ikke gemmes. Prøv igen.":"Favoriten kunde inte sparas. Försök igen.")));}finally{setFavoriteBusy(null);}}
   function navigate(next:Tab) {if(!user && next!=="home" && next!=="wanted"){setAuthOpen(true);return;}setTab(next);}
 
   function resetItemForm() {
@@ -444,11 +472,11 @@ export default function HomePage() {
 
   function openAdd() {
     if(!user){setAuthOpen(true);return;}
-    if (!profile) { setTab("profile"); toast.info(lang === "da" ? "Opret først din profil med adresse og by." : "Skapa först din profil med adress och ort."); return; }
+    if (!profile) { setTab("profile"); toast.info((lang === "nb" ? nbText["Opret først din profil med adresse og by."] : (lang === "da" ? "Opret først din profil med adresse og by." : "Skapa först din profil med adress och ort."))); return; }
     const activeCount = listings.filter(item => item.owned).length;
     if (!canCreateListing(activeCount, listingPlan)) {
       if (listingPlan === "free") setShowUpgrade(true);
-      else toast.info(lang === "da" ? "Du har nået grænsen på 20 aktive ting. Slet en ting, før du opretter en ny." : "Du har nått gränsen på 20 aktiva saker. Ta bort en sak innan du skapar en ny.");
+      else toast.info((lang === "nb" ? nbText["Du har nået grænsen på 20 aktive ting. Slet en ting, før du opretter en ny."] : (lang === "da" ? "Du har nået grænsen på 20 aktive ting. Slet en ting, før du opretter en ny." : "Du har nått gränsen på 20 aktiva saker. Ta bort en sak innan du skapar en ny.")));
       return;
     }
     resetItemForm(); setNewPlace(profile.place); setNewCountry(profile.place.country); setShowAdd(true);
@@ -460,35 +488,35 @@ export default function HomePage() {
     setSelected(null); setEditingId(item.id); setNewName(item.name); setNewDescription(item.description);
     setNewCategory(item.category);setNewDetails(item.details??{}); setNewCountry(item.country); setNewPlace(item.place);
     setPricing(item.dailyPrice > 0 ? "paid" : "free");
-    setPriceInput(item.dailyPrice > 0 ? String(item.dailyPrice / 100).replace(".", lang === "da" ? "," : ".") : "");
+    setPriceInput(item.dailyPrice > 0 ? String(item.dailyPrice / 100).replace(".", (lang === "nb" ? "," : (lang === "da" ? "," : "."))) : "");
     setNewDepositInput(item.deposit ? String(item.deposit/100).replace(".",",") : "");
     setNewPhotos(item.photos || []); setFormError(""); setShowAdd(true);
   }
 
   async function saveProfile(next: Profile) {
-    if (!configured || !user) throw new Error(lang === "da" ? "Firebase er ikke konfigureret." : "Firebase är inte konfigurerat.");
+    if (!configured || !user) throw new Error((lang === "nb" ? nbText["Firebase er ikke konfigureret."] : (lang === "da" ? "Firebase er ikke konfigureret." : "Firebase är inte konfigurerat.")));
     try { await saveCircleProfile(user, next, lang); }
-    catch (cause) { const message = cause instanceof Error ? cause.message : (lang === "da" ? "Profilen kunne ikke gemmes. Prøv igen." : "Profilen kunde inte sparas. Försök igen."); toast.error(message); throw cause; }
+    catch (cause) { const message = cause instanceof Error ? cause.message : ((lang === "nb" ? nbText["Profilen kunne ikke gemmes. Prøv igen."] : (lang === "da" ? "Profilen kunne ikke gemmes. Prøv igen." : "Profilen kunde inte sparas. Försök igen."))); toast.error(message); throw cause; }
     setProfile(next); setRadius(String(defaultSearchRadius(next.defaultRadiusKm))); setOrigin(next.place); setNewPlace(next.place); setNewCountry(next.place.country);
-    toast.success(lang === "da" ? "Profilen er gemt sikkert." : "Profilen har sparats säkert.");
+    toast.success((lang === "nb" ? nbText["Profilen er gemt sikkert."] : (lang === "da" ? "Profilen er gemt sikkert." : "Profilen har sparats säkert.")));
   }
 
   async function logout() {
     if (configured) await circleSignOut();
     setPrefs({favorites:[],searches:[]});setOnlyFavorites(false);setProfile(null); setLoans([]); setAgreementLoan(null); setChatLoan(null); setNotificationsOpen(false); setListingPlan("free"); setOrigin(null); setRadius("all");setTab("home");setAuthOpen(true);
-    toast.success(lang === "da" ? "Du er logget ud." : "Du har loggats ut.");
+    toast.success((lang === "nb" ? nbText["Du er logget ud."] : (lang === "da" ? "Du er logget ud." : "Du har loggats ut.")));
   }
 
   async function addPhotos(files: FileList | null) {
     if (!files?.length || isCompressing) return;
     const available = MAX_LISTING_IMAGES - newPhotos.length;
     if (available <= 0) {
-      setFormError(lang === "da" ? "Du kan højst tilføje 2 billeder." : "Du kan lägga till högst 2 bilder.");
+      setFormError((lang === "nb" ? nbText["Du kan højst tilføje 2 billeder."] : (lang === "da" ? "Du kan højst tilføje 2 billeder." : "Du kan lägga till högst 2 bilder.")));
       return;
     }
     const candidates = Array.from(files).slice(0, available);
     if (files.length > available) {
-      toast.info(lang === "da" ? "Der er kun plads til 2 billeder i alt." : "Det finns bara plats för 2 bilder totalt.");
+      toast.info((lang === "nb" ? nbText["Der er kun plads til 2 billeder i alt."] : (lang === "da" ? "Der er kun plads til 2 billeder i alt." : "Det finns bara plats för 2 bilder totalt.")));
     }
     setIsCompressing(true); setFormError("");
     const compressed: CompressedListingImage[] = [];
@@ -496,35 +524,35 @@ export default function HomePage() {
       try {
         compressed.push(await compressListingImage(file));
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : (lang === "da" ? "Billedet kunne ikke tilføjes." : "Bilden kunde inte läggas till."));
+        toast.error(error instanceof Error ? error.message : ((lang === "nb" ? nbText["Billedet kunne ikke tilføjes."] : (lang === "da" ? "Billedet kunne ikke tilføjes." : "Bilden kunde inte läggas till."))));
       }
     }
     setNewPhotos(current => [...current, ...compressed].slice(0, MAX_LISTING_IMAGES));
     setIsCompressing(false);
-    if (compressed.length) toast.success(lang === "da" ? "Billedet er komprimeret og klar." : "Bilden är komprimerad och klar.");
+    if (compressed.length) toast.success((lang === "nb" ? nbText["Billedet er komprimeret og klar."] : (lang === "da" ? "Billedet er komprimeret og klar." : "Bilden är komprimerad och klar.")));
   }
 
   async function publishItem() {
     const amount = pricing === "free" ? 0 : parseDailyPrice(priceInput);
     const deposit=parseDeposit(newDepositInput);
-    if (deposit === null) {setFormError(lang === "da" ? "Depositum skal være mellem 0 og 100.000 kr. med højst to decimaler." : "Depositionen måste vara mellan 0 och 100 000 kr med högst två decimaler.");return;}
+    if (deposit === null) {setFormError((lang === "nb" ? nbText["Depositum skal være mellem 0 og 100.000 kr. med højst to decimaler."] : (lang === "da" ? "Depositum skal være mellem 0 og 100.000 kr. med højst to decimaler." : "Depositionen måste vara mellan 0 och 100 000 kr med högst två decimaler.")));return;}
     if (!profile || !newName.trim() || !newPlace || newPlace.country !== newCountry || amount === null) {
-      setFormError(lang === "da" ? "Udfyld navn, vælg by, og indtast en positiv dagspris med højst 2 decimaler, hvis du vælger betaling." : "Fyll i namn, välj ort och ange ett positivt dagspris med högst 2 decimaler om du väljer betalning.");
+      setFormError((lang === "nb" ? nbText["Udfyld navn, vælg by, og indtast en positiv dagspris med højst 2 decimaler, hvis du vælger betaling."] : (lang === "da" ? "Udfyld navn, vælg by, og indtast en positiv dagspris med højst 2 decimaler, hvis du vælger betaling." : "Fyll i namn, välj ort och ange ett positivt dagspris med högst 2 decimaler om du väljer betalning.")));
       return;
     }
     const activeCount = listings.filter(item => item.owned).length;
     if (editingId === null && !canCreateListing(activeCount, listingPlan)) {
       setShowAdd(false);
       if (listingPlan === "free") setShowUpgrade(true);
-      else toast.info(lang === "da" ? "Du kan højst have 20 aktive ting." : "Du kan ha högst 20 aktiva saker.");
+      else toast.info((lang === "nb" ? nbText["Du kan højst have 20 aktive ting."] : (lang === "da" ? "Du kan højst have 20 aktive ting." : "Du kan ha högst 20 aktiva saker.")));
       return;
     }
-    if (!configured || !user) { setFormError(lang === "da" ? "Du skal være logget ind for at gemme en annonce." : "Du måste vara inloggad för att spara en annons."); return; }
+    if (!configured || !user) { setFormError((lang === "nb" ? nbText["Du skal være logget ind for at gemme en annonce."] : (lang === "da" ? "Du skal være logget ind for at gemme en annonce." : "Du måste vara inloggad för att spara en annons."))); return; }
     const id = editingId ?? crypto.randomUUID();
     const update = {
       id, city: newPlace.city,
       country: newCountry, place: newPlace, dailyPrice: amount, deposit, category: newCategory,
-      details:newDetails,description: newDescription || (lang === "da" ? "Til udlån efter aftale." : "För utlåning enligt överenskommelse."),
+      details:newDetails,description: newDescription || ((lang === "nb" ? nbText["Til udlån efter aftale."] : (lang === "da" ? "Til udlån efter aftale." : "För utlåning enligt överenskommelse."))),
       photos: newPhotos, name:newName.trim(),
     };
     setListingSaving(true); setFormError("");
@@ -534,10 +562,10 @@ export default function HomePage() {
       setOrigin(newPlace); setCategory("all"); setPriceFilter("all"); setQuery("");
       setShowAdd(false); resetItemForm(); setTab("items");
       toast.success(editingId !== null
-        ? (lang === "da" ? "Dine ændringer er gemt." : "Dina ändringar har sparats.")
-        : (lang === "da" ? "Annoncen er oprettet og gemt i Firebase." : "Annonsen har skapats och sparats i Firebase."));
+        ? ((lang === "nb" ? nbText["Dine ændringer er gemt."] : (lang === "da" ? "Dine ændringer er gemt." : "Dina ändringar har sparats.")))
+        : ((lang === "nb" ? nbText["Annoncen er oprettet og gemt i Firebase."] : (lang === "da" ? "Annoncen er oprettet og gemt i Firebase." : "Annonsen har skapats och sparats i Firebase."))));
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : (lang === "da" ? "Annoncen kunne ikke gemmes." : "Annonsen kunde inte sparas."));
+      setFormError(error instanceof Error ? error.message : ((lang === "nb" ? nbText["Annoncen kunne ikke gemmes."] : (lang === "da" ? "Annoncen kunne ikke gemmes." : "Annonsen kunde inte sparas."))));
     } finally {
       setListingSaving(false);
     }
@@ -549,13 +577,13 @@ export default function HomePage() {
       await deleteCircleListing({id:item.id, ownerUid:user!.uid, photos:item.photos ?? []});
       if (selected?.id === item.id) setSelected(null);
       setPendingDelete(null);
-      toast.success(lang === "da" ? "Tingen og dens billeder er slettet." : "Saken och dess bilder har tagits bort.");
-    } catch (error) { toast.error(error instanceof Error ? error.message : (lang === "da" ? "Tingen kunne ikke slettes." : "Saken kunde inte tas bort.")); }
+      toast.success((lang === "nb" ? nbText["Tingen og dens billeder er slettet."] : (lang === "da" ? "Tingen og dens billeder er slettet." : "Saken och dess bilder har tagits bort.")));
+    } catch (error) { toast.error(error instanceof Error ? error.message : ((lang === "nb" ? nbText["Tingen kunne ikke slettes."] : (lang === "da" ? "Tingen kunne ikke slettes." : "Saken kunde inte tas bort.")))); }
   }
 
   function openRequest() {
     if(!user){setAuthOpen(true);return;}
-    if (!profile) { setSelected(null); setTab("profile"); toast.info(lang === "da" ? "Opret først din profil med adresse og by." : "Skapa först din profil med adress och ort."); return; }
+    if (!profile) { setSelected(null); setTab("profile"); toast.info((lang === "nb" ? nbText["Opret først din profil med adresse og by."] : (lang === "da" ? "Opret først din profil med adresse og by." : "Skapa först din profil med adress och ort."))); return; }
     const today = todayLocal();
     requestTicket.current = null;
     setBookedPeriods([]);setAvailabilityError(false);
@@ -564,7 +592,7 @@ export default function HomePage() {
 
   async function sendRequest() {
     if (!selected || !profile || !dateValid || days === null || bookingConflict) {
-      setFormError(lang === "da" ? "Vælg gyldige datoer. Slutdato må ikke ligge før startdato, og startdato må ikke være i fortiden." : "Välj giltiga datum. Slutdatum får inte vara före startdatum och startdatum får inte vara i det förflutna."); return;
+      setFormError((lang === "nb" ? nbText["Vælg gyldige datoer. Slutdato må ikke ligge før startdato, og startdato må ikke være i fortiden."] : (lang === "da" ? "Vælg gyldige datoer. Slutdato må ikke ligge før startdato, og startdato må ikke være i fortiden." : "Välj giltiga datum. Slutdatum får inte vara före startdatum och startdatum får inte vara i det förflutna."))); return;
     }
     const deposit = selected.deposit ?? 0;
     setRequestPreparing(true); setFormError("");
@@ -577,20 +605,20 @@ export default function HomePage() {
       const saved = agreementFromCloud(stored);
       setLoans(items=>[saved, ...items.filter(item=>item.id !== saved.id)]);
       setShowRequest(false); setSelected(null); setLoanDirection("borrower"); setLoanArchive(false); setTab("requests");
-      toast.success(lang === "da" ? "Forespørgslen er sendt og gemt. Ejeren kan nu godkende eller afvise den." : "Förfrågan har skickats och sparats. Ägaren kan nu godkänna eller avböja den.");
+      toast.success((lang === "nb" ? nbText["Forespørgslen er sendt og gemt. Ejeren kan nu godkende eller afvise den."] : (lang === "da" ? "Forespørgslen er sendt og gemt. Ejeren kan nu godkende eller afvise den." : "Förfrågan har skickats och sparats. Ägaren kan nu godkänna eller avböja den.")));
     } catch (error) { setFormError(agreementErrorText(error,lang)); }
     finally { setRequestPreparing(false); }
   }
 
   async function storeAgreement(loan: Loan) {
-    if (!configured || !user || !loan.borrowerUid) { toast.error(lang === "da" ? "Du skal være logget ind for at gemme aftalen." : "Du måste vara inloggad för att spara avtalet."); return; }
+    if (!configured || !user || !loan.borrowerUid) { toast.error((lang === "nb" ? nbText["Du skal være logget ind for at gemme aftalen."] : (lang === "da" ? "Du skal være logget ind for at gemme aftalen." : "Du måste vara inloggad för att spara avtalet."))); return; }
     setAgreementSaving(true);
     try {
       await saveCircleAgreement(agreementForCloud({...loan, borrowerSignature:undefined, lenderSignature:undefined}));
       if (loan.borrowerSignature) await saveCircleSignature(loan.id, "borrower", loan.borrowerSignature);
       const updated = {...loan, saved:true};
       setLoans(items => items.map(item => item.id === loan.id ? updated : item)); setAgreementLoan(updated);
-      toast.success(lang === "da" ? "Aftalen er gemt på din konto i 12 måneder." : "Avtalet har sparats på ditt konto i 12 månader.");
+      toast.success((lang === "nb" ? nbText["Aftalen er gemt på din konto i 12 måneder."] : (lang === "da" ? "Aftalen er gemt på din konto i 12 måneder." : "Avtalet har sparats på ditt konto i 12 månader.")));
     } catch (error) { toast.error(agreementErrorText(error,lang)); }
     finally { setAgreementSaving(false); }
   }
@@ -598,8 +626,8 @@ export default function HomePage() {
   async function signAgreement(loan: Loan, role: "borrower" | "lender", dataUrl: string, phase: SignaturePhase = "handover") {
     if (!photosReady(loan,phase)) return;
     const expectedUid = role === "borrower" ? loan.borrowerUid : loan.lenderUid;
-    if (!user || expectedUid !== user.uid) { toast.error(lang === "da" ? "Du kan kun underskrive som dig selv." : "Du kan bara signera som dig själv."); return; }
-    if (phase === "return" && (!loan.saved || !loan.borrowerSignature || !loan.lenderSignature)) { toast.error(lang === "da" ? "Udleveringen skal være gemt og underskrevet af begge parter først." : "Utlämningen måste vara sparad och signerad av båda parter först."); return; }
+    if (!user || expectedUid !== user.uid) { toast.error((lang === "nb" ? nbText["Du kan kun underskrive som dig selv."] : (lang === "da" ? "Du kan kun underskrive som dig selv." : "Du kan bara signera som dig själv."))); return; }
+    if (phase === "return" && (!loan.saved || !loan.borrowerSignature || !loan.lenderSignature)) { toast.error((lang === "nb" ? nbText["Udleveringen skal være gemt og underskrevet af begge parter først."] : (lang === "da" ? "Udleveringen skal være gemt og underskrevet af begge parter først." : "Utlämningen måste vara sparad och signerad av båda parter först."))); return; }
     const signature = { dataUrl, signedAt: new Date().toISOString() };
     const field = phase === "return" ? (role === "borrower" ? "borrowerReturnSignature" : "lenderReturnSignature") : (role === "borrower" ? "borrowerSignature" : "lenderSignature");
     const busyKey = `${loan.id}-${phase}-${role}`;
@@ -610,14 +638,14 @@ export default function HomePage() {
       setLoans(items => items.map(item => item.id === loan.id ? updated : item));
       setAgreementLoan(updated);
       toast.success(phase === "return"
-        ? (result.returnedAt ? (result.returnCondition === "remarks" ? (lang === "da" ? "Returkvitteringen er færdig og registreret med bemærkninger." : "Returkvittot är klart och registrerat med anmärkningar.") : (lang === "da" ? "Returkvitteringen er færdig. Tingen er registreret som tilbageleveret i god stand." : "Returkvittot är klart. Saken är registrerad som återlämnad i gott skick.")) : (lang === "da" ? "Din returunderskrift er gemt. Den anden part mangler at underskrive." : "Din retursignatur är sparad. Den andra parten behöver fortfarande signera."))
-        : loan.saved ? (lang === "da" ? "Underskriften er registreret." : "Signaturen har registrerats.") : (lang === "da" ? "Underskriften er tilføjet. Vælg ‘Gem på min konto’ for at bevare aftalen." : "Signaturen har lagts till. Välj ‘Spara på mitt konto’ för att behålla avtalet."));
+        ? (result.returnedAt ? (result.returnCondition === "remarks" ? ((lang === "nb" ? nbText["Returkvitteringen er færdig og registreret med bemærkninger."] : (lang === "da" ? "Returkvitteringen er færdig og registreret med bemærkninger." : "Returkvittot är klart och registrerat med anmärkningar."))) : ((lang === "nb" ? nbText["Returkvitteringen er færdig. Tingen er registreret som tilbageleveret i god stand."] : (lang === "da" ? "Returkvitteringen er færdig. Tingen er registreret som tilbageleveret i god stand." : "Returkvittot är klart. Saken är registrerad som återlämnad i gott skick.")))) : ((lang === "nb" ? nbText["Din returunderskrift er gemt. Den anden part mangler at underskrive."] : (lang === "da" ? "Din returunderskrift er gemt. Den anden part mangler at underskrive." : "Din retursignatur är sparad. Den andra parten behöver fortfarande signera."))))
+        : loan.saved ? ((lang === "nb" ? nbText["Underskriften er registreret."] : (lang === "da" ? "Underskriften er registreret." : "Signaturen har registrerats."))) : ((lang === "nb" ? nbText["Underskriften er tilføjet. Vælg ‘Gem på min konto’ for at bevare aftalen."] : (lang === "da" ? "Underskriften er tilføjet. Vælg ‘Gem på min konto’ for at bevare aftalen." : "Signaturen har lagts till. Välj ‘Spara på mitt konto’ för att behålla avtalet."))));
     } catch (error) { toast.error(agreementErrorText(error,lang)); }
     finally { setSignatureBusy(null); }
   }
 
   async function storeAgreementNote(loan: Loan, phase: SignaturePhase) {
-    if (!loan.saved) { toast.error(lang === "da" ? "Gem først aftalen på din konto." : "Spara först avtalet på ditt konto."); return; }
+    if (!loan.saved) { toast.error((lang === "nb" ? nbText["Gem først aftalen på din konto."] : (lang === "da" ? "Gem først aftalen på din konto." : "Spara först avtalet på ditt konto."))); return; }
     const note = phase === "handover" ? handoverNoteDraft : returnNoteDraft;
     setNoteBusy(phase);
     try {
@@ -627,7 +655,7 @@ export default function HomePage() {
       setLoans(items=>items.map(item=>item.id === loan.id ? updated : item));
       setAgreementLoan(updated);
       if (phase === "handover") setHandoverEdit(null); else setReturnEdit(null);
-      toast.success(lang === "da" ? "Noten er gemt og klar til begge parters godkendelse." : "Anteckningen är sparad och klar för båda parternas godkännande.");
+      toast.success((lang === "nb" ? nbText["Noten er gemt og klar til begge parters godkendelse."] : (lang === "da" ? "Noten er gemt og klar til begge parters godkendelse." : "Anteckningen är sparad och klar för båda parternas godkännande.")));
     } catch (error) { toast.error(agreementErrorText(error,lang)); }
     finally { setNoteBusy(null); }
   }
@@ -665,7 +693,7 @@ export default function HomePage() {
     try {
       await updateCircleAgreement(loan.id,action);
       setPendingDecision(null);
-      toast.success(lang === "da" ? "Aftalens status er opdateret." : "Avtalets status har uppdaterats.");
+      toast.success((lang === "nb" ? nbText["Aftalens status er opdateret."] : (lang === "da" ? "Aftalens status er opdateret." : "Avtalets status har uppdaterats.")));
     } catch (cause) { toast.error(agreementErrorText(cause,lang)); }
     finally { setDecisionBusy(null); }
   }
@@ -678,13 +706,13 @@ export default function HomePage() {
     else if (agreementStage(loan) !== "requested") openAgreement(loan);
     if (!notice.read) {
       try { await updateCircleAgreement(loan.id,"read",{noticeIds:[notice.id]}); }
-      catch { toast.error(lang === "da" ? "Kunne ikke markere notifikationen som læst." : "Kunde inte markera aviseringen som läst."); }
+      catch { toast.error((lang === "nb" ? nbText["Kunne ikke markere notifikationen som læst."] : (lang === "da" ? "Kunne ikke markere notifikationen som læst." : "Kunde inte markera aviseringen som läst."))); }
     }
   }
 
   if (!configured) return <main className="auth-page"><FirebaseSetupNotice lang={lang} /></main>;
-  if (authLoading || (configured && user?.emailVerified && profileLoading)) return <main className="auth-page"><img className="auth-brand-logo" src="/branding/veyro-systems-logo.png" alt="Veyro Systems" /><p>{lang === "da" ? "Indlæser Veyro Circle…" : "Laddar Veyro Circle…"}</p></main>;
-  if (configured && !user && authOpen) return <CircleAuthScreen lang={lang} setLang={setLang} onBrowse={()=>setAuthOpen(false)} />;
+  if (authLoading || (configured && user?.emailVerified && profileLoading)) return <main className="auth-page"><img className="auth-brand-logo" src="/branding/veyro-systems-logo.png" alt="Veyro Systems" /><p>{(lang === "nb" ? nbText["Indlæser Veyro Circle…"] : (lang === "da" ? "Indlæser Veyro Circle…" : "Laddar Veyro Circle…"))}</p></main>;
+  if (configured && !user && authOpen) return <CircleAuthScreen lang={lang} setLang={value=>void changeLanguage(value)} onBrowse={()=>setAuthOpen(false)} />;
   if (configured && user && !user.emailVerified) return <EmailVerificationScreen user={user} lang={lang} />;
 
   return (
@@ -692,16 +720,14 @@ export default function HomePage() {
       <Toaster position="top-center" richColors />
       <header className="app-header sticky top-0 z-40 border-b border-[#174354] bg-[#031725] text-white">
         <div className="app-header-inner mx-auto flex h-20 max-w-[1440px] items-center gap-4 px-4 sm:px-6 lg:px-10">
-          <button className="brand-lockup" onClick={openHome} aria-label={lang === "da" ? "Veyro Circle hjem" : "Veyro Circle hem"}>
+          <button className="brand-lockup" onClick={openHome} aria-label={(lang === "nb" ? nbText["Veyro Circle hjem"] : (lang === "da" ? "Veyro Circle hjem" : "Veyro Circle hem"))}>
             <img src="/branding/veyro-systems-logo.png" alt="Veyro Systems" /><span>Circle</span>
           </button>
           <div className="ml-auto flex items-center gap-2">
-            <button className="icon-button notification-bell" onClick={()=>user?setNotificationsOpen(true):setAuthOpen(true)} aria-label={`${lang === "da" ? "Notifikationer" : "Aviseringar"} · ${unreadCount} ${lang === "da" ? "ulæste" : "olästa"}`}><Bell size={20} />{unreadCount > 0 && <b>{unreadCount > 99 ? "99+" : unreadCount}</b>}</button>
-            <button className="language-button" disabled={languageSaving} aria-label={lang === "da" ? "Skift til svensk" : "Byt till danska"} onClick={() => void changeLanguage(lang === "da" ? "sv" : "da")}>
-              <Languages size={18} /><span>{lang === "da" ? "DA" : "SV"}</span><ChevronDown size={15} />
-            </button>
+            <button className="icon-button notification-bell" onClick={()=>user?setNotificationsOpen(true):setAuthOpen(true)} aria-label={`${(lang === "nb" ? nbText["Notifikationer"] : (lang === "da" ? "Notifikationer" : "Aviseringar"))} · ${unreadCount} ${(lang === "nb" ? nbText["ulæste"] : (lang === "da" ? "ulæste" : "olästa"))}`}><Bell size={20} />{unreadCount > 0 && <b>{unreadCount > 99 ? "99+" : unreadCount}</b>}</button>
+            <LanguageSwitcher compact lang={lang} disabled={languageSaving} onChange={value=>void changeLanguage(value)}/>
             <button className="flex min-h-11 items-center gap-2 rounded-full bg-[#172936] px-3 text-sm font-semibold text-white" onClick={() => navigate("profile")}>
-              <CircleUserRound size={18} />{profile ? profile.name.split(" ")[0] : (lang === "da" ? "Log ind / opret" : "Logga in / skapa")}
+              <CircleUserRound size={18} />{profile ? profile.name.split(" ")[0] : ((lang === "nb" ? nbText["Log ind / opret"] : (lang === "da" ? "Log ind / opret" : "Logga in / skapa")))}
             </button>
           </div>
         </div>
@@ -712,12 +738,12 @@ export default function HomePage() {
           <div className="sticky top-24 space-y-6">
             <nav className="space-y-1" aria-label="Hovedmenu">
               <SideNav icon={Home} label={t.navHome} active={tab === "home" && !onlyFavorites} onClick={openHome} />
-              <SideNav icon={MapIcon} label={lang === "da" ? "Kort" : "Karta"} active={tab === "map"} onClick={() => navigate("map")} />
-              <SideNav icon={Search} label={lang === "da" ? "Gemte søgninger" : "Sparade sökningar"} active={tab === "saved"} onClick={() => navigate("saved")} />
-              <SideNav icon={Search} label={lang === "da" ? "Efterlysning" : "Efterlysning"} active={tab === "wanted"} onClick={() => navigate("wanted")} />
+              <SideNav icon={MapIcon} label={(lang === "nb" ? nbText["Kort"] : (lang === "da" ? "Kort" : "Karta"))} active={tab === "map"} onClick={() => navigate("map")} />
+              <SideNav icon={Search} label={(lang === "nb" ? nbText["Gemte søgninger"] : (lang === "da" ? "Gemte søgninger" : "Sparade sökningar"))} active={tab === "saved"} onClick={() => navigate("saved")} />
+              <SideNav icon={Search} label={(lang === "nb" ? nbText["Efterlysning"] : (lang === "da" ? "Efterlysning" : "Efterlysning"))} active={tab === "wanted"} onClick={() => navigate("wanted")} />
               <SideNav icon={ImagePlus} label={t.navItems} active={tab === "items"} onClick={() => navigate("items")} />
               <SideNav icon={CalendarDays} label={t.navRequests} active={tab === "requests"} badge={awaitingCount ? String(awaitingCount) : undefined} onClick={() => navigate("requests")} />
-              <SideNav icon={Heart} label={lang === "da" ? "Mine favoritter" : "Mina favoriter"} active={tab === "home" && onlyFavorites} onClick={openFavorites} />
+              <SideNav icon={Heart} label={(lang === "nb" ? nbText["Mine favoritter"] : (lang === "da" ? "Mine favoritter" : "Mina favoriter"))} active={tab === "home" && onlyFavorites} onClick={openFavorites} />
               <SideNav icon={CircleUserRound} label={t.navProfile} active={tab === "profile"} onClick={() => navigate("profile")} />
             </nav>
 
@@ -732,7 +758,7 @@ export default function HomePage() {
         <section className="min-w-0">
           {tab === "home" && <>
             {!onlyFavorites && <>
-            {!user && <p className="guest-intro">{lang === "da" ? "Se ting i nærheden uden en konto. Log ind, når du vil låne, leje eller dele." : "Se saker i närheten utan konto. Logga in när du vill låna, hyra eller dela."}</p>}
+            {!user && <p className="guest-intro">{(lang === "nb" ? nbText["Se ting i nærheden uden en konto. Log ind, når du vil låne, leje eller dele."] : (lang === "da" ? "Se ting i nærheden uden en konto. Log ind, når du vil låne, leje eller dele." : "Se saker i närheten utan konto. Logga in när du vill låna, hyra eller dela."))}</p>}
             <section className="hero-card">
               <img src="/assets/neighbours-sharing.webp" alt="Naboer deler værktøj og trailer" />
               <div className="hero-overlay" />
@@ -747,15 +773,15 @@ export default function HomePage() {
               </div>
             </section>
 
-            <section className="search-filters compact-search" aria-label={lang === "da" ? "Søgeområde og pris" : "Sökområde och pris"}>
+            <section className="search-filters compact-search" aria-label={(lang === "nb" ? nbText["Søgeområde og pris"] : (lang === "da" ? "Søgeområde og pris" : "Sökområde och pris"))}>
               <div className="specific-search">
-                <label htmlFor="specific-listing-search">{lang === "da" ? "Hvad søger du efter?" : "Vad söker du efter?"}</label>
+                <label htmlFor="specific-listing-search">{(lang === "nb" ? nbText["Hvad søger du efter?"] : (lang === "da" ? "Hvad søger du efter?" : "Vad söker du efter?"))}</label>
                 <div>
                   <Search size={20} aria-hidden="true" />
-                  <input id="specific-listing-search" type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={lang === "da" ? "Søg fx efter boremaskine, trailer eller tæpperenser" : "Sök t.ex. efter borrmaskin, släp eller mattvätt"} />
-                  {query && <button type="button" onClick={() => setQuery("")} aria-label={lang === "da" ? "Ryd søgning" : "Rensa sökning"}><X size={18} /></button>}
+                  <input id="specific-listing-search" type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={(lang === "nb" ? nbText["Søg fx efter boremaskine, trailer eller tæpperenser"] : (lang === "da" ? "Søg fx efter boremaskine, trailer eller tæpperenser" : "Sök t.ex. efter borrmaskin, släp eller mattvätt"))} />
+                  {query && <button type="button" onClick={() => setQuery("")} aria-label={(lang === "nb" ? nbText["Ryd søgning"] : (lang === "da" ? "Ryd søgning" : "Rensa sökning"))}><X size={18} /></button>}
                 </div>
-                <small>{lang === "da" ? "Søger i annoncens navn, beskrivelse og by." : "Söker i annonsens namn, beskrivning och ort."}</small>
+                <small>{(lang === "nb" ? nbText["Søger i annoncens navn, beskrivelse og by."] : (lang === "da" ? "Søger i annoncens navn, beskrivelse og by." : "Söker i annonsens namn, beskrivning och ort."))}</small>
               </div>
             <div className="category-strip scrollbar-none" role="list" aria-label="Kategorier">
               {categories.map((cat) => {
@@ -766,49 +792,49 @@ export default function HomePage() {
               })}
             </div>
               <div className="filter-grid">
-                <PlacePicker value={origin} onChange={setOrigin} lang={lang} label={lang === "da" ? "Søg fra postnummer eller by" : "Sök från postnummer eller ort"} />
+                <PlacePicker value={origin} onChange={setOrigin} lang={lang} label={(lang === "nb" ? nbText["Søg fra postnummer eller by"] : (lang === "da" ? "Søg fra postnummer eller by" : "Sök från postnummer eller ort"))} />
                 <div className="place-field"><label id="radius-label">Radius</label>
                   <Select value={radius} onValueChange={setRadius}>
                     <SelectTrigger aria-labelledby="radius-label" className="!h-12 w-full rounded-xl bg-white"><SelectValue /></SelectTrigger>
-                    <SelectContent>{SEARCH_RADII.map(k=><SelectItem key={k} value={String(k)}>{k} km</SelectItem>)}<SelectItem value="all">{lang === "da" ? "Ingen afstandsgrænse" : "Ingen avståndsgräns"}</SelectItem></SelectContent>
+                    <SelectContent>{SEARCH_RADII.map(k=><SelectItem key={k} value={String(k)}>{k} km</SelectItem>)}<SelectItem value="all">{(lang === "nb" ? nbText["Ingen afstandsgrænse"] : (lang === "da" ? "Ingen afstandsgrænse" : "Ingen avståndsgräns"))}</SelectItem></SelectContent>
                   </Select>
                 </div>
-                <div className="place-field"><label id="price-filter-label">{lang === "da" ? "Pris" : "Pris"}</label>
+                <div className="place-field"><label id="price-filter-label">{(lang === "nb" ? nbText["Pris"] : (lang === "da" ? "Pris" : "Pris"))}</label>
                   <Select value={priceFilter} onValueChange={setPriceFilter}>
                     <SelectTrigger aria-labelledby="price-filter-label" className="!h-12 w-full rounded-xl bg-white"><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="all">{lang === "da" ? "Gratis og betalt" : "Gratis och betalt"}</SelectItem><SelectItem value="free">{lang === "da" ? "Kun gratis" : "Bara gratis"}</SelectItem><SelectItem value="paid">{lang === "da" ? "Kun betalt" : "Bara betalt"}</SelectItem></SelectContent>
+                    <SelectContent><SelectItem value="all">{(lang === "nb" ? nbText["Gratis og betalt"] : (lang === "da" ? "Gratis og betalt" : "Gratis och betalt"))}</SelectItem><SelectItem value="free">{(lang === "nb" ? nbText["Kun gratis"] : (lang === "da" ? "Kun gratis" : "Bara gratis"))}</SelectItem><SelectItem value="paid">{(lang === "nb" ? nbText["Kun betalt"] : (lang === "da" ? "Kun betalt" : "Bara betalt"))}</SelectItem></SelectContent>
                   </Select>
                 </div>
               </div>
-              <details className="search-dates"><summary>{lang === "da" ? "Vælg datoer (valgfrit)" : "Välj datum (valfritt)"}{datesEntered ? ` · ${searchFrom} – ${searchTo}` : ""}</summary>
+              <details className="search-dates"><summary>{(lang === "nb" ? nbText["Vælg datoer (valgfrit)"] : (lang === "da" ? "Vælg datoer (valgfrit)" : "Välj datum (valfritt)"))}{datesEntered ? ` · ${searchFrom} – ${searchTo}` : ""}</summary>
               <div className="date-search-row">
-                <label>{lang === "da" ? "Fra dato" : "Från datum"}<input type="date" min={today} value={searchFrom} onChange={e=>setSearchFrom(e.target.value)} /></label>
-                <label>{lang === "da" ? "Til dato" : "Till datum"}<input type="date" min={searchFrom||today} value={searchTo} onChange={e=>setSearchTo(e.target.value)} /></label>
-                {datesEntered && <button onClick={()=>{setSearchFrom("");setSearchTo("");}}>{lang === "da" ? "Ryd datoer" : "Rensa datum"}</button>}
+                <label>{(lang === "nb" ? nbText["Fra dato"] : (lang === "da" ? "Fra dato" : "Från datum"))}<input type="date" min={today} value={searchFrom} onChange={e=>setSearchFrom(e.target.value)} /></label>
+                <label>{(lang === "nb" ? nbText["Til dato"] : (lang === "da" ? "Til dato" : "Till datum"))}<input type="date" min={searchFrom||today} value={searchTo} onChange={e=>setSearchTo(e.target.value)} /></label>
+                {datesEntered && <button onClick={()=>{setSearchFrom("");setSearchTo("");}}>{(lang === "nb" ? nbText["Ryd datoer"] : (lang === "da" ? "Ryd datoer" : "Rensa datum"))}</button>}
               </div>
-              <p className="search-date-help">{lang === "da" ? "Vælg datoer for at se ting uden kendte reservationer eller blokeringer. Ejeren skal godkende. Begge datoer tæller med i prisen." : "Välj datum för att se saker utan kända bokningar eller blockeringar. Ägaren måste godkänna. Båda datumen räknas i priset."}</p>
-              {datesEntered && !searchDatesValid && <p role="status">{lang === "da" ? "Vælg begge datoer fra i dag, højst 366 dage og inden for de næste to år." : "Välj båda datumen från i dag, högst 366 dagar och inom de kommande två åren."}</p>}
-              {datePending && <p role="status">{lang === "da" ? "Kontrollerer ledige datoer…" : "Kontrollerar lediga datum…"}</p>}
-              {dateFailed && <p role="alert">{lang === "da" ? "Ledighed kunne ikke kontrolleres. Prøv igen eller ryd datoerne." : "Tillgängligheten kunde inte kontrolleras. Försök igen eller rensa datumen."} <button onClick={()=>setCalendarRevision(v=>v+1)}>{lang === "da" ? "Prøv igen" : "Försök igen"}</button></p>}
+              <p className="search-date-help">{(lang === "nb" ? nbText["Vælg datoer for at se ting uden kendte reservationer eller blokeringer. Ejeren skal godkende. Begge datoer tæller med i prisen."] : (lang === "da" ? "Vælg datoer for at se ting uden kendte reservationer eller blokeringer. Ejeren skal godkende. Begge datoer tæller med i prisen." : "Välj datum för att se saker utan kända bokningar eller blockeringar. Ägaren måste godkänna. Båda datumen räknas i priset."))}</p>
+              {datesEntered && !searchDatesValid && <p role="status">{(lang === "nb" ? nbText["Vælg begge datoer fra i dag, højst 366 dage og inden for de næste to år."] : (lang === "da" ? "Vælg begge datoer fra i dag, højst 366 dage og inden for de næste to år." : "Välj båda datumen från i dag, högst 366 dagar och inom de kommande två åren."))}</p>}
+              {datePending && <p role="status">{(lang === "nb" ? nbText["Kontrollerer ledige datoer…"] : (lang === "da" ? "Kontrollerer ledige datoer…" : "Kontrollerar lediga datum…"))}</p>}
+              {dateFailed && <p role="alert">{(lang === "nb" ? nbText["Ledighed kunne ikke kontrolleres. Prøv igen eller ryd datoerne."] : (lang === "da" ? "Ledighed kunne ikke kontrolleres. Prøv igen eller ryd datoerne." : "Tillgängligheten kunde inte kontrolleras. Försök igen eller rensa datumen."))} <button onClick={()=>setCalendarRevision(v=>v+1)}>{(lang === "nb" ? nbText["Prøv igen"] : (lang === "da" ? "Prøv igen" : "Försök igen"))}</button></p>}
               </details>
               <div className="filter-explanation">
-                <span>{origin ? (lang === "da" ? `Udgangspunkt: ${origin.postcode} ${origin.city}. Afstand i luftlinje mellem postområder.` : `Utgångspunkt: ${origin.postcode} ${origin.city}. Fågelväg mellan postområden.`) : (lang === "da" ? "Vælg et postnummer/by fra listen for at bruge radius." : "Välj ett postnummer/ort från listan för att använda radie.")}</span>
-                {profile && <button onClick={()=>setOrigin(profile.place)}>{lang === "da" ? "Brug min by" : "Använd min ort"}</button>}
+                <span>{origin ? ((lang === "nb" ? `Utgangspunkt: ${origin.postcode} ${origin.city}. Avstand i luftlinje mellom postområder.` : (lang === "da" ? `Udgangspunkt: ${origin.postcode} ${origin.city}. Afstand i luftlinje mellem postområder.` : `Utgångspunkt: ${origin.postcode} ${origin.city}. Fågelväg mellan postområden.`))) : ((lang === "nb" ? nbText["Vælg et postnummer/by fra listen for at bruge radius."] : (lang === "da" ? "Vælg et postnummer/by fra listen for at bruge radius." : "Välj ett postnummer/ort från listan för att använda radie.")))}</span>
+                {profile && <button onClick={()=>setOrigin(profile.place)}>{(lang === "nb" ? nbText["Brug min by"] : (lang === "da" ? "Brug min by" : "Använd min ort"))}</button>}
               </div>
               <SavedSearches mode="save" lang={lang} prefs={prefs} filter={savedFilter} onChange={setPrefs} onApply={applySearch} items={listings} onLogin={user ? undefined : ()=>setAuthOpen(true)} />
             </section>
             </>}
             <div className="mb-4 mt-7 flex items-end justify-between">
-              <div><p className="text-sm font-bold uppercase tracking-[0.14em] text-[#777b90]">{`${filtered.length} ${t.results}`}{radius !== "all" ? ` · ${radius} km` : ""}</p><h2 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{onlyFavorites ? (lang === "da" ? "Mine favoritter" : "Mina favoriter") : t.popular}</h2></div>
+              <div><p className="text-sm font-bold uppercase tracking-[0.14em] text-[#777b90]">{`${filtered.length} ${t.results}`}{radius !== "all" ? ` · ${radius} km` : ""}</p><h2 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{onlyFavorites ? ((lang === "nb" ? nbText["Mine favoritter"] : (lang === "da" ? "Mine favoritter" : "Mina favoriter"))) : t.popular}</h2></div>
             </div>
-            <div className="listing-view-toggle" role="group" aria-label={lang === "da" ? "Visning af annoncer" : "Annonsvisning"}><button aria-pressed={listingView === "list"} onClick={()=>setListingView("list")}><List size={18}/>{lang === "da" ? "Listevisning" : "Listvy"}</button><button aria-pressed={listingView === "kanban"} onClick={()=>setListingView("kanban")}><LayoutGrid size={18}/>Kanban</button></div>
-            {listingsLoading ? <p role="status">{lang === "da" ? "Henter annoncer…" : "Hämtar annonser…"}</p> : listingsError ? <p role="alert">{lang === "da" ? "Annoncerne kunne ikke hentes. Genindlæs siden." : "Annonserna kunde inte hämtas. Ladda om sidan."}</p> : datePending || dateFailed || (datesEntered && !searchDatesValid) ? null : filtered.length ? <div className={`listing-grid ${listingView === "list" ? "listing-list" : ""}`}>{filtered.map((item) => <ListingCard key={item.id} item={item} lang={lang} freeLabel={priceLabel(item, lang)} periodDays={searchDays} favorite={prefs.favorites.includes(item.id)} busy={favoriteBusy===item.id} onFavorite={()=>void favorite(item)} onOpen={() => setSelected(item)} />)}</div> :
-              <div className="rounded-xl border border-dashed border-[#cbd0dd] bg-white px-6 py-16 text-center"><Search className="mx-auto mb-4 text-[#85899b]" size={34} /><p className="font-bold">{onlyFavorites ? (lang === "da" ? "Du har ingen favoritter endnu. Tryk på hjertet på en annonce for at gemme den." : "Du har inga favoriter ännu. Tryck på hjärtat på en annons för att spara den.") : t.noResults}</p></div>}
+            <div className="listing-view-toggle" role="group" aria-label={(lang === "nb" ? nbText["Visning af annoncer"] : (lang === "da" ? "Visning af annoncer" : "Annonsvisning"))}><button aria-pressed={listingView === "list"} onClick={()=>setListingView("list")}><List size={18}/>{(lang === "nb" ? nbText["Listevisning"] : (lang === "da" ? "Listevisning" : "Listvy"))}</button><button aria-pressed={listingView === "kanban"} onClick={()=>setListingView("kanban")}><LayoutGrid size={18}/>Kanban</button></div>
+            {listingsLoading ? <p role="status">{(lang === "nb" ? nbText["Henter annoncer…"] : (lang === "da" ? "Henter annoncer…" : "Hämtar annonser…"))}</p> : listingsError ? <p role="alert">{(lang === "nb" ? nbText["Annoncerne kunne ikke hentes. Genindlæs siden."] : (lang === "da" ? "Annoncerne kunne ikke hentes. Genindlæs siden." : "Annonserna kunde inte hämtas. Ladda om sidan."))}</p> : datePending || dateFailed || (datesEntered && !searchDatesValid) ? null : filtered.length ? <div className={`listing-grid ${listingView === "list" ? "listing-list" : ""}`}>{filtered.map((item) => <ListingCard key={item.id} item={item} lang={lang} freeLabel={priceLabel(item, lang)} periodDays={searchDays} favorite={prefs.favorites.includes(item.id)} busy={favoriteBusy===item.id} onFavorite={()=>void favorite(item)} onOpen={() => setSelected(item)} />)}</div> :
+              <div className="rounded-xl border border-dashed border-[#cbd0dd] bg-white px-6 py-16 text-center"><Search className="mx-auto mb-4 text-[#85899b]" size={34} /><p className="font-bold">{onlyFavorites ? ((lang === "nb" ? nbText["Du har ingen favoritter endnu. Tryk på hjertet på en annonce for at gemme den."] : (lang === "da" ? "Du har ingen favoritter endnu. Tryk på hjertet på en annonce for at gemme den." : "Du har inga favoriter ännu. Tryck på hjärtat på en annons för att spara den."))) : t.noResults}</p></div>}
           </>}
 
           {tab === "saved" && <div className="content-panel">{user && <SavedSearches lang={lang} prefs={prefs} filter={savedFilter} onChange={setPrefs} onApply={applySearch} items={listings} />}</div>}
-          {tab === "wanted" && <div className="content-panel"><h1 className="sr-only">Efterlysning</h1><WantedBoard lang={lang} uid={user?.uid} origin={origin} radius={radius} items={listings} onLogin={()=>setAuthOpen(true)} onOpen={id=>{const item=listings.find(i=>i.id===id);if(item)setSelected(item);else toast.info(lang==="da"?"Annoncen er ikke længere tilgængelig.":"Annonsen är inte längre tillgänglig.");}} /></div>}
-          {tab === "map" && <div className="map-page"><h1 className="sr-only">{lang === "da" ? "Kort" : "Karta"}</h1>{profile ? <CommunityMap origin={profile.place} radiusKm={defaultSearchRadius(profile.defaultRadiusKm)} lang={lang} /> : <div className="content-panel"><p>{lang === "da" ? "Udfyld din profil for at se kortet med udgangspunkt i dit postnummer." : "Fyll i din profil för att se kartan med utgångspunkt i ditt postnummer."}</p><Button className="mt-4" onClick={()=>setTab("profile")}>{lang === "da" ? "Gå til konto" : "Gå till konto"}</Button></div>}</div>}
+          {tab === "wanted" && <div className="content-panel"><h1 className="sr-only">Efterlysning</h1><WantedBoard lang={lang} uid={user?.uid} origin={origin} radius={radius} items={listings} onLogin={()=>setAuthOpen(true)} onOpen={id=>{const item=listings.find(i=>i.id===id);if(item)setSelected(item);else toast.info((lang === "nb" ? nbText["Annoncen er ikke længere tilgængelig."] : (lang==="da"?"Annoncen er ikke længere tilgængelig.":"Annonsen är inte längre tillgänglig.")));}} /></div>}
+          {tab === "map" && <div className="map-page"><h1 className="sr-only">{(lang === "nb" ? nbText["Kort"] : (lang === "da" ? "Kort" : "Karta"))}</h1>{profile ? <CommunityMap origin={profile.place} radiusKm={defaultSearchRadius(profile.defaultRadiusKm)} lang={lang} /> : <div className="content-panel"><p>{(lang === "nb" ? nbText["Udfyld din profil for at se kortet med udgangspunkt i dit postnummer."] : (lang === "da" ? "Udfyld din profil for at se kortet med udgangspunkt i dit postnummer." : "Fyll i din profil för att se kartan med utgångspunkt i ditt postnummer."))}</p><Button className="mt-4" onClick={()=>setTab("profile")}>{(lang === "nb" ? nbText["Gå til konto"] : (lang === "da" ? "Gå til konto" : "Gå till konto"))}</Button></div>}</div>}
           {tab === "items" && <ItemsView lang={lang} profile={profile} listings={listings.filter(item => item.owned)} plan={listingPlan} onAdd={openAdd} onEdit={openEdit} onDelete={setPendingDelete} onCalendar={setCalendarItem} />}
           {tab === "requests" && <RequestsView t={t} loans={loans} lang={lang} userUid={user?.uid ?? ""} loading={agreementsLoading} loadError={agreementsError} direction={loanDirection} setDirection={setLoanDirection} archive={loanArchive} setArchive={setLoanArchive} onChat={setChatLoan} onAgreement={openAgreement} onDecision={(loan,action)=>setPendingDecision({loan,action})} />}
           {tab === "profile" && <ProfileView lang={lang} profile={profile} authenticatedEmail={user?.email || undefined} onSave={saveProfile}
@@ -820,25 +846,25 @@ export default function HomePage() {
           <div className="sticky top-24 space-y-4">
             <CirclePricingInfo lang={lang} trialEligible={currentOffer.trialEligible} hasSubscription={currentOffer.hasSubscription} onOffer={()=>user?setShowUpgrade(true):setAuthOpen(true)}/>
             <div className="rounded-xl border border-[#dde1ec] bg-white p-5">
-              <div className="mb-4 flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-xl bg-[#edf2f6] text-[#008EAC]"><MessageCircle size={20} /></span><div><p className="font-bold">Veyro Circle</p><p className="text-xs text-[#74788b]">Danmark · Sverige</p></div></div>
-              <p className="text-sm leading-6 text-[#5f6376]">{lang === "da" ? "Del kun ting, du føler dig tryg ved. Aftal altid stand og aflevering i chatten." : "Dela bara saker du känner dig trygg med. Kom alltid överens om skick och återlämning i chatten."}</p>
+              <div className="mb-4 flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-xl bg-[#edf2f6] text-[#008EAC]"><MessageCircle size={20} /></span><div><p className="font-bold">Veyro Circle</p><p className="text-xs text-[#74788b]">Danmark · Sverige · Norge</p></div></div>
+              <p className="text-sm leading-6 text-[#5f6376]">{(lang === "nb" ? nbText["Del kun ting, du føler dig tryg ved. Aftal altid stand og aflevering i chatten."] : (lang === "da" ? "Del kun ting, du føler dig tryg ved. Aftal altid stand og aflevering i chatten." : "Dela bara saker du känner dig trygg med. Kom alltid överens om skick och återlämning i chatten."))}</p>
             </div>
           </div>
         </aside>
       </div>
 
       <footer className="site-footer">
-        <div className="footer-brand"><img src="/branding/veyro-systems-logo.png" alt="Veyro Systems" /><div><b>Veyro Circle</b><span>{lang === "da" ? `Et produkt fra ${COMPANY_IDENTITY}` : `En produkt från ${COMPANY_IDENTITY}`}</span></div></div>
+        <div className="footer-brand"><img src="/branding/veyro-systems-logo.png" alt="Veyro Systems" /><div><b>Veyro Circle</b><span>{(lang === "nb" ? `Et produkt fra ${COMPANY_IDENTITY}` : (lang === "da" ? `Et produkt fra ${COMPANY_IDENTITY}` : `En produkt från ${COMPANY_IDENTITY}`))}</span></div></div>
         <nav aria-label="Juridisk information">
-          <a href="/legal#privacy">{lang === "da" ? "Privatliv og GDPR" : "Integritet och GDPR"}</a><a href="/legal#terms">{lang === "da" ? "Handelsbetingelser" : "Köpvillkor"}</a><a href="/legal#cookies">Cookies</a><a href="/legal#complaints">{lang === "da" ? "Klager" : "Klagomål"}</a><a href="/legal#safety">{lang === "da" ? "Sikkerhed og ansvar" : "Säkerhet och ansvar"}</a>
+          <a href={lang === "nb" ? "/legal/nb#privacy" : "/legal#privacy"}>{(lang === "nb" ? nbText["Privatliv og GDPR"] : (lang === "da" ? "Privatliv og GDPR" : "Integritet och GDPR"))}</a><a href={lang === "nb" ? "/legal/nb#terms" : "/legal#terms"}>{(lang === "nb" ? nbText["Handelsbetingelser"] : (lang === "da" ? "Handelsbetingelser" : "Köpvillkor"))}</a><a href={lang === "nb" ? "/legal/nb#cookies" : "/legal#cookies"}>Cookies</a><a href={lang === "nb" ? "/legal/nb#complaints" : "/legal#complaints"}>{(lang === "nb" ? nbText["Klager"] : (lang === "da" ? "Klager" : "Klagomål"))}</a><a href={lang === "nb" ? "/legal/nb#safety" : "/legal#safety"}>{(lang === "nb" ? nbText["Sikkerhed og ansvar"] : (lang === "da" ? "Sikkerhed og ansvar" : "Säkerhet och ansvar"))}</a>
         </nav>
-        <div className="footer-meta"><span>© {new Date().getFullYear()} {COMPANY_IDENTITY}</span><small>{lang === "da" ? "Postområder og omtrentlige koordinater:" : "Postområden och ungefärliga koordinater:"} <a href="https://www.geonames.org/" target="_blank" rel="noreferrer">GeoNames</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a></small></div>
+        <div className="footer-meta"><span>© {new Date().getFullYear()} {COMPANY_IDENTITY}</span><small>{(lang === "nb" ? nbText["Postområder og omtrentlige koordinater:"] : (lang === "da" ? "Postområder og omtrentlige koordinater:" : "Postområden och ungefärliga koordinater:"))} <a href="https://www.geonames.org/" target="_blank" rel="noreferrer">GeoNames</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a></small></div>
       </footer>
       <nav className="mobile-nav" aria-label="Mobilmenu">
         <MobileNav icon={Home} label={t.navHome} active={tab === "home" && !onlyFavorites} onClick={openHome} />
-        <MobileNav icon={MapIcon} label={lang === "da" ? "Kort" : "Karta"} active={tab === "map"} onClick={() => navigate("map")} />
-        <MobileNav icon={Search} label={lang === "da" ? "Gemte søgninger" : "Sparade sökningar"} active={tab === "saved"} onClick={() => navigate("saved")} />
-        <MobileNav icon={Search} label={lang === "da" ? "Efterlysning" : "Efterlysning"} active={tab === "wanted"} onClick={() => navigate("wanted")} />
+        <MobileNav icon={MapIcon} label={(lang === "nb" ? nbText["Kort"] : (lang === "da" ? "Kort" : "Karta"))} active={tab === "map"} onClick={() => navigate("map")} />
+        <MobileNav icon={Search} label={(lang === "nb" ? nbText["Gemte søgninger"] : (lang === "da" ? "Gemte søgninger" : "Sparade sökningar"))} active={tab === "saved"} onClick={() => navigate("saved")} />
+        <MobileNav icon={Search} label={(lang === "nb" ? nbText["Efterlysning"] : (lang === "da" ? "Efterlysning" : "Efterlysning"))} active={tab === "wanted"} onClick={() => navigate("wanted")} />
         <MobileNav icon={ImagePlus} label={t.navItems} active={tab === "items"} onClick={() => navigate("items")} />
         <MobileNav icon={PackagePlus} label={t.addItem} onClick={openAdd} />
         <MobileNav icon={CalendarDays} label={t.navRequests} active={tab === "requests"} badge={requestSent} onClick={() => navigate("requests")} />
@@ -852,93 +878,93 @@ export default function HomePage() {
             <span className="absolute left-5 top-5 rounded-md bg-white px-3 py-1.5 text-sm font-bold shadow-sm">{priceLabel(selected, lang)}</span>
           </div> : <div className={`listing-placeholder relative flex h-52 items-center justify-center bg-gradient-to-br ${selected.color}`}><selected.icon size={86} strokeWidth={1.35} className="text-[#172936]/75" /><span className="absolute left-5 top-5 rounded-full bg-white px-3 py-1.5 text-sm font-bold">{priceLabel(selected, lang)}</span></div>}
           <div className="listing-dialog-body">
-            <DialogHeader className="text-left"><DialogTitle className="text-2xl font-bold tracking-tight">{selected.name}</DialogTitle><DialogDescription className="flex flex-wrap items-center gap-3"><span className="flex items-center gap-1"><MapPin size={15} />{selected.city} · {Number.isFinite(selected.distance) ? `ca. ${selected.distance.toLocaleString(lang === "da" ? "da-DK" : "sv-SE", {maximumFractionDigits: 1})} km` : ""}</span></DialogDescription></DialogHeader>
+            <DialogHeader className="text-left"><DialogTitle className="text-2xl font-bold tracking-tight">{selected.name}</DialogTitle><DialogDescription className="flex flex-wrap items-center gap-3"><span className="flex items-center gap-1"><MapPin size={15} />{selected.city} · {Number.isFinite(selected.distance) ? `ca. ${selected.distance.toLocaleString((lang === "nb" ? nbText["da-DK"] : (lang === "da" ? "da-DK" : "sv-SE")), {maximumFractionDigits: 1})} km` : ""}</span></DialogDescription></DialogHeader>
             <p className="mt-5 leading-7 text-[#575b6e]">{selected.description}</p>
             <ListingCalendar key={selected.id} id={selected.id} lang={lang} from={searchFrom} to={searchTo} onRange={(f,t)=>{setSearchFrom(f);setSearchTo(t);}} />
-            {searchDays && <p className="period-price">{lang === "da" ? "Pris for perioden" : "Pris för perioden"}: <strong>{money(selected.dailyPrice*searchDays,selected.country,lang)}</strong> · {searchDays} {lang === "da" ? "kalenderdage" : "kalenderdagar"}</p>}
+            {searchDays && <p className="period-price">{(lang === "nb" ? nbText["Pris for perioden"] : (lang === "da" ? "Pris for perioden" : "Pris för perioden"))}: <strong>{money(selected.dailyPrice*searchDays,selected.country,lang)}</strong> · {searchDays} {(lang === "nb" ? nbText["kalenderdage"] : (lang === "da" ? "kalenderdage" : "kalenderdagar"))}</p>}
             <dl className="listing-specs">{(detailFields[selected.category]??[]).filter(f=>selected.details?.[f.key]).map(f=><div key={f.key}><dt>{f[lang]}</dt><dd>{selected.details![f.key]}</dd></div>)}</dl>
             <DepositSummary amount={selected.deposit ?? 0} country={selected.country} lang={lang} />
             <div className="mt-5 flex items-center justify-between rounded-xl bg-[#f2f4f9] p-4"><div className="flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-full bg-[#008EAC] font-bold text-white">{selected.owner[0]}</span><div><p className="font-bold">{selected.owner}</p><p className="text-xs text-[#777b8e]">{t.verify}</p></div></div><ShieldCheck size={22} className="text-[#587560]" /></div>
             <div className="mt-4 flex items-center gap-2 text-sm font-bold text-[#31744c]"><Check size={17} />{selected.availability}</div>
             {selected.owned ? <div className="mt-7 grid grid-cols-2 gap-3">
-              <Button variant="outline" className="h-13 rounded-xl" onClick={() => openEdit(selected)}><Pencil size={17} />{lang === "da" ? "Rediger" : "Redigera"}</Button>
-              <Button variant="outline" className="h-13 rounded-xl border-[#d9aaaa] text-[#9c3030] hover:bg-[#fff1f1] hover:text-[#842424]" onClick={() => setPendingDelete(selected)}><Trash2 size={17} />{lang === "da" ? "Slet" : "Ta bort"}</Button>
-            </div> : <div className="listing-dialog-action"><Button className="mt-7 h-13 w-full rounded-xl bg-[#008EAC] text-base font-semibold text-white hover:bg-[#006F88]" onClick={openRequest}>{selected.dailyPrice > 0 ? (lang === "da" ? "Spørg om at leje" : "Fråga om att hyra") : t.borrow}</Button></div>}
+              <Button variant="outline" className="h-13 rounded-xl" onClick={() => openEdit(selected)}><Pencil size={17} />{(lang === "nb" ? nbText["Rediger"] : (lang === "da" ? "Rediger" : "Redigera"))}</Button>
+              <Button variant="outline" className="h-13 rounded-xl border-[#d9aaaa] text-[#9c3030] hover:bg-[#fff1f1] hover:text-[#842424]" onClick={() => setPendingDelete(selected)}><Trash2 size={17} />{(lang === "nb" ? nbText["Slet"] : (lang === "da" ? "Slet" : "Ta bort"))}</Button>
+            </div> : <div className="listing-dialog-action"><Button className="mt-7 h-13 w-full rounded-xl bg-[#008EAC] text-base font-semibold text-white hover:bg-[#006F88]" onClick={openRequest}>{selected.dailyPrice > 0 ? ((lang === "nb" ? nbText["Spørg om at leje"] : (lang === "da" ? "Spørg om at leje" : "Fråga om att hyra"))) : t.borrow}</Button></div>}
             <ListingReviews key={selected.id+"reviews"} id={selected.id} lang={lang} />
           </div>
         </DialogContent>}
       </Dialog>
 
-      <Dialog open={!!calendarItem} onOpenChange={open=>!open && setCalendarItem(null)}><DialogContent className="calendar-dialog"><DialogHeader><DialogTitle>{calendarItem?.name}</DialogTitle><DialogDescription>{lang === "da" ? "Administrér ledige og blokerede dage" : "Hantera lediga och blockerade dagar"}</DialogDescription></DialogHeader>{calendarItem && <ListingCalendar key={calendarItem.id} id={calendarItem.id} lang={lang} owner />}</DialogContent></Dialog>
+      <Dialog open={!!calendarItem} onOpenChange={open=>!open && setCalendarItem(null)}><DialogContent className="calendar-dialog"><DialogHeader><DialogTitle>{calendarItem?.name}</DialogTitle><DialogDescription>{(lang === "nb" ? nbText["Administrér ledige og blokerede dage"] : (lang === "da" ? "Administrér ledige og blokerede dage" : "Hantera lediga och blockerade dagar"))}</DialogDescription></DialogHeader>{calendarItem && <ListingCalendar key={calendarItem.id} id={calendarItem.id} lang={lang} owner />}</DialogContent></Dialog>
 
       <Dialog open={showRequest} onOpenChange={setShowRequest}>
         <DialogContent className="request-dialog max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-xl sm:max-w-[520px]">
           <DialogHeader><DialogTitle className="text-2xl font-bold">{t.requestTitle}</DialogTitle><DialogDescription>{selected?.name}</DialogDescription></DialogHeader>
           <div className="grid gap-4 sm:grid-cols-2"><label className="field-label">{t.from}<input type="date" min={todayLocal()} value={from} onChange={e=>setFrom(e.target.value)} /></label><label className="field-label">{t.to}<input type="date" min={from || todayLocal()} value={to} onChange={e=>setTo(e.target.value)} /></label></div>
-          <div className="date-search-row"><label>{lang === "da" ? "Afhentning kl." : "Hämtning kl."}<input type="time" value={pickupTime} onChange={e=>setPickupTime(e.target.value)} /></label><label>{lang === "da" ? "Tilbagelevering kl." : "Återlämning kl."}<input type="time" value={returnTime} onChange={e=>setReturnTime(e.target.value)} /></label></div><p className="search-date-help">{lang === "da" ? "Lokal tid i Danmark/Sverige. Ejeren godkender tiderne sammen med forespørgslen." : "Lokal tid i Danmark/Sverige. Ägaren godkänner tiderna tillsammans med förfrågan."}</p>
-          {bookedPeriods.length > 0 && <div className="booked-periods"><strong>{lang === "da" ? "Allerede reserveret" : "Redan reserverad"}</strong><ul>{bookedPeriods.map((period,index)=><li key={index}>{formatAgreementDate(period.from,lang)} – {formatAgreementDate(period.to,lang)}</li>)}</ul></div>}
-          {bookingConflict && <p role="alert" className="form-error">{lang === "da" ? "Perioden overlapper en godkendt booking. Vælg andre datoer." : "Perioden överlappar en godkänd bokning. Välj andra datum."}</p>}
-          {availabilityError && <p role="status">{lang === "da" ? "Reserverede datoer kunne ikke vises. Ejeren kan kun godkende, hvis perioden er ledig." : "Reserverade datum kunde inte visas. Ägaren kan endast godkänna om perioden är ledig."}</p>}
-          <label className="field-label">{t.message}<textarea value={requestMessage} onChange={e=>setRequestMessage(e.target.value)} placeholder={lang === "da" ? "Fortæl kort, hvad du skal bruge tingen til." : "Berätta kort vad du behöver saken till."} rows={4} /></label>
+          <div className="date-search-row"><label>{(lang === "nb" ? nbText["Afhentning kl."] : (lang === "da" ? "Afhentning kl." : "Hämtning kl."))}<input type="time" value={pickupTime} onChange={e=>setPickupTime(e.target.value)} /></label><label>{(lang === "nb" ? nbText["Tilbagelevering kl."] : (lang === "da" ? "Tilbagelevering kl." : "Återlämning kl."))}<input type="time" value={returnTime} onChange={e=>setReturnTime(e.target.value)} /></label></div><p className="search-date-help">{(lang === "nb" ? nbText["Lokal tid i Danmark/Sverige. Ejeren godkender tiderne sammen med forespørgslen."] : (lang === "da" ? "Lokal tid i Danmark/Sverige/Norge. Ejeren godkender tiderne sammen med forespørgslen." : "Lokal tid i Danmark/Sverige/Norge. Ägaren godkänner tiderna tillsammans med förfrågan."))}</p>
+          {bookedPeriods.length > 0 && <div className="booked-periods"><strong>{(lang === "nb" ? nbText["Allerede reserveret"] : (lang === "da" ? "Allerede reserveret" : "Redan reserverad"))}</strong><ul>{bookedPeriods.map((period,index)=><li key={index}>{formatAgreementDate(period.from,lang)} – {formatAgreementDate(period.to,lang)}</li>)}</ul></div>}
+          {bookingConflict && <p role="alert" className="form-error">{(lang === "nb" ? nbText["Perioden overlapper en godkendt booking. Vælg andre datoer."] : (lang === "da" ? "Perioden overlapper en godkendt booking. Vælg andre datoer." : "Perioden överlappar en godkänd bokning. Välj andra datum."))}</p>}
+          {availabilityError && <p role="status">{(lang === "nb" ? nbText["Reserverede datoer kunne ikke vises. Ejeren kan kun godkende, hvis perioden er ledig."] : (lang === "da" ? "Reserverede datoer kunne ikke vises. Ejeren kan kun godkende, hvis perioden er ledig." : "Reserverade datum kunde inte visas. Ägaren kan endast godkänna om perioden är ledig."))}</p>}
+          <label className="field-label">{t.message}<textarea value={requestMessage} onChange={e=>setRequestMessage(e.target.value)} placeholder={(lang === "nb" ? nbText["Fortæl kort, hvad du skal bruge tingen til."] : (lang === "da" ? "Fortæl kort, hvad du skal bruge tingen til." : "Berätta kort vad du behöver saken till."))} rows={4} /></label>
           {selected && <DepositSummary amount={selected.deposit ?? 0} country={selected.country} lang={lang} explain />}
           <div className="price-summary">
-            <span>{lang === "da" ? "Pris for perioden" : "Pris för perioden"}</span>
+            <span>{(lang === "nb" ? nbText["Pris for perioden"] : (lang === "da" ? "Pris for perioden" : "Pris för perioden"))}</span>
             <strong>{selected && dateValid && days ? (selected.dailyPrice ? money(selected.dailyPrice * days, selected.country, lang) : t.free) : "—"}</strong>
-            {selected && dateValid && days && <small>{days} {lang === "da" ? "kalenderdage" : "kalenderdagar"} · {priceLabel(selected, lang)}</small>}
-            <p>{lang === "da" ? "Både start- og slutdagen tæller med. Betaling aftales direkte med ejeren. Der trækkes ingen penge i appen." : "Både start- och slutdagen räknas. Betalning avtalas direkt med ägaren. Inga pengar dras i appen."}</p>
+            {selected && dateValid && days && <small>{days} {(lang === "nb" ? nbText["kalenderdage"] : (lang === "da" ? "kalenderdage" : "kalenderdagar"))} · {priceLabel(selected, lang)}</small>}
+            <p>{(lang === "nb" ? nbText["Både start- og slutdagen tæller med. Betaling aftales direkte med ejeren. Der trækkes ingen penge i appen."] : (lang === "da" ? "Både start- og slutdagen tæller med. Betaling aftales direkte med ejeren. Der trækkes ingen penge i appen." : "Både start- och slutdagen räknas. Betalning avtalas direkt med ägaren. Inga pengar dras i appen."))}</p>
           </div>
           {formError && <p role="alert" className="form-error">{formError}</p>}
-          <Button disabled={!dateValid || requestPreparing || bookingConflict} onClick={() => void sendRequest()} className="h-13 rounded-xl bg-[#008EAC] text-base font-semibold text-white hover:bg-[#006F88]">{requestPreparing ? (lang === "da" ? "Sender forespørgsel…" : "Skickar förfrågan…") : t.send}</Button>
+          <Button disabled={!dateValid || requestPreparing || bookingConflict} onClick={() => void sendRequest()} className="h-13 rounded-xl bg-[#008EAC] text-base font-semibold text-white hover:bg-[#006F88]">{requestPreparing ? ((lang === "nb" ? nbText["Sender forespørgsel…"] : (lang === "da" ? "Sender forespørgsel…" : "Skickar förfrågan…"))) : t.send}</Button>
         </DialogContent>
       </Dialog>
 
       <Dialog open={notificationsOpen} onOpenChange={setNotificationsOpen}>
         <DialogContent className="notification-dialog">
-          <DialogHeader><DialogTitle>{lang === "da" ? "Notifikationer" : "Aviseringar"}</DialogTitle><DialogDescription>{lang === "da" ? "Seneste aktivitet pr. aftale og dine påmindelser. Opdateres hvert 15. sekund, mens Circle er åbent." : "Senaste aktivitet per avtal och dina påminnelser. Uppdateras var 15:e sekund när Circle är öppet."}</DialogDescription></DialogHeader>
-          {user && savedMatches>0 && <p>{lang === "da" ? "Nye match i dine gemte søgninger" : "Nya träffar i dina sparade sökningar"}: {savedMatches} <button onClick={()=>{setTab("home");setNotificationsOpen(false);}}>{lang==="da"?"Se gemte søgninger":"Se sparade sökningar"}</button></p>}
+          <DialogHeader><DialogTitle>{(lang === "nb" ? nbText["Notifikationer"] : (lang === "da" ? "Notifikationer" : "Aviseringar"))}</DialogTitle><DialogDescription>{(lang === "nb" ? nbText["Seneste aktivitet pr. aftale og dine påmindelser. Opdateres hvert 15. sekund, mens Circle er åbent."] : (lang === "da" ? "Seneste aktivitet pr. aftale og dine påmindelser. Opdateres hvert 15. sekund, mens Circle er åbent." : "Senaste aktivitet per avtal och dina påminnelser. Uppdateras var 15:e sekund när Circle är öppet."))}</DialogDescription></DialogHeader>
+          {user && savedMatches>0 && <p>{(lang === "nb" ? nbText["Nye match i dine gemte søgninger"] : (lang === "da" ? "Nye match i dine gemte søgninger" : "Nya träffar i dina sparade sökningar"))}: {savedMatches} <button onClick={()=>{setTab("home");setNotificationsOpen(false);}}>{(lang === "nb" ? nbText["Se gemte søgninger"] : (lang==="da"?"Se gemte søgninger":"Se sparade sökningar"))}</button></p>}
           {user && <PushSettings uid={user.uid} lang={lang} />}
-          {agreementsError && <p role="alert">{lang === "da" ? "Notifikationerne kunne ikke opdateres." : "Aviseringarna kunde inte uppdateras."} <button onClick={agreementsChanged}>{lang === "da" ? "Prøv igen" : "Försök igen"}</button></p>}
-          {agreementsLoading && <p role="status">{lang === "da" ? "Henter…" : "Hämtar…"}</p>}
-          {!agreementsLoading && !agreementsError && !notices.length && <p>{lang === "da" ? "Ingen notifikationer endnu." : "Inga aviseringar ännu."}</p>}
-          <div className="notification-list">{notices.map(notice=><button key={notice.id} className={`notification-entry ${notice.read ? "" : "unread"}`} onClick={()=>void readNotice(notice)}><strong>{noticeLabels[lang][notice.kind] ?? noticeLabels[lang].updated}</strong><span>{loans.find(l=>l.id === notice.agreementId)?.item.name}</span><small>{notice.agreementId} · {formatAgreementDate(notice.at.slice(0,10),lang)} · {notice.read ? (lang === "da" ? "Læst" : "Läst") : (lang === "da" ? "Ulæst" : "Oläst")}</small></button>)}</div>
+          {agreementsError && <p role="alert">{(lang === "nb" ? nbText["Notifikationerne kunne ikke opdateres."] : (lang === "da" ? "Notifikationerne kunne ikke opdateres." : "Aviseringarna kunde inte uppdateras."))} <button onClick={agreementsChanged}>{(lang === "nb" ? nbText["Prøv igen"] : (lang === "da" ? "Prøv igen" : "Försök igen"))}</button></p>}
+          {agreementsLoading && <p role="status">{(lang === "nb" ? nbText["Henter…"] : (lang === "da" ? "Henter…" : "Hämtar…"))}</p>}
+          {!agreementsLoading && !agreementsError && !notices.length && <p>{(lang === "nb" ? nbText["Ingen notifikationer endnu."] : (lang === "da" ? "Ingen notifikationer endnu." : "Inga aviseringar ännu."))}</p>}
+          <div className="notification-list">{notices.map(notice=><button key={notice.id} className={`notification-entry ${notice.read ? "" : "unread"}`} onClick={()=>void readNotice(notice)}><strong>{noticeLabels[lang][notice.kind] ?? noticeLabels[lang].updated}</strong><span>{loans.find(l=>l.id === notice.agreementId)?.item.name}</span><small>{notice.agreementId} · {formatAgreementDate(notice.at.slice(0,10),lang)} · {notice.read ? ((lang === "nb" ? nbText["Læst"] : (lang === "da" ? "Læst" : "Läst"))) : ((lang === "nb" ? nbText["Ulæst"] : (lang === "da" ? "Ulæst" : "Oläst")))}</small></button>)}</div>
         </DialogContent>
       </Dialog>
 
       <AlertDialog open={!!pendingDecision} onOpenChange={open=>!open && !decisionBusy && setPendingDecision(null)}>
-        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{lang === "da" ? "Bekræft dit valg" : "Bekräfta ditt val"}</AlertDialogTitle><AlertDialogDescription>{pendingDecision && <>{pendingDecision.loan.item.name} · {pendingDecision.loan.from} – {pendingDecision.loan.to}. {pendingDecision.action === "accept" ? (lang === "da" ? "Godkend forespørgslen og reservér perioden? Begge parter underskriver ved udlevering." : "Godkänn förfrågan och reservera perioden? Båda parter signerar vid utlämning.") : pendingDecision.action === "decline" ? (lang === "da" ? "Afvis forespørgslen? Låneren får besked i Circle." : "Avböj förfrågan? Låntagaren meddelas i Circle.") : (lang === "da" ? "Annullér aftalen? Den anden part får besked, og perioden frigives." : "Avbryt avtalet? Den andra parten meddelas och perioden frigörs.")}</>}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={!!decisionBusy}>{lang === "da" ? "Tilbage" : "Tillbaka"}</AlertDialogCancel><AlertDialogAction disabled={!!decisionBusy} onClick={event=>{event.preventDefault();void decide();}}>{decisionBusy ? "…" : (lang === "da" ? "Bekræft" : "Bekräfta")}</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{(lang === "nb" ? nbText["Bekræft dit valg"] : (lang === "da" ? "Bekræft dit valg" : "Bekräfta ditt val"))}</AlertDialogTitle><AlertDialogDescription>{pendingDecision && <>{pendingDecision.loan.item.name} · {pendingDecision.loan.from} – {pendingDecision.loan.to}. {pendingDecision.action === "accept" ? ((lang === "nb" ? nbText["Godkend forespørgslen og reservér perioden? Begge parter underskriver ved udlevering."] : (lang === "da" ? "Godkend forespørgslen og reservér perioden? Begge parter underskriver ved udlevering." : "Godkänn förfrågan och reservera perioden? Båda parter signerar vid utlämning."))) : pendingDecision.action === "decline" ? ((lang === "nb" ? nbText["Afvis forespørgslen? Låneren får besked i Circle."] : (lang === "da" ? "Afvis forespørgslen? Låneren får besked i Circle." : "Avböj förfrågan? Låntagaren meddelas i Circle."))) : ((lang === "nb" ? nbText["Annullér aftalen? Den anden part får besked, og perioden frigives."] : (lang === "da" ? "Annullér aftalen? Den anden part får besked, og perioden frigives." : "Avbryt avtalet? Den andra parten meddelas och perioden frigörs.")))}</>}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={!!decisionBusy}>{(lang === "nb" ? nbText["Tilbage"] : (lang === "da" ? "Tilbage" : "Tillbaka"))}</AlertDialogCancel><AlertDialogAction disabled={!!decisionBusy} onClick={event=>{event.preventDefault();void decide();}}>{decisionBusy ? "…" : ((lang === "nb" ? nbText["Bekræft"] : (lang === "da" ? "Bekræft" : "Bekräfta")))}</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
       </AlertDialog>
 
       <Dialog open={!!agreementLoan} onOpenChange={open => !open && setAgreementLoan(null)}>
         {agreementLoan && <DialogContent className="agreement-dialog max-h-[94vh] overflow-y-auto rounded-xl sm:max-w-[760px]">
           <AgreementJourney agreement={agreementLoan} uid={user?.uid ?? ""} lang={lang} names={{borrower:agreementLoan.borrower.name,lender:agreementLoan.item.owner}} onContinue={phase=>{const section=document.getElementById(`agreement-${phase}-section`);section?.scrollIntoView({block:"start",behavior:"instant"});section?.focus({preventScroll:true});}} />
-          <div className="agreement-account-help no-print"><p>{lang === "da" ? "Begge underskriver fra hver sin konto. Åbn samme ticket under Mine lån → Jeg låner / Jeg udlåner." : "Båda signerar från varsitt konto. Öppna samma ticket under Mina lån → Jag lånar / Jag lånar ut."}<br/>{lang === "da" ? "Du er logget ind som" : "Du är inloggad som"}: <b>{user?.email}</b></p><Button variant="outline" onClick={agreementsChanged}><RefreshCw size={16}/>{lang === "da" ? "Opdatér aftalen" : "Uppdatera avtalet"}</Button></div>
+          <div className="agreement-account-help no-print"><p>{(lang === "nb" ? nbText["Begge underskriver fra hver sin konto. Åbn samme ticket under Mine lån → Jeg låner / Jeg udlåner."] : (lang === "da" ? "Begge underskriver fra hver sin konto. Åbn samme ticket under Mine lån → Jeg låner / Jeg udlåner." : "Båda signerar från varsitt konto. Öppna samma ticket under Mina lån → Jag lånar / Jag lånar ut."))}<br/>{(lang === "nb" ? nbText["Du er logget ind som"] : (lang === "da" ? "Du er logget ind som" : "Du är inloggad som"))}: <b>{user?.email}</b></p><Button variant="outline" onClick={agreementsChanged}><RefreshCw size={16}/>{(lang === "nb" ? nbText["Opdatér aftalen"] : (lang === "da" ? "Opdatér aftalen" : "Uppdatera avtalet"))}</Button></div>
           {agreementStage(agreementLoan)==="returned" && <ReviewForm key={agreementLoan.id} id={agreementLoan.id} lang={lang} target={user?.uid===agreementLoan.borrowerUid?"lender":"borrower"} />}
           {["accepted","handedOver"].includes(agreementStage(agreementLoan)) && !agreementLoan.borrowerReturnSignature && !agreementLoan.lenderReturnSignature && <AgreementExtension key={agreementLoan.id} loan={agreementLoan} uid={user?.uid??""} lang={lang} />}
           <div className="print-agreement">
             <p className="agreement-lifecycle-status">{stageLabels[lang][agreementStage(agreementLoan)]}</p>
-            {agreementStage(agreementLoan) === "requested" && <p className="no-print">{lang === "da" ? "Ejeren skal først godkende forespørgslen under Mine lån. Derefter åbnes underskrifterne." : "Ägaren måste först godkänna förfrågan under Mina lån. Därefter öppnas signering."}</p>}
-            <DialogHeader className="agreement-header"><p className="eyebrow">Veyro Circle · Ticket {agreementLoan.id}</p><DialogTitle className="text-2xl font-bold">{lang === "da" ? "Leje- og låneaftale" : "Hyres- och låneavtal"}</DialogTitle><DialogDescription>{lang === "da" ? "Automatisk aftale mellem ejeren og låneren" : "Automatiskt avtal mellan ägaren och låntagaren"}<br />{lang === "da" ? "Platform:" : "Plattform:"} {COMPANY_IDENTITY}</DialogDescription></DialogHeader>
-            {agreementStage(agreementLoan)==="requested" && <p className="contact-privacy-note">{lang === "da" ? "Adresse og telefonnummer bliver først synlige, når ejeren har godkendt forespørgslen." : "Adress och telefonnummer visas först när ägaren har godkänt förfrågan."}</p>}
-            <div className="agreement-parties"><AgreementParty title={lang === "da" ? "Udlejer / ejer" : "Uthyrare / ägare"} name={agreementLoan.item.owner} street={agreementLoan.item.ownerStreet} postcode={agreementLoan.item.place.postcode} city={agreementLoan.item.place.city} phone={agreementLoan.item.ownerPhone} /><AgreementParty title={lang === "da" ? "Låner / lejer" : "Låntagare / hyrestagare"} name={agreementLoan.borrower.name} street={agreementLoan.borrower.street} postcode={agreementLoan.borrower.place.postcode} city={agreementLoan.borrower.place.city} phone={agreementLoan.borrower.phone} /></div>
-            <dl className="agreement-facts"><div><dt>{lang === "da" ? "Genstand" : "Föremål"}</dt><dd>{agreementLoan.item.name}</dd></div><div><dt>{lang === "da" ? "Periode" : "Period"}</dt><dd>{agreementLoan.from} {agreementLoan.pickupTime} – {agreementLoan.to} {agreementLoan.returnTime} ({agreementLoan.days} {lang === "da" ? "dage" : "dagar"})</dd></div><div><dt>{lang === "da" ? "Lejepris" : "Hyra"}</dt><dd>{agreementLoan.total ? money(agreementLoan.total, agreementLoan.item.country, lang) : t.free}</dd></div><div><dt>{lang === "da" ? "Depositum" : "Deposition"}</dt><dd>{agreementLoan.deposit ? money(agreementLoan.deposit, agreementLoan.item.country, lang) : (lang === "da" ? "Intet aftalt" : "Ingen avtalad")}</dd></div></dl>
-            {!!agreementLoan.extensions?.length && <section className="agreement-addenda"><h3>{lang === "da" ? "Godkendte tillæg" : "Godkända tillägg"}</h3><p>{lang === "da" ? "Oprindelig retur/pris" : "Ursprunglig retur/pris"}: {agreementLoan.originalTo} {agreementLoan.originalReturnTime} · {money(agreementLoan.originalTotal??0,agreementLoan.item.country,lang)}. {lang === "da" ? "Tillæggene er godkendt fra begge konti; de oprindelige underskrifter er bevaret." : "Tilläggen har godkänts från båda kontona; ursprungliga signaturer har bevarats."}</p>{agreementLoan.extensions.map(e=><p key={e.id}>{e.to} {e.returnTime} · {money(e.total,agreementLoan.item.country,lang)} · {e.proposedBy===agreementLoan.borrowerUid ? agreementLoan.borrower.name : agreementLoan.item.owner}: {e.proposedAt.slice(0,16).replace("T"," ")} UTC → {e.acceptedBy===agreementLoan.borrowerUid ? agreementLoan.borrower.name : agreementLoan.item.owner}: {e.acceptedAt?.slice(0,16).replace("T"," ")} UTC</p>)}</section>}
-            <section className="agreement-terms"><h3>{lang === "da" ? "Aftalens vilkår" : "Avtalsvillkor"}</h3><ol><li>{lang === "da" ? "Genstanden udleveres i den beskrevne stand. Parterne bør dokumentere standen med billeder ved udlevering og aflevering." : "Föremålet lämnas ut i beskrivet skick. Parterna bör dokumentera skicket med bilder vid utlämning och återlämning."}</li><li>{lang === "da" ? "Låneren skal bruge genstanden forsvarligt og returnere den senest på slutdatoen. Tid og sted aftales mellem parterne." : "Låntagaren ska använda föremålet aktsamt och återlämna det senast på slutdagen. Tid och plats avtalas mellan parterna."}</li><li>{lang === "da" ? "Skader, bortkomst, betaling, depositum og eventuel erstatning afgøres mellem parterne efter gældende ret. Veyro Circle er formidler og ikke part i aftalen." : "Skador, förlust, betalning, deposition och eventuell ersättning avgörs mellan parterna enligt gällande rätt. Veyro Circle förmedlar kontakten och är inte part i avtalet."}</li></ol>{agreementLoan.message && <p><b>{lang === "da" ? "Særlig aftale:" : "Särskild överenskommelse:"}</b> {agreementLoan.message}</p>}</section>
-            <section className="agreement-id-check"><h3><ShieldCheck size={19} />{lang === "da" ? "Kontrol ved overdragelsen" : "Kontroll vid överlämningen"}</h3><p>{lang === "da" ? "Parterne skal sikre sig, hvem de indgår aftalen med." : "Parterna ska säkerställa vem de ingår avtalet med."}</p><ul><li>{lang === "da" ? "Begge parter foreviser gyldig billedlegitimation med navn og adresse." : "Båda parter visar giltig fotolegitimation med namn och adress."}</li><li>{lang === "da" ? "Navn og adresse på legitimationen sammenholdes med oplysningerne i aftalen." : "Namn och adress på legitimationen jämförs med uppgifterna i avtalet."}</li><li>{lang === "da" ? "Aftalen underskrives på telefonen eller udskrives og underskrives fysisk af begge parter." : "Avtalet signeras på telefonen eller skrivs ut och undertecknas fysiskt av båda parter."}</li></ul><p className="id-privacy">{lang === "da" ? "Tag ikke kopi eller foto af legitimationen, medmindre personen udtrykkeligt har accepteret det og der er et lovligt behov." : "Ta inte en kopia eller ett foto av legitimationen om personen inte uttryckligen har godkänt det och det finns ett lagligt behov."}</p></section>
+            {agreementStage(agreementLoan) === "requested" && <p className="no-print">{(lang === "nb" ? nbText["Ejeren skal først godkende forespørgslen under Mine lån. Derefter åbnes underskrifterne."] : (lang === "da" ? "Ejeren skal først godkende forespørgslen under Mine lån. Derefter åbnes underskrifterne." : "Ägaren måste först godkänna förfrågan under Mina lån. Därefter öppnas signering."))}</p>}
+            <DialogHeader className="agreement-header"><p className="eyebrow">Veyro Circle · Ticket {agreementLoan.id}</p><DialogTitle className="text-2xl font-bold">{(lang === "nb" ? nbText["Leje- og låneaftale"] : (lang === "da" ? "Leje- og låneaftale" : "Hyres- och låneavtal"))}</DialogTitle><DialogDescription>{(lang === "nb" ? nbText["Automatisk aftale mellem ejeren og låneren"] : (lang === "da" ? "Automatisk aftale mellem ejeren og låneren" : "Automatiskt avtal mellan ägaren och låntagaren"))}<br />{(lang === "nb" ? nbText["Platform:"] : (lang === "da" ? "Platform:" : "Plattform:"))} {COMPANY_IDENTITY}</DialogDescription></DialogHeader>
+            {agreementStage(agreementLoan)==="requested" && <p className="contact-privacy-note">{(lang === "nb" ? nbText["Adresse og telefonnummer bliver først synlige, når ejeren har godkendt forespørgslen."] : (lang === "da" ? "Adresse og telefonnummer bliver først synlige, når ejeren har godkendt forespørgslen." : "Adress och telefonnummer visas först när ägaren har godkänt förfrågan."))}</p>}
+            <div className="agreement-parties"><AgreementParty title={(lang === "nb" ? nbText["Udlejer / ejer"] : (lang === "da" ? "Udlejer / ejer" : "Uthyrare / ägare"))} name={agreementLoan.item.owner} street={agreementLoan.item.ownerStreet} postcode={agreementLoan.item.place.postcode} city={agreementLoan.item.place.city} phone={agreementLoan.item.ownerPhone} /><AgreementParty title={(lang === "nb" ? nbText["Låner / lejer"] : (lang === "da" ? "Låner / lejer" : "Låntagare / hyrestagare"))} name={agreementLoan.borrower.name} street={agreementLoan.borrower.street} postcode={agreementLoan.borrower.place.postcode} city={agreementLoan.borrower.place.city} phone={agreementLoan.borrower.phone} /></div>
+            <dl className="agreement-facts"><div><dt>{(lang === "nb" ? nbText["Genstand"] : (lang === "da" ? "Genstand" : "Föremål"))}</dt><dd>{agreementLoan.item.name}</dd></div><div><dt>{(lang === "nb" ? nbText["Periode"] : (lang === "da" ? "Periode" : "Period"))}</dt><dd>{agreementLoan.from} {agreementLoan.pickupTime} – {agreementLoan.to} {agreementLoan.returnTime} ({agreementLoan.days} {(lang === "nb" ? nbText["dage"] : (lang === "da" ? "dage" : "dagar"))})</dd></div><div><dt>{(lang === "nb" ? nbText["Lejepris"] : (lang === "da" ? "Lejepris" : "Hyra"))}</dt><dd>{agreementLoan.total ? money(agreementLoan.total, agreementLoan.item.country, lang) : t.free}</dd></div><div><dt>{(lang === "nb" ? nbText["Depositum"] : (lang === "da" ? "Depositum" : "Deposition"))}</dt><dd>{agreementLoan.deposit ? money(agreementLoan.deposit, agreementLoan.item.country, lang) : ((lang === "nb" ? nbText["Intet aftalt"] : (lang === "da" ? "Intet aftalt" : "Ingen avtalad")))}</dd></div></dl>
+            {!!agreementLoan.extensions?.length && <section className="agreement-addenda"><h3>{(lang === "nb" ? nbText["Godkendte tillæg"] : (lang === "da" ? "Godkendte tillæg" : "Godkända tillägg"))}</h3><p>{(lang === "nb" ? nbText["Oprindelig retur/pris"] : (lang === "da" ? "Oprindelig retur/pris" : "Ursprunglig retur/pris"))}: {agreementLoan.originalTo} {agreementLoan.originalReturnTime} · {money(agreementLoan.originalTotal??0,agreementLoan.item.country,lang)}. {(lang === "nb" ? nbText["Tillæggene er godkendt fra begge konti; de oprindelige underskrifter er bevaret."] : (lang === "da" ? "Tillæggene er godkendt fra begge konti; de oprindelige underskrifter er bevaret." : "Tilläggen har godkänts från båda kontona; ursprungliga signaturer har bevarats."))}</p>{agreementLoan.extensions.map(e=><p key={e.id}>{e.to} {e.returnTime} · {money(e.total,agreementLoan.item.country,lang)} · {e.proposedBy===agreementLoan.borrowerUid ? agreementLoan.borrower.name : agreementLoan.item.owner}: {e.proposedAt.slice(0,16).replace("T"," ")} UTC → {e.acceptedBy===agreementLoan.borrowerUid ? agreementLoan.borrower.name : agreementLoan.item.owner}: {e.acceptedAt?.slice(0,16).replace("T"," ")} UTC</p>)}</section>}
+            <section className="agreement-terms"><h3>{(lang === "nb" ? nbText["Aftalens vilkår"] : (lang === "da" ? "Aftalens vilkår" : "Avtalsvillkor"))}</h3><ol><li>{(lang === "nb" ? nbText["Genstanden udleveres i den beskrevne stand. Parterne bør dokumentere standen med billeder ved udlevering og aflevering."] : (lang === "da" ? "Genstanden udleveres i den beskrevne stand. Parterne bør dokumentere standen med billeder ved udlevering og aflevering." : "Föremålet lämnas ut i beskrivet skick. Parterna bör dokumentera skicket med bilder vid utlämning och återlämning."))}</li><li>{(lang === "nb" ? nbText["Låneren skal bruge genstanden forsvarligt og returnere den senest på slutdatoen. Tid og sted aftales mellem parterne."] : (lang === "da" ? "Låneren skal bruge genstanden forsvarligt og returnere den senest på slutdatoen. Tid og sted aftales mellem parterne." : "Låntagaren ska använda föremålet aktsamt och återlämna det senast på slutdagen. Tid och plats avtalas mellan parterna."))}</li><li>{(lang === "nb" ? nbText["Skader, bortkomst, betaling, depositum og eventuel erstatning afgøres mellem parterne efter gældende ret. Veyro Circle er formidler og ikke part i aftalen."] : (lang === "da" ? "Skader, bortkomst, betaling, depositum og eventuel erstatning afgøres mellem parterne efter gældende ret. Veyro Circle er formidler og ikke part i aftalen." : "Skador, förlust, betalning, deposition och eventuell ersättning avgörs mellan parterna enligt gällande rätt. Veyro Circle förmedlar kontakten och är inte part i avtalet."))}</li></ol>{agreementLoan.message && <p><b>{(lang === "nb" ? nbText["Særlig aftale:"] : (lang === "da" ? "Særlig aftale:" : "Särskild överenskommelse:"))}</b> {agreementLoan.message}</p>}</section>
+            <section className="agreement-id-check"><h3><ShieldCheck size={19} />{(lang === "nb" ? nbText["Kontrol ved overdragelsen"] : (lang === "da" ? "Kontrol ved overdragelsen" : "Kontroll vid överlämningen"))}</h3><p>{(lang === "nb" ? nbText["Parterne skal sikre sig, hvem de indgår aftalen med."] : (lang === "da" ? "Parterne skal sikre sig, hvem de indgår aftalen med." : "Parterna ska säkerställa vem de ingår avtalet med."))}</p><ul><li>{(lang === "nb" ? nbText["Begge parter foreviser gyldig billedlegitimation med navn og adresse."] : (lang === "da" ? "Begge parter foreviser gyldig billedlegitimation med navn og adresse." : "Båda parter visar giltig fotolegitimation med namn och adress."))}</li><li>{(lang === "nb" ? nbText["Navn og adresse på legitimationen sammenholdes med oplysningerne i aftalen."] : (lang === "da" ? "Navn og adresse på legitimationen sammenholdes med oplysningerne i aftalen." : "Namn och adress på legitimationen jämförs med uppgifterna i avtalet."))}</li><li>{(lang === "nb" ? nbText["Aftalen underskrives på telefonen eller udskrives og underskrives fysisk af begge parter."] : (lang === "da" ? "Aftalen underskrives på telefonen eller udskrives og underskrives fysisk af begge parter." : "Avtalet signeras på telefonen eller skrivs ut och undertecknas fysiskt av båda parter."))}</li></ul><p className="id-privacy">{(lang === "nb" ? nbText["Tag ikke kopi eller foto af legitimationen, medmindre personen udtrykkeligt har accepteret det og der er et lovligt behov."] : (lang === "da" ? "Tag ikke kopi eller foto af legitimationen, medmindre personen udtrykkeligt har accepteret det og der er et lovligt behov." : "Ta inte en kopia eller ett foto av legitimationen om personen inte uttryckligen har godkänt det och det finns ett lagligt behov."))}</p></section>
             <AgreementConditionNote phase="handover" lang={lang} savedNote={agreementLoan.handoverNote ?? ""} draft={handoverNoteDraft} onChange={setHandoverNoteDraft} saved={Boolean(agreementLoan.saved)} locked={Boolean(agreementLoan.borrowerSignature || agreementLoan.lenderSignature)} enabled={agreementStage(agreementLoan) === "accepted"} onSave={() => void storeAgreementNote(agreementLoan, "handover")} busy={noteBusy === "handover"} />
             {agreementPhotos(agreementLoan,"handover")}
-            <div className="agreement-signatures"><SignatureBox title={lang === "da" ? "Låners underskrift ved udlevering" : "Låntagarens signatur vid utlämning"} name={agreementLoan.borrower.name} signature={agreementLoan.borrowerSignature} lang={lang} {...signing(agreementLoan,"borrower","handover")} busy={signatureBusy === `${agreementLoan.id}-handover-borrower`} onSign={dataUrl => void signAgreement(agreementLoan, "borrower", dataUrl)} /><SignatureBox title={lang === "da" ? "Ejers underskrift ved udlevering" : "Ägarens signatur vid utlämning"} name={agreementLoan.item.owner} signature={agreementLoan.lenderSignature} lang={lang} {...signing(agreementLoan,"lender","handover")} busy={signatureBusy === `${agreementLoan.id}-handover-lender`} onSign={dataUrl => void signAgreement(agreementLoan, "lender", dataUrl)} /></div>
-            <p className="agreement-legal"><LockKeyhole size={15} />{lang === "da" ? "Ved underskrift bekræfter hver part, at oplysningerne er korrekte, og at den anden parts navn og adresse er kontrolleret mod forevist ID." : "Genom underskrift bekräftar varje part att uppgifterna är korrekta och att den andra partens namn och adress har kontrollerats mot visad legitimation."}</p>
+            <div className="agreement-signatures"><SignatureBox title={(lang === "nb" ? nbText["Låners underskrift ved udlevering"] : (lang === "da" ? "Låners underskrift ved udlevering" : "Låntagarens signatur vid utlämning"))} name={agreementLoan.borrower.name} signature={agreementLoan.borrowerSignature} lang={lang} {...signing(agreementLoan,"borrower","handover")} busy={signatureBusy === `${agreementLoan.id}-handover-borrower`} onSign={dataUrl => void signAgreement(agreementLoan, "borrower", dataUrl)} /><SignatureBox title={(lang === "nb" ? nbText["Ejers underskrift ved udlevering"] : (lang === "da" ? "Ejers underskrift ved udlevering" : "Ägarens signatur vid utlämning"))} name={agreementLoan.item.owner} signature={agreementLoan.lenderSignature} lang={lang} {...signing(agreementLoan,"lender","handover")} busy={signatureBusy === `${agreementLoan.id}-handover-lender`} onSign={dataUrl => void signAgreement(agreementLoan, "lender", dataUrl)} /></div>
+            <p className="agreement-legal"><LockKeyhole size={15} />{(lang === "nb" ? nbText["Ved underskrift bekræfter hver part, at oplysningerne er korrekte, og at den anden parts navn og adresse er kontrolleret mod forevist ID."] : (lang === "da" ? "Ved underskrift bekræfter hver part, at oplysningerne er korrekte, og at den anden parts navn og adresse er kontrolleret mod forevist ID." : "Genom underskrift bekräftar varje part att uppgifterna är korrekta och att den andra partens namn och adress har kontrollerats mot visad legitimation."))}</p>
             <section className={`return-receipt ${agreementLoan.returnedAt ? "is-complete" : ""}`}>
-              <header><div><p className="eyebrow">{lang === "da" ? "Returkvittering" : "Returkvitto"}</p><h3>{agreementLoan.returnedAt ? (agreementLoan.returnCondition === "remarks" ? (lang === "da" ? "Tilbageleveret med bemærkninger" : "Återlämnad med anmärkningar") : (lang === "da" ? "Tilbageleveret i god stand" : "Återlämnad i gott skick")) : (lang === "da" ? "Kvittering for tilbagelevering" : "Kvitto på återlämning")}</h3></div>{agreementLoan.returnedAt && <span><Check size={16} />{lang === "da" ? "Afsluttet" : "Avslutat"}</span>}</header>
-              <p>{lang === "da" ? "Parterne skriver eventuelle skader eller andre forhold i returnoten. Ved underskrift bekræfter låneren afleveringen, og ejeren bekræfter modtagelsen samt den gemte note. En tom note betyder, at tingen er tilbageleveret i god stand." : "Parterna skriver eventuella skador eller andra förhållanden i returanteckningen. Genom signering bekräftar låntagaren återlämningen och ägaren mottagandet samt den sparade anteckningen. En tom anteckning betyder att saken har återlämnats i gott skick."}</p>
-              {!agreementLoan.returnedAt && (!agreementLoan.saved || !agreementLoan.borrowerSignature || !agreementLoan.lenderSignature) && <p className="return-locked no-print"><LockKeyhole size={16} />{lang === "da" ? "Returunderskrifter åbnes, når aftalen er gemt og udleveringen er underskrevet af begge parter." : "Retursignaturer öppnas när avtalet har sparats och utlämningen har signerats av båda parter."}</p>}
-              {agreementLoan.returnedAt && <p className="return-completed-at">{lang === "da" ? "Retur registreret" : "Retur registrerad"}: {new Intl.DateTimeFormat(lang === "da" ? "da-DK" : "sv-SE", {dateStyle:"long",timeStyle:"short"}).format(new Date(agreementLoan.returnedAt))}</p>}
+              <header><div><p className="eyebrow">{(lang === "nb" ? nbText["Returkvittering"] : (lang === "da" ? "Returkvittering" : "Returkvitto"))}</p><h3>{agreementLoan.returnedAt ? (agreementLoan.returnCondition === "remarks" ? ((lang === "nb" ? nbText["Tilbageleveret med bemærkninger"] : (lang === "da" ? "Tilbageleveret med bemærkninger" : "Återlämnad med anmärkningar"))) : ((lang === "nb" ? nbText["Tilbageleveret i god stand"] : (lang === "da" ? "Tilbageleveret i god stand" : "Återlämnad i gott skick")))) : ((lang === "nb" ? nbText["Kvittering for tilbagelevering"] : (lang === "da" ? "Kvittering for tilbagelevering" : "Kvitto på återlämning")))}</h3></div>{agreementLoan.returnedAt && <span><Check size={16} />{(lang === "nb" ? nbText["Afsluttet"] : (lang === "da" ? "Afsluttet" : "Avslutat"))}</span>}</header>
+              <p>{(lang === "nb" ? nbText["Parterne skriver eventuelle skader eller andre forhold i returnoten. Ved underskrift bekræfter låneren afleveringen, og ejeren bekræfter modtagelsen samt den gemte note. En tom note betyder, at tingen er tilbageleveret i god stand."] : (lang === "da" ? "Parterne skriver eventuelle skader eller andre forhold i returnoten. Ved underskrift bekræfter låneren afleveringen, og ejeren bekræfter modtagelsen samt den gemte note. En tom note betyder, at tingen er tilbageleveret i god stand." : "Parterna skriver eventuella skador eller andra förhållanden i returanteckningen. Genom signering bekräftar låntagaren återlämningen och ägaren mottagandet samt den sparade anteckningen. En tom anteckning betyder att saken har återlämnats i gott skick."))}</p>
+              {!agreementLoan.returnedAt && (!agreementLoan.saved || !agreementLoan.borrowerSignature || !agreementLoan.lenderSignature) && <p className="return-locked no-print"><LockKeyhole size={16} />{(lang === "nb" ? nbText["Returunderskrifter åbnes, når aftalen er gemt og udleveringen er underskrevet af begge parter."] : (lang === "da" ? "Returunderskrifter åbnes, når aftalen er gemt og udleveringen er underskrevet af begge parter." : "Retursignaturer öppnas när avtalet har sparats och utlämningen har signerats av båda parter."))}</p>}
+              {agreementLoan.returnedAt && <p className="return-completed-at">{(lang === "nb" ? nbText["Retur registreret"] : (lang === "da" ? "Retur registreret" : "Retur registrerad"))}: {new Intl.DateTimeFormat((lang === "nb" ? nbText["da-DK"] : (lang === "da" ? "da-DK" : "sv-SE")), {dateStyle:"long",timeStyle:"short"}).format(new Date(agreementLoan.returnedAt))}</p>}
               <AgreementConditionNote phase="return" lang={lang} savedNote={agreementLoan.returnNote ?? ""} draft={returnNoteDraft} onChange={setReturnNoteDraft} saved={Boolean(agreementLoan.saved)} locked={Boolean(agreementLoan.borrowerReturnSignature || agreementLoan.lenderReturnSignature || agreementLoan.returnedAt)} enabled={Boolean(agreementLoan.borrowerSignature && agreementLoan.lenderSignature)} onSave={() => void storeAgreementNote(agreementLoan, "return")} busy={noteBusy === "return"} />
             {agreementPhotos(agreementLoan,"return")}
-              <div className="agreement-signatures return-signatures"><SignatureBox title={lang === "da" ? "Låner · aflevering og note godkendt" : "Låntagare · återlämning och anteckning godkänd"} name={agreementLoan.borrower.name} signature={agreementLoan.borrowerReturnSignature} lang={lang} {...signing(agreementLoan,"borrower","return")} busy={signatureBusy === `${agreementLoan.id}-return-borrower`} onSign={dataUrl => void signAgreement(agreementLoan, "borrower", dataUrl, "return")} /><SignatureBox title={lang === "da" ? "Ejer · modtagelse og note godkendt" : "Ägare · mottagande och anteckning godkänd"} name={agreementLoan.item.owner} signature={agreementLoan.lenderReturnSignature} lang={lang} {...signing(agreementLoan,"lender","return")} busy={signatureBusy === `${agreementLoan.id}-return-lender`} onSign={dataUrl => void signAgreement(agreementLoan, "lender", dataUrl, "return")} /></div>
+              <div className="agreement-signatures return-signatures"><SignatureBox title={(lang === "nb" ? nbText["Låner · aflevering og note godkendt"] : (lang === "da" ? "Låner · aflevering og note godkendt" : "Låntagare · återlämning och anteckning godkänd"))} name={agreementLoan.borrower.name} signature={agreementLoan.borrowerReturnSignature} lang={lang} {...signing(agreementLoan,"borrower","return")} busy={signatureBusy === `${agreementLoan.id}-return-borrower`} onSign={dataUrl => void signAgreement(agreementLoan, "borrower", dataUrl, "return")} /><SignatureBox title={(lang === "nb" ? nbText["Ejer · modtagelse og note godkendt"] : (lang === "da" ? "Ejer · modtagelse og note godkendt" : "Ägare · mottagande och anteckning godkänd"))} name={agreementLoan.item.owner} signature={agreementLoan.lenderReturnSignature} lang={lang} {...signing(agreementLoan,"lender","return")} busy={signatureBusy === `${agreementLoan.id}-return-lender`} onSign={dataUrl => void signAgreement(agreementLoan, "lender", dataUrl, "return")} /></div>
             </section>
           </div>
-          <div className="agreement-actions no-print"><div className="agreement-choice-buttons"><Button disabled={agreementSaving || agreementLoan.saved} onClick={() => void storeAgreement(agreementLoan)}><Save size={17} />{agreementLoan.saved ? (lang === "da" ? "Gemt på kontoen" : "Sparat på kontot") : agreementSaving ? (lang === "da" ? "Gemmer…" : "Sparar…") : (lang === "da" ? "Gem på min konto" : "Spara på mitt konto")}</Button><Button variant="outline" onClick={() => printAgreementDocument(lang)}><Printer size={17} />{lang === "da" ? "Udskriv aftalen" : "Skriv ut avtalet"}</Button></div><span>{lang === "da" ? "Gemte aftaler kan ses under Mine lån i 12 måneder." : "Sparade avtal visas under Mina lån i 12 månader."}</span></div>
+          <div className="agreement-actions no-print"><div className="agreement-choice-buttons"><Button disabled={agreementSaving || agreementLoan.saved} onClick={() => void storeAgreement(agreementLoan)}><Save size={17} />{agreementLoan.saved ? ((lang === "nb" ? nbText["Gemt på kontoen"] : (lang === "da" ? "Gemt på kontoen" : "Sparat på kontot"))) : agreementSaving ? ((lang === "nb" ? nbText["Gemmer…"] : (lang === "da" ? "Gemmer…" : "Sparar…"))) : ((lang === "nb" ? nbText["Gem på min konto"] : (lang === "da" ? "Gem på min konto" : "Spara på mitt konto")))}</Button><Button variant="outline" onClick={() => printAgreementDocument(lang)}><Printer size={17} />{(lang === "nb" ? nbText["Udskriv aftalen"] : (lang === "da" ? "Udskriv aftalen" : "Skriv ut avtalet"))}</Button></div><span>{(lang === "nb" ? nbText["Gemte aftaler kan ses under Mine lån i 12 måneder."] : (lang === "da" ? "Gemte aftaler kan ses under Mine lån i 12 måneder." : "Sparade avtal visas under Mina lån i 12 månader."))}</span></div>
         </DialogContent>}
       </Dialog>
 
@@ -946,51 +972,51 @@ export default function HomePage() {
 
       <Dialog open={showAdd} onOpenChange={open => { setShowAdd(open); if (!open) resetItemForm(); }}>
         <DialogContent className="form-dialog max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-xl sm:max-w-[560px]">
-          <DialogHeader><DialogTitle className="text-2xl font-bold">{editingId !== null ? (lang === "da" ? "Rediger din ting" : "Redigera din sak") : t.addTitle}</DialogTitle><DialogDescription>{t.addDescription}</DialogDescription></DialogHeader>
-          {editingId === null && <div className="listing-limit-inline"><span>{listingPlan === "plus" ? <Crown size={17} /> : <PackagePlus size={17} />}{listingPlan === "plus" ? "Veyro Circle Plus" : (lang === "da" ? "Gratis" : "Gratis")}</span><b>{listings.filter(item => item.owned).length + 1} / {listingLimit(listingPlan)}</b></div>}
+          <DialogHeader><DialogTitle className="text-2xl font-bold">{editingId !== null ? ((lang === "nb" ? nbText["Rediger din ting"] : (lang === "da" ? "Rediger din ting" : "Redigera din sak"))) : t.addTitle}</DialogTitle><DialogDescription>{t.addDescription}</DialogDescription></DialogHeader>
+          {editingId === null && <div className="listing-limit-inline"><span>{listingPlan === "plus" ? <Crown size={17} /> : <PackagePlus size={17} />}{listingPlan === "plus" ? "Veyro Circle Plus" : ((lang === "nb" ? nbText["Gratis"] : (lang === "da" ? "Gratis" : "Gratis")))}</span><b>{listings.filter(item => item.owned).length + 1} / {listingLimit(listingPlan)}</b></div>}
           <div className="photo-uploader">
-            <div className="photo-uploader-head"><div><b>{t.photo}</b><small>{lang === "da" ? "Maks. 2 billeder · JPG, PNG eller WEBP" : "Högst 2 bilder · JPG, PNG eller WEBP"}</small></div><span>{newPhotos.length}/2</span></div>
+            <div className="photo-uploader-head"><div><b>{t.photo}</b><small>{(lang === "nb" ? nbText["Maks. 2 billeder · JPG, PNG eller WEBP"] : (lang === "da" ? "Maks. 2 billeder · JPG, PNG eller WEBP" : "Högst 2 bilder · JPG, PNG eller WEBP"))}</small></div><span>{newPhotos.length}/2</span></div>
             {newPhotos.length > 0 && <div className="photo-previews">
-              {newPhotos.map((photo, index) => <figure key={`${photo.name}-${index}`}><img src={photo.src} alt={lang === "da" ? `Valgt billede ${index + 1}` : `Vald bild ${index + 1}`} /><button type="button" onClick={() => setNewPhotos(items => items.filter((_, i) => i !== index))} aria-label={lang === "da" ? `Fjern billede ${index + 1}` : `Ta bort bild ${index + 1}`}><X size={17} /></button><figcaption>{formatImageSize(photo.bytes, lang)}</figcaption></figure>)}
+              {newPhotos.map((photo, index) => <figure key={`${photo.name}-${index}`}><img src={photo.src} alt={(lang === "nb" ? `Valgt bilde ${index + 1}` : (lang === "da" ? `Valgt billede ${index + 1}` : `Vald bild ${index + 1}`))} /><button type="button" onClick={() => setNewPhotos(items => items.filter((_, i) => i !== index))} aria-label={(lang === "nb" ? `Fjern bilde ${index + 1}` : (lang === "da" ? `Fjern billede ${index + 1}` : `Ta bort bild ${index + 1}`))}><X size={17} /></button><figcaption>{formatImageSize(photo.bytes, lang)}</figcaption></figure>)}
             </div>}
             {newPhotos.length < MAX_LISTING_IMAGES && <label className={`photo-drop ${isCompressing ? "is-loading" : ""}`}>
               {isCompressing ? <Camera className="animate-pulse" size={27} /> : <ImagePlus size={27} />}
-              <span>{isCompressing ? (lang === "da" ? "Komprimerer…" : "Komprimerar…") : (newPhotos.length ? (lang === "da" ? "Tilføj et billede mere" : "Lägg till en bild till") : t.photo)}</span>
-              <small>{lang === "da" ? "Tag et foto eller vælg fra enheden · komprimeres automatisk" : "Ta ett foto eller välj från enheten · komprimeras automatiskt"}</small>
+              <span>{isCompressing ? ((lang === "nb" ? nbText["Komprimerer…"] : (lang === "da" ? "Komprimerer…" : "Komprimerar…"))) : (newPhotos.length ? ((lang === "nb" ? nbText["Tilføj et billede mere"] : (lang === "da" ? "Tilføj et billede mere" : "Lägg till en bild till"))) : t.photo)}</span>
+              <small>{(lang === "nb" ? nbText["Tag et foto eller vælg fra enheden · komprimeres automatisk"] : (lang === "da" ? "Tag et foto eller vælg fra enheden · komprimeres automatisk" : "Ta ett foto eller välj från enheten · komprimeras automatiskt"))}</small>
               <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" multiple disabled={isCompressing} onChange={event => { void addPhotos(event.target.files); event.currentTarget.value = ""; }} />
             </label>}
           </div>
-          <label className="field-label">{t.itemName}<input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={lang === "da" ? "Fx tæpperenser" : "T.ex. mattvätt"} /></label>
+          <label className="field-label">{t.itemName}<input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={(lang === "nb" ? nbText["Fx tæpperenser"] : (lang === "da" ? "Fx tæpperenser" : "T.ex. mattvätt"))} /></label>
           <div className="field-label">{t.country}<CountrySelect value={newCountry} onChange={c=>{setNewCountry(c);setNewPlace(null);}} lang={lang} /></div>
-          <PlacePicker key={newCountry} country={newCountry} value={newPlace} onChange={setNewPlace} lang={lang} label={lang === "da" ? "Afhentning · postnummer og by *" : "Hämtning · postnummer och ort *"} />
-          <div className="field-label">{lang === "da" ? "Kategori" : "Kategori"}<Select value={newCategory} onValueChange={setNewCategory}><SelectTrigger className="!h-12 w-full bg-white"><SelectValue /></SelectTrigger><SelectContent>{categories.filter(c=>c.id !== "all").map(c=><SelectItem key={c.id} value={c.id}>{c[lang]}</SelectItem>)}</SelectContent></Select></div>
+          <PlacePicker key={newCountry} country={newCountry} value={newPlace} onChange={setNewPlace} lang={lang} label={(lang === "nb" ? nbText["Afhentning · postnummer og by *"] : (lang === "da" ? "Afhentning · postnummer og by *" : "Hämtning · postnummer och ort *"))} />
+          <div className="field-label">{(lang === "nb" ? nbText["Kategori"] : (lang === "da" ? "Kategori" : "Kategori"))}<Select value={newCategory} onValueChange={setNewCategory}><SelectTrigger className="!h-12 w-full bg-white"><SelectValue /></SelectTrigger><SelectContent>{categories.filter(c=>c.id !== "all").map(c=><SelectItem key={c.id} value={c.id}>{c[lang]}</SelectItem>)}</SelectContent></Select></div>
           <div className="listing-spec-inputs">{(detailFields[newCategory]??[]).map(field=><label className="field-label" key={field.key}>{field[lang]}<input maxLength={200} value={newDetails[field.key]??""} onChange={e=>setNewDetails(old=>({...old,[field.key]:e.target.value}))} /></label>)}</div>
           <fieldset className="pricing-choice">
-            <legend>{lang === "da" ? "Hvordan vil du dele tingen?" : "Hur vill du dela saken?"}</legend>
+            <legend>{(lang === "nb" ? nbText["Hvordan vil du dele tingen?"] : (lang === "da" ? "Hvordan vil du dele tingen?" : "Hur vill du dela saken?"))}</legend>
             <RadioGroup value={pricing} onValueChange={setPricing} className="grid grid-cols-2 gap-3">
-              <label htmlFor="price-free" className={pricing === "free" ? "selected" : ""}><RadioGroupItem id="price-free" value="free" />{lang === "da" ? "Gratis udlån" : "Gratis utlåning"}</label>
-              <label htmlFor="price-paid" className={pricing === "paid" ? "selected" : ""}><RadioGroupItem id="price-paid" value="paid" />{lang === "da" ? "Mod betaling" : "Mot betalning"}</label>
+              <label htmlFor="price-free" className={pricing === "free" ? "selected" : ""}><RadioGroupItem id="price-free" value="free" />{(lang === "nb" ? nbText["Gratis udlån"] : (lang === "da" ? "Gratis udlån" : "Gratis utlåning"))}</label>
+              <label htmlFor="price-paid" className={pricing === "paid" ? "selected" : ""}><RadioGroupItem id="price-paid" value="paid" />{(lang === "nb" ? nbText["Mod betaling"] : (lang === "da" ? "Mod betaling" : "Mot betalning"))}</label>
             </RadioGroup>
-            {pricing === "paid" && <label className="field-label mt-4">{lang === "da" ? "Pris pr. kalenderdag" : "Pris per kalenderdag"} · {newCountry === "DK" ? "DKK" : "SEK"}<input inputMode="decimal" value={priceInput} onChange={e=>setPriceInput(e.target.value)} placeholder="50" maxLength={10} /><small>{lang === "da" ? "Ingen automatisk betaling. Beløbet aftales med låneren." : "Ingen automatisk betalning. Beloppet avtalas med låntagaren."}</small></label>}
-            <label className="field-label mt-4">{lang === "da" ? "Dit depositum (valgfrit)" : "Din deposition (valfritt)"} · {newCountry === "DK" ? "DKK" : "SEK"}<input inputMode="decimal" value={newDepositInput} onChange={e=>setNewDepositInput(e.target.value)} placeholder="0" maxLength={10}/><small>{lang === "da" ? "Du fastsætter beløbet som ejer. Det vises på annoncen og i nye aftaler. Skriv 0 for intet depositum." : "Du bestämmer beloppet som ägare. Det visas på annonsen och i nya avtal. Skriv 0 för ingen deposition."}</small></label>
+            {pricing === "paid" && <label className="field-label mt-4">{(lang === "nb" ? nbText["Pris pr. kalenderdag"] : (lang === "da" ? "Pris pr. kalenderdag" : "Pris per kalenderdag"))} · {regions[newCountry].currency}<input inputMode="decimal" value={priceInput} onChange={e=>setPriceInput(e.target.value)} placeholder="50" maxLength={10} /><small>{(lang === "nb" ? nbText["Ingen automatisk betaling. Beløbet aftales med låneren."] : (lang === "da" ? "Ingen automatisk betaling. Beløbet aftales med låneren." : "Ingen automatisk betalning. Beloppet avtalas med låntagaren."))}</small></label>}
+            <label className="field-label mt-4">{(lang === "nb" ? nbText["Dit depositum (valgfrit)"] : (lang === "da" ? "Dit depositum (valgfrit)" : "Din deposition (valfritt)"))} · {regions[newCountry].currency}<input inputMode="decimal" value={newDepositInput} onChange={e=>setNewDepositInput(e.target.value)} placeholder="0" maxLength={10}/><small>{(lang === "nb" ? nbText["Du fastsætter beløbet som ejer. Det vises på annoncen og i nye aftaler. Skriv 0 for intet depositum."] : (lang === "da" ? "Du fastsætter beløbet som ejer. Det vises på annoncen og i nye aftaler. Skriv 0 for intet depositum." : "Du bestämmer beloppet som ägare. Det visas på annonsen och i nya avtal. Skriv 0 för ingen deposition."))}</small></label>
           </fieldset>
-          <label className="field-label">{t.description}<textarea value={newDescription} onChange={(e) => setNewDescription(e.target.value)} rows={4} placeholder={lang === "da" ? "Stand, tilbehør og det låneren bør vide…" : "Skick, tillbehör och det låntagaren bör veta…"} /></label>
+          <label className="field-label">{t.description}<textarea value={newDescription} onChange={(e) => setNewDescription(e.target.value)} rows={4} placeholder={(lang === "nb" ? nbText["Stand, tilbehør og det låneren bør vide…"] : (lang === "da" ? "Stand, tilbehør og det låneren bør vide…" : "Skick, tillbehör och det låntagaren bör veta…"))} /></label>
           {formError && <p role="alert" className="form-error">{formError}</p>}
-          <Button disabled={isCompressing || listingSaving} onClick={() => void publishItem()} className="h-13 rounded-xl bg-[#008EAC] text-base font-semibold text-white hover:bg-[#006F88]">{listingSaving ? (lang === "da" ? "Gemmer…" : "Sparar…") : editingId !== null ? (lang === "da" ? "Gem ændringer" : "Spara ändringar") : t.publish}</Button>
+          <Button disabled={isCompressing || listingSaving} onClick={() => void publishItem()} className="h-13 rounded-xl bg-[#008EAC] text-base font-semibold text-white hover:bg-[#006F88]">{listingSaving ? ((lang === "nb" ? nbText["Gemmer…"] : (lang === "da" ? "Gemmer…" : "Sparar…"))) : editingId !== null ? ((lang === "nb" ? nbText["Gem ændringer"] : (lang === "da" ? "Gem ændringer" : "Spara ändringar"))) : t.publish}</Button>
         </DialogContent>
       </Dialog>
 
       <Dialog open={showUpgrade} onOpenChange={setShowUpgrade}>
         <DialogContent className="form-dialog circle-plus-dialog max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-xl sm:max-w-[520px]">
-          <DialogHeader><DialogTitle className="flex items-center gap-3 text-2xl font-bold"><span className="plus-icon"><Crown size={23}/></span>Veyro Circle Plus</DialogTitle><DialogDescription>{lang==="da"?"Del og udlej dine ting i lokalområdet.":"Dela och hyr ut dina saker i närområdet."}</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle className="flex items-center gap-3 text-2xl font-bold"><span className="plus-icon"><Crown size={23}/></span>Veyro Circle Plus</DialogTitle><DialogDescription>{(lang === "nb" ? nbText["Del og udlej dine ting i lokalområdet."] : (lang==="da"?"Del og udlej dine ting i lokalområdet.":"Dela och hyr ut dina saker i närområdet."))}</DialogDescription></DialogHeader>
           <CirclePlusOffer lang={lang} country={currentOffer.country??profile?.place.country??"DK"} trialEligible={currentOffer.trialEligible} hasSubscription={currentOffer.hasSubscription} busy={billingBusy} error={currentOffer.offerError} onContinue={()=>void billing(currentOffer.hasSubscription?"portal":"checkout")} onRetry={()=>setOfferRevision(value=>value+1)} onClose={()=>setShowUpgrade(false)}/>
         </DialogContent>
       </Dialog>
 
       <AlertDialog open={!!pendingDelete} onOpenChange={open => !open && setPendingDelete(null)}>
         {pendingDelete && <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>{lang === "da" ? "Slet denne ting?" : "Ta bort den här saken?"}</AlertDialogTitle><AlertDialogDescription>{lang === "da" ? `“${pendingDelete.name}” fjernes fra dine annoncer. Handlingen kan ikke fortrydes.` : `“${pendingDelete.name}” tas bort från dina annonser. Åtgärden kan inte ångras.`}</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel>{lang === "da" ? "Annuller" : "Avbryt"}</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={() => void deleteItem(pendingDelete)}><Trash2 size={17} />{lang === "da" ? "Slet" : "Ta bort"}</AlertDialogAction></AlertDialogFooter>
+          <AlertDialogHeader><AlertDialogTitle>{(lang === "nb" ? nbText["Slet denne ting?"] : (lang === "da" ? "Slet denne ting?" : "Ta bort den här saken?"))}</AlertDialogTitle><AlertDialogDescription>{(lang === "nb" ? `«${pendingDelete.name}» fjernes fra annonsene dine. Handlingen kan ikke angres.` : (lang === "da" ? `“${pendingDelete.name}” fjernes fra dine annoncer. Handlingen kan ikke fortrydes.` : `“${pendingDelete.name}” tas bort från dina annonser. Åtgärden kan inte ångras.`))}</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel>{(lang === "nb" ? nbText["Annuller"] : (lang === "da" ? "Annuller" : "Avbryt"))}</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={() => void deleteItem(pendingDelete)}><Trash2 size={17} />{(lang === "nb" ? nbText["Slet"] : (lang === "da" ? "Slet" : "Ta bort"))}</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>}
       </AlertDialog>
     </main>
@@ -998,12 +1024,12 @@ export default function HomePage() {
 }
 
 function priceLabel(item: Listing, lang: Lang) {
-  return item.dailyPrice === 0 ? "Gratis" : money(item.dailyPrice, item.country, lang) + (lang === "da" ? " / dag" : " / dag");
+  return item.dailyPrice === 0 ? "Gratis" : money(item.dailyPrice, item.country, lang) + ((lang === "nb" ? nbText[" / dag"] : (lang === "da" ? " / dag" : " / dag")));
 }
 
 function printAgreementDocument(lang: Lang) {
   const agreement = document.querySelector<HTMLElement>(".print-agreement");
-  if (!agreement) { toast.error(lang === "da" ? "Aftalen kunne ikke klargøres til udskrift." : "Avtalet kunde inte förberedas för utskrift."); return; }
+  if (!agreement) { toast.error((lang === "nb" ? nbText["Aftalen kunne ikke klargøres til udskrift."] : (lang === "da" ? "Aftalen kunne ikke klargøres til udskrift." : "Avtalet kunde inte förberedas för utskrift."))); return; }
   const copy = agreement.cloneNode(true) as HTMLElement;
   copy.querySelectorAll(".no-print,canvas,button").forEach(node => node.remove());
   const printFrame = document.createElement("iframe");
@@ -1019,11 +1045,11 @@ function printAgreementDocument(lang: Lang) {
   const printWindow = printFrame.contentWindow;
   if (!printDocument || !printWindow) {
     printFrame.remove();
-    toast.error(lang === "da" ? "Aftalen kunne ikke klargøres til udskrift." : "Avtalet kunde inte förberedas för utskrift.");
+    toast.error((lang === "nb" ? nbText["Aftalen kunne ikke klargøres til udskrift."] : (lang === "da" ? "Aftalen kunne ikke klargøres til udskrift." : "Avtalet kunde inte förberedas för utskrift.")));
     return;
   }
   printDocument.open();
-  printDocument.write(`<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><title>Veyro Circle · ${lang === "da" ? "Leje- og låneaftale" : "Hyres- och låneavtal"}</title><style>
+  printDocument.write(`<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><title>Veyro Circle · ${(lang === "nb" ? nbText["Leje- og låneaftale"] : (lang === "da" ? "Leje- og låneaftale" : "Hyres- och låneavtal"))}</title><style>
     @page{size:A4 portrait;margin:6mm}*{box-sizing:border-box;min-width:0}html,body{width:100%;margin:0;padding:0;overflow:visible}body{color:#172936;font:8.2px/1.13 Arial,sans-serif;overflow-wrap:anywhere}h1,h2,h3,p{margin-top:0}h2{font-size:16px;line-height:1.08;margin-bottom:2px}h3{font-size:10px;line-height:1.12;margin-bottom:2px}.print-agreement{width:100%;max-width:100%;overflow:hidden}.agreement-header{border-bottom:2px solid #008eac;padding-bottom:3px}.agreement-header p{margin-bottom:1px}.eyebrow,small,dt{color:#607583;font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}.agreement-parties,.agreement-signatures,.agreement-facts{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px;margin-top:4px}.agreement-parties section,.agreement-signatures section{display:grid;gap:1px;border:1px solid #d6e1e6;padding:3px 4px;break-inside:avoid}.agreement-parties p{margin-bottom:1px}.agreement-facts{gap:0;border:1px solid #d6e1e6;break-inside:avoid}.agreement-facts div{padding:2px 4px;border-bottom:1px solid #d6e1e6}.agreement-facts dd{margin:0;font-weight:700}.agreement-terms,.agreement-id-check{margin-top:4px}.agreement-terms ol,.agreement-id-check ul{margin:1px 0;padding-left:13px}.agreement-terms li+li,.agreement-id-check li+li{margin-top:1px}.agreement-terms p{margin-bottom:1px}.agreement-id-check{border:1px solid #86b8c2;padding:3px 4px;background:#eef9fa;break-inside:avoid}.agreement-id-check p{margin-bottom:1px}.agreement-condition-note{margin-top:4px;border:1px solid #bfd2da;padding:3px 4px;background:#f8fbfc;break-inside:avoid}.condition-note-heading{display:flex;justify-content:space-between}.condition-note-heading p,.condition-note-help{margin-bottom:1px}.condition-note-value{display:grid;gap:1px;margin-top:2px;border-left:2px solid #008eac;padding:2px 4px;background:white}.condition-note-value span{white-space:pre-wrap}.paper-note-lines{display:block}.paper-note-lines span{display:block;height:8px;border-bottom:1px solid #aeb9c5}.agreement-signatures section{min-height:45px;border-style:dashed}.agreement-signatures p{margin-bottom:1px}.paper-signature-line{display:block;margin-top:auto;padding-top:11px;border-bottom:1px solid #172936}.agreement-legal{margin:4px 0 0;border-left:3px solid #d88920;padding:3px 4px;background:#fff7df;break-inside:avoid}.return-receipt{margin-top:4px;border:1px solid #7eb7c2;padding:3px 4px;background:#f2fbfc;break-inside:avoid}.return-receipt>header{display:flex;align-items:center;justify-content:space-between}.return-receipt>header p,.return-receipt>p{margin:1px 0}.return-receipt>header span{font-weight:700}.return-signatures{margin-top:2px}.return-signatures section{min-height:42px}.signature-image{max-width:100%;max-height:30px;object-fit:contain}svg{display:none}.agreement-addenda{margin-top:3px;border:1px solid #d6e1e6;padding:3px}.agreement-addenda p{margin:1px 0}
   </style></head><body>${copy.outerHTML}</body></html>`);
   printDocument.close();
@@ -1059,12 +1085,12 @@ function agreementFromCloud(record: StoredAgreement): Loan {
 }
 
 function DepositSummary({amount,country,lang,explain=false}:{amount:number;country:Country;lang:Lang;explain?:boolean}) {
-  return <div className="listing-deposit"><span>{lang === "da" ? "Depositum fastsat af ejeren" : "Deposition bestämd av ägaren"}</span><strong>{amount ? money(amount,country,lang) : (lang === "da" ? "Intet depositum" : "Ingen deposition")}</strong>{explain && <small>{lang === "da" ? "Beløbet overføres til aftalen. Betaling aftales direkte med ejeren; Circle opkræver det ikke." : "Beloppet förs över till avtalet. Betalning avtalas direkt med ägaren; Circle tar inte betalt för det."}</small>}</div>;
+  return <div className="listing-deposit"><span>{(lang === "nb" ? nbText["Depositum fastsat af ejeren"] : (lang === "da" ? "Depositum fastsat af ejeren" : "Deposition bestämd av ägaren"))}</span><strong>{amount ? money(amount,country,lang) : ((lang === "nb" ? nbText["Intet depositum"] : (lang === "da" ? "Intet depositum" : "Ingen deposition")))}</strong>{explain && <small>{(lang === "nb" ? nbText["Beløbet overføres til aftalen. Betaling aftales direkte med ejeren; Circle opkræver det ikke."] : (lang === "da" ? "Beløbet overføres til aftalen. Betaling aftales direkte med ejeren; Circle opkræver det ikke." : "Beloppet förs över till avtalet. Betalning avtalas direkt med ägaren; Circle tar inte betalt för det."))}</small>}</div>;
 }
 
 function ListingCard({ item, lang, freeLabel, onOpen,periodDays,favorite,busy,onFavorite }: { item: Listing; lang:Lang; freeLabel: string; onOpen: () => void; periodDays?:number|null;favorite?:boolean;busy?:boolean;onFavorite?:()=>void }) {
   const Icon = item.icon;
-  return <article className="listing-card text-left"><button onClick={onOpen} className="listing-card-main" aria-label={item.name}><div className={`listing-image bg-gradient-to-br ${item.color}`}>{item.photos?.[0] ? <img src={item.photos[0].src} alt={item.name} /> : <Icon size={57} strokeWidth={1.4} className="text-[#172936]/70" />}<span className={`free-tag ${item.dailyPrice === 0 ? "is-free" : "is-paid"}`}>{freeLabel}</span>{item.photos && item.photos.length > 1 && <span className="photo-count"><Camera size={14} />{item.photos.length}</span>}</div><div className="p-4"><div className="flex items-start justify-between gap-2"><h3>{item.name}</h3></div><p className="mt-2 flex items-center gap-1.5 text-sm text-[#6d7185]"><MapPin size={15} />{item.city} · {Number.isFinite(item.distance) ? `ca. ${item.distance.toLocaleString("da-DK", {maximumFractionDigits: 1})} km` : ""}</p><p className="period-price">{periodDays ? <>{lang === "da" ? "Pris for perioden" : "Pris för perioden"}: <strong>{money(item.dailyPrice*periodDays,item.country,lang)}</strong> · {periodDays} {lang === "da" ? "dage" : "dagar"}</> : null}</p><p className="mt-2 text-sm text-[#172936]">{lang === "da" ? "Depositum" : "Deposition"}: {item.deposit ? money(item.deposit,item.country,lang) : (lang === "da" ? "Intet" : "Ingen")}</p><div className="mt-3 flex items-center gap-2"><span className="size-2 rounded-full bg-[#38a66b]" /><span className="text-xs font-bold text-[#397252]">{item.availability}</span></div></div></button><button className="heart-button" disabled={busy} aria-pressed={favorite} aria-label={lang==="da"?(favorite?"Fjern fra favoritter":"Gem som favorit"):(favorite?"Ta bort favorit":"Spara som favorit")} onClick={onFavorite}><Heart size={18} fill={favorite?"currentColor":"none"}/></button></article>;
+  return <article className="listing-card text-left"><button onClick={onOpen} className="listing-card-main" aria-label={item.name}><div className={`listing-image bg-gradient-to-br ${item.color}`}>{item.photos?.[0] ? <img src={item.photos[0].src} alt={item.name} /> : <Icon size={57} strokeWidth={1.4} className="text-[#172936]/70" />}<span className={`free-tag ${item.dailyPrice === 0 ? "is-free" : "is-paid"}`}>{freeLabel}</span>{item.photos && item.photos.length > 1 && <span className="photo-count"><Camera size={14} />{item.photos.length}</span>}</div><div className="p-4"><div className="flex items-start justify-between gap-2"><h3>{item.name}</h3></div><p className="mt-2 flex items-center gap-1.5 text-sm text-[#6d7185]"><MapPin size={15} />{item.city} · {Number.isFinite(item.distance) ? `ca. ${item.distance.toLocaleString("da-DK", {maximumFractionDigits: 1})} km` : ""}</p><p className="period-price">{periodDays ? <>{(lang === "nb" ? nbText["Pris for perioden"] : (lang === "da" ? "Pris for perioden" : "Pris för perioden"))}: <strong>{money(item.dailyPrice*periodDays,item.country,lang)}</strong> · {periodDays} {(lang === "nb" ? nbText["dage"] : (lang === "da" ? "dage" : "dagar"))}</> : null}</p><p className="mt-2 text-sm text-[#172936]">{(lang === "nb" ? nbText["Depositum"] : (lang === "da" ? "Depositum" : "Deposition"))}: {item.deposit ? money(item.deposit,item.country,lang) : ((lang === "nb" ? nbText["Intet"] : (lang === "da" ? "Intet" : "Ingen")))}</p><div className="mt-3 flex items-center gap-2"><span className="size-2 rounded-full bg-[#38a66b]" /><span className="text-xs font-bold text-[#397252]">{item.availability}</span></div></div></button><button className="heart-button" disabled={busy} aria-pressed={favorite} aria-label={lang==="da"?(favorite?"Fjern fra favoritter":"Gem som favorit"):(favorite?"Ta bort favorit":"Spara som favorit")} onClick={onFavorite}><Heart size={18} fill={favorite?"currentColor":"none"}/></button></article>;
 }
 
 function SideNav({ icon: Icon, label, active, badge, onClick }: { icon: typeof Home; label: string; active?: boolean; badge?: string; onClick: () => void }) {
@@ -1083,35 +1109,35 @@ function RequestsView({ t, loans, lang, userUid, loading, loadError, direction, 
   return <div className="content-panel loans-panel">
     <h1 className="sr-only">{t.requests}</h1>
     <div className="loans-heading">
-      <div className="loan-filters loan-direction" role="group" aria-label={da ? "Låner eller ejer" : "Låntagare eller ägare"}>{(["borrower","lender"] as const).map(role=><button type="button" key={role} aria-pressed={direction === role} onClick={()=>setDirection(role)}><span>{role === "borrower" ? (da ? "Jeg låner" : "Jag lånar") : (da ? "Jeg udlåner" : "Jag lånar ut")}</span><b>{loans.filter(l=>(role === "borrower" ? l.borrowerUid : l.lenderUid) === userUid && !isArchived(l)).length}</b></button>)}</div>
-      <Button type="button" variant="ghost" className="loan-refresh" disabled={loading} onClick={agreementsChanged}><RefreshCw size={16} aria-hidden="true" /><span>{da ? "Opdatér" : "Uppdatera"}</span></Button>
+      <div className="loan-filters loan-direction" role="group" aria-label={(lang === "nb" ? nbText["Låner eller ejer"] : (da ? "Låner eller ejer" : "Låntagare eller ägare"))}>{(["borrower","lender"] as const).map(role=><button type="button" key={role} aria-pressed={direction === role} onClick={()=>setDirection(role)}><span>{role === "borrower" ? ((lang === "nb" ? nbText["Jeg låner"] : (da ? "Jeg låner" : "Jag lånar"))) : ((lang === "nb" ? nbText["Jeg udlåner"] : (da ? "Jeg udlåner" : "Jag lånar ut")))}</span><b>{loans.filter(l=>(role === "borrower" ? l.borrowerUid : l.lenderUid) === userUid && !isArchived(l)).length}</b></button>)}</div>
+      <Button type="button" variant="ghost" className="loan-refresh" disabled={loading} onClick={agreementsChanged}><RefreshCw size={16} aria-hidden="true" /><span>{(lang === "nb" ? nbText["Opdatér"] : (da ? "Opdatér" : "Uppdatera"))}</span></Button>
     </div>
     <div className="loan-toolbar">
-      <div className="loan-filters loan-period" role="group" aria-label={da ? "Aktive eller arkiv" : "Aktiva eller arkiv"}><button type="button" aria-pressed={!archive} onClick={()=>setArchive(false)}>{da ? "Aktuelle" : "Aktuella"}</button><button type="button" aria-pressed={archive} onClick={()=>setArchive(true)}>{da ? "Arkiv" : "Arkiv"}<span className="loan-retention">{da ? "12 mdr." : "12 mån."}</span><span className="sr-only">{da ? "12 måneder" : "12 månader"}</span></button></div>
-      <label className="loan-search"><span className="sr-only">{da ? "Find en aftale" : "Hitta ett avtal"}</span><Search size={18} aria-hidden="true" /><input type="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder={da ? "Søg på genstand, navn eller ticket" : "Sök på föremål, namn eller ticket"} /></label>
+      <div className="loan-filters loan-period" role="group" aria-label={(lang === "nb" ? nbText["Aktive eller arkiv"] : (da ? "Aktive eller arkiv" : "Aktiva eller arkiv"))}><button type="button" aria-pressed={!archive} onClick={()=>setArchive(false)}>{(lang === "nb" ? nbText["Aktuelle"] : (da ? "Aktuelle" : "Aktuella"))}</button><button type="button" aria-pressed={archive} onClick={()=>setArchive(true)}>{(lang === "nb" ? nbText["Arkiv"] : (da ? "Arkiv" : "Arkiv"))}<span className="loan-retention">{(lang === "nb" ? nbText["12 mdr."] : (da ? "12 mdr." : "12 mån."))}</span><span className="sr-only">{(lang === "nb" ? nbText["12 måneder"] : (da ? "12 måneder" : "12 månader"))}</span></button></div>
+      <label className="loan-search"><span className="sr-only">{(lang === "nb" ? nbText["Find en aftale"] : (da ? "Find en aftale" : "Hitta ett avtal"))}</span><Search size={18} aria-hidden="true" /><input type="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder={(lang === "nb" ? nbText["Søg på genstand, navn eller ticket"] : (da ? "Søg på genstand, navn eller ticket" : "Sök på föremål, namn eller ticket"))} /></label>
     </div>
-    {loading && <p role="status">{da ? "Henter dine aftaler…" : "Hämtar dina avtal…"}</p>}
-    {loadError && <p className="agreements-load-note" role="alert">{da ? "Aftalerne kunne ikke opdateres. Viste oplysninger kan være forældede. Prøv Opdatér igen." : "Avtalen kunde inte uppdateras. Uppgifterna kan vara inaktuella. Försök uppdatera igen."}</p>}
+    {loading && <p role="status">{(lang === "nb" ? nbText["Henter dine aftaler…"] : (da ? "Henter dine aftaler…" : "Hämtar dina avtal…"))}</p>}
+    {loadError && <p className="agreements-load-note" role="alert">{(lang === "nb" ? nbText["Aftalerne kunne ikke opdateres. Viste oplysninger kan være forældede. Prøv Opdatér igen."] : (da ? "Aftalerne kunne ikke opdateres. Viste oplysninger kan være forældede. Prøv Opdatér igen." : "Avtalen kunde inte uppdateras. Uppgifterna kan vara inaktuella. Försök uppdatera igen."))}</p>}
     <div className="mt-6 space-y-4">
       {visible.map(loan=>{
         const stage = agreementStage(loan);
         const ownSignature = direction === "borrower" ? loan.borrowerSignature : loan.lenderSignature;
         const ownReturn = direction === "borrower" ? loan.borrowerReturnSignature : loan.lenderReturnSignature;
-        const next = stage === "requested" ? (da ? "Se forespørgsel" : "Visa förfrågan") : stage === "accepted" ? (ownSignature ? (da ? "Afventer den anden underskrift" : "Inväntar den andra signaturen") : (da ? "Underskriv ved udlevering" : "Signera vid utlämning")) : stage === "handedOver" ? (ownReturn ? (da ? "Afventer den anden returunderskrift" : "Inväntar den andra retursignaturen") : (da ? "Bekræft tilbagelevering" : "Bekräfta återlämning")) : (da ? "Se gemt aftale" : "Visa sparat avtal");
+        const next = stage === "requested" ? ((lang === "nb" ? nbText["Se forespørgsel"] : (da ? "Se forespørgsel" : "Visa förfrågan"))) : stage === "accepted" ? (ownSignature ? ((lang === "nb" ? nbText["Afventer den anden underskrift"] : (da ? "Afventer den anden underskrift" : "Inväntar den andra signaturen"))) : ((lang === "nb" ? nbText["Underskriv ved udlevering"] : (da ? "Underskriv ved udlevering" : "Signera vid utlämning")))) : stage === "handedOver" ? (ownReturn ? ((lang === "nb" ? nbText["Afventer den anden returunderskrift"] : (da ? "Afventer den anden returunderskrift" : "Inväntar den andra retursignaturen"))) : ((lang === "nb" ? nbText["Bekræft tilbagelevering"] : (da ? "Bekræft tilbagelevering" : "Bekräfta återlämning")))) : ((lang === "nb" ? nbText["Se gemt aftale"] : (da ? "Se gemt aftale" : "Visa sparat avtal")));
         return <article key={loan.id} className="request-summary">
-          <LoanRow title={loan.item.name} owner={direction === "borrower" ? loan.item.owner : loan.borrower.name} ticket={loan.id} status={stage === "returned" && loan.returnCondition === "remarks" ? (da ? "Tilbageleveret med bemærkninger" : "Återlämnad med anmärkningar") : stageLabels[lang][stage]} statusClass={isArchived(loan) ? "approved" : stage === "requested" ? "waiting" : "active-loan"} icon={loan.item.icon} onChat={()=>onChat(loan)} chatLabel={t.chat} dates={`${formatAgreementDate(loan.from,lang)} – ${formatAgreementDate(loan.to,lang)}`} lang={lang} />
-          {stage === "handedOver" && loan.to < circleToday() && <p className="loan-overdue">{da ? "Afleveringsdatoen er passeret; returkvitteringen er ikke afsluttet." : "Återlämningsdatumet har passerat; returkvittot är inte avslutat."}</p>}
-          <div className="request-price"><span>{loan.days} {da ? "kalenderdage" : "kalenderdagar"}</span><b>{loan.total === 0 ? t.free : money(loan.total,loan.item.country,lang)}</b></div>
+          <LoanRow title={loan.item.name} owner={direction === "borrower" ? loan.item.owner : loan.borrower.name} ticket={loan.id} status={stage === "returned" && loan.returnCondition === "remarks" ? ((lang === "nb" ? nbText["Tilbageleveret med bemærkninger"] : (da ? "Tilbageleveret med bemærkninger" : "Återlämnad med anmärkningar"))) : stageLabels[lang][stage]} statusClass={isArchived(loan) ? "approved" : stage === "requested" ? "waiting" : "active-loan"} icon={loan.item.icon} onChat={()=>onChat(loan)} chatLabel={t.chat} dates={`${formatAgreementDate(loan.from,lang)} – ${formatAgreementDate(loan.to,lang)}`} lang={lang} />
+          {stage === "handedOver" && loan.to < circleToday() && <p className="loan-overdue">{(lang === "nb" ? nbText["Afleveringsdatoen er passeret; returkvitteringen er ikke afsluttet."] : (da ? "Afleveringsdatoen er passeret; returkvitteringen er ikke afsluttet." : "Återlämningsdatumet har passerat; returkvittot är inte avslutat."))}</p>}
+          <div className="request-price"><span>{loan.days} {(lang === "nb" ? nbText["kalenderdage"] : (da ? "kalenderdage" : "kalenderdagar"))}</span><b>{loan.total === 0 ? t.free : money(loan.total,loan.item.country,lang)}</b></div>
           {loan.message && <p className="loan-message">{loan.message}</p>}
           <div className="loan-actions">
-            {decisionAllowed(loan,userUid,"accept") && <Button disabled={loadError} onClick={()=>onDecision(loan,"accept")}>{da ? "Godkend forespørgsel" : "Godkänn förfrågan"}</Button>}
-            {decisionAllowed(loan,userUid,"decline") && <Button disabled={loadError} variant="outline" onClick={()=>onDecision(loan,"decline")}>{da ? "Afvis" : "Avböj"}</Button>}
-            {decisionAllowed(loan,userUid,"cancel") && !(stage === "requested" && direction === "lender") && <Button disabled={loadError} variant="outline" onClick={()=>onDecision(loan,"cancel")}>{da ? "Annullér" : "Avbryt"}</Button>}
+            {decisionAllowed(loan,userUid,"accept") && <Button disabled={loadError} onClick={()=>onDecision(loan,"accept")}>{(lang === "nb" ? nbText["Godkend forespørgsel"] : (da ? "Godkend forespørgsel" : "Godkänn förfrågan"))}</Button>}
+            {decisionAllowed(loan,userUid,"decline") && <Button disabled={loadError} variant="outline" onClick={()=>onDecision(loan,"decline")}>{(lang === "nb" ? nbText["Afvis"] : (da ? "Afvis" : "Avböj"))}</Button>}
+            {decisionAllowed(loan,userUid,"cancel") && !(stage === "requested" && direction === "lender") && <Button disabled={loadError} variant="outline" onClick={()=>onDecision(loan,"cancel")}>{(lang === "nb" ? nbText["Annullér"] : (da ? "Annullér" : "Avbryt"))}</Button>}
           </div>
           <button type="button" className="agreement-open" onClick={()=>onAgreement(loan)}><FileSignature size={18} /><span>{next}</span></button>
         </article>;
       })}
-      {!visible.length && !loadError && !loading && <div className="my-items-empty"><MessageCircle size={28} /><p>{search ? (da ? "Ingen aftaler matcher søgningen." : "Inga avtal matchar sökningen.") : archive ? (da ? "Ingen afsluttede aftaler i denne oversigt." : "Inga avslutade avtal i denna vy.") : (da ? "Ingen aktuelle aftaler i denne oversigt." : "Inga aktuella avtal i denna vy.")}</p></div>}
+      {!visible.length && !loadError && !loading && <div className="my-items-empty"><MessageCircle size={28} /><p>{search ? ((lang === "nb" ? nbText["Ingen aftaler matcher søgningen."] : (da ? "Ingen aftaler matcher søgningen." : "Inga avtal matchar sökningen."))) : archive ? ((lang === "nb" ? nbText["Ingen afsluttede aftaler i denne oversigt."] : (da ? "Ingen afsluttede aftaler i denne oversigt." : "Inga avslutade avtal i denna vy."))) : ((lang === "nb" ? nbText["Ingen aktuelle aftaler i denne oversigt."] : (da ? "Ingen aktuelle aftaler i denne oversigt." : "Inga aktuella avtal i denna vy.")))}</p></div>}
     </div>
   </div>;
 }
@@ -1125,8 +1151,8 @@ function ChatDialog({ loan, userUid, lang, onClose }: { loan: Loan | null; userU
   const da = lang === "da";
   useEffect(() => {
     if (!loan || !userUid || !loan.borrowerUid || !loan.lenderUid) return;
-    return subscribeToCircleMessages(loan.id, setMessages, () => setError(da ? "Samtalen kunne ikke hentes fra Firebase." : "Konversationen kunde inte hämtas från Firebase."));
-  }, [da, loan, userUid]);
+    return subscribeToCircleMessages(loan.id, setMessages, () => setError((lang === "nb" ? nbText["Samtalen kunne ikke hentes fra Firebase."] : (da ? "Samtalen kunne ikke hentes fra Firebase." : "Konversationen kunde inte hämtas från Firebase."))));
+  }, [da, lang, loan, userUid]);
   useEffect(() => { endRef.current?.scrollIntoView({behavior:"smooth"}); }, [messages]);
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -1137,7 +1163,7 @@ function ChatDialog({ loan, userUid, lang, onClose }: { loan: Loan | null; userU
     finally { setBusy(false); }
   }
   const available = Boolean(loan?.borrowerUid && loan?.lenderUid && userUid);
-  return <Dialog open={Boolean(loan)} onOpenChange={open => !open && onClose()}>{loan && <DialogContent className="chat-dialog rounded-xl sm:max-w-[560px]"><DialogHeader><DialogTitle>{da ? "Samtale om" : "Konversation om"} {loan.item.name}</DialogTitle><DialogDescription>{loan.item.owner} · {loan.from} – {loan.to}</DialogDescription></DialogHeader>{available ? <><div className="chat-thread" aria-live="polite">{messages.length ? messages.map(message => <div key={message.id} className={`chat-message ${message.senderUid === userUid ? "mine" : "theirs"}`}><p>{message.text}</p><time>{message.createdAt ? new Intl.DateTimeFormat(da ? "da-DK" : "sv-SE", {dateStyle:"short",timeStyle:"short"}).format(message.createdAt) : (da ? "Sender…" : "Skickar…")}</time></div>) : <p className="chat-empty">{da ? "Ingen beskeder endnu. Skriv den første besked om aftalen." : "Inga meddelanden ännu. Skriv det första meddelandet om avtalet."}</p>}<div ref={endRef} /></div>{error && <p className="auth-error" role="alert">{error}</p>}<form className="chat-compose" onSubmit={submit}><label htmlFor="circle-chat-message" className="sr-only">{da ? "Skriv besked" : "Skriv meddelande"}</label><textarea id="circle-chat-message" rows={3} maxLength={2000} value={text} onChange={event=>setText(event.target.value)} placeholder={da ? "Skriv en besked…" : "Skriv ett meddelande…"} /><Button type="submit" disabled={busy || !text.trim()}>{busy ? <LoaderCircle className="animate-spin" size={18} /> : <Send size={18} />}{da ? "Send" : "Skicka"}</Button></form></> : <p className="agreements-load-note">{da ? "Denne aftale er ikke knyttet til to brugerkonti, så der kan ikke oprettes en samtale." : "Det här avtalet är inte kopplat till två användarkonton, så en konversation kan inte skapas."}</p>}</DialogContent>}</Dialog>;
+  return <Dialog open={Boolean(loan)} onOpenChange={open => !open && onClose()}>{loan && <DialogContent className="chat-dialog rounded-xl sm:max-w-[560px]"><DialogHeader><DialogTitle>{(lang === "nb" ? nbText["Samtale om"] : (da ? "Samtale om" : "Konversation om"))} {loan.item.name}</DialogTitle><DialogDescription>{loan.item.owner} · {loan.from} – {loan.to}</DialogDescription></DialogHeader>{available ? <><div className="chat-thread" aria-live="polite">{messages.length ? messages.map(message => <div key={message.id} className={`chat-message ${message.senderUid === userUid ? "mine" : "theirs"}`}><p>{message.text}</p><time>{message.createdAt ? new Intl.DateTimeFormat((lang === "nb" ? nbText["da-DK"] : (da ? "da-DK" : "sv-SE")), {dateStyle:"short",timeStyle:"short"}).format(message.createdAt) : ((lang === "nb" ? nbText["Sender…"] : (da ? "Sender…" : "Skickar…")))}</time></div>) : <p className="chat-empty">{(lang === "nb" ? nbText["Ingen beskeder endnu. Skriv den første besked om aftalen."] : (da ? "Ingen beskeder endnu. Skriv den første besked om aftalen." : "Inga meddelanden ännu. Skriv det första meddelandet om avtalet."))}</p>}<div ref={endRef} /></div>{error && <p className="auth-error" role="alert">{error}</p>}<form className="chat-compose" onSubmit={submit}><label htmlFor="circle-chat-message" className="sr-only">{(lang === "nb" ? nbText["Skriv besked"] : (da ? "Skriv besked" : "Skriv meddelande"))}</label><textarea id="circle-chat-message" rows={3} maxLength={2000} value={text} onChange={event=>setText(event.target.value)} placeholder={(lang === "nb" ? nbText["Skriv en besked…"] : (da ? "Skriv en besked…" : "Skriv ett meddelande…"))} /><Button type="submit" disabled={busy || !text.trim()}>{busy ? <LoaderCircle className="animate-spin" size={18} /> : <Send size={18} />}{(lang === "nb" ? nbText["Send"] : (da ? "Send" : "Skicka"))}</Button></form></> : <p className="agreements-load-note">{(lang === "nb" ? nbText["Denne aftale er ikke knyttet til to brugerkonti, så der kan ikke oprettes en samtale."] : (da ? "Denne aftale er ikke knyttet til to brugerkonti, så der kan ikke oprettes en samtale." : "Det här avtalet är inte kopplat till två användarkonton, så en konversation kan inte skapas."))}</p>}</DialogContent>}</Dialog>;
 }
 
 function AgreementParty({ title, name, street, postcode, city, phone }: { title: string; name: string; street: string; postcode: string; city: string; phone: string }) {
@@ -1161,28 +1187,28 @@ function AgreementConditionNote({ phase, lang, savedNote, draft, onChange, saved
   const normalizedSaved = savedNote.trim();
   const normalizedDraft = draft.trim();
   const dirty = normalizedDraft !== normalizedSaved;
-  const heading = handover ? (da ? "Tilstandsnote ved udlevering" : "Skickanteckning vid utlämning") : (da ? "Tilstandsnote ved tilbagelevering" : "Skickanteckning vid återlämning");
-  const emptyText = da ? "Ingen bemærkninger registreret." : "Inga anmärkningar registrerade.";
+  const heading = handover ? ((lang === "nb" ? nbText["Tilstandsnote ved udlevering"] : (da ? "Tilstandsnote ved udlevering" : "Skickanteckning vid utlämning"))) : ((lang === "nb" ? nbText["Tilstandsnote ved tilbagelevering"] : (da ? "Tilstandsnote ved tilbagelevering" : "Skickanteckning vid återlämning")));
+  const emptyText = (lang === "nb" ? nbText["Ingen bemærkninger registreret."] : (da ? "Ingen bemærkninger registreret." : "Inga anmärkningar registrerade."));
   const help = handover
-    ? (da ? "Skriv eksisterende skader eller mangler, før tingen udleveres. Begge parter godkender den samme note med deres underskrift." : "Skriv befintliga skador eller brister innan saken lämnas ut. Båda parter godkänner samma anteckning med sin signatur.")
-    : (da ? "Skriv nye skader, mangler eller andre forhold ved returneringen. Begge parter godkender den samme note med deres underskrift." : "Skriv nya skador, brister eller andra förhållanden vid återlämningen. Båda parter godkänner samma anteckning med sin signatur.");
+    ? ((lang === "nb" ? nbText["Skriv eksisterende skader eller mangler, før tingen udleveres. Begge parter godkender den samme note med deres underskrift."] : (da ? "Skriv eksisterende skader eller mangler, før tingen udleveres. Begge parter godkender den samme note med deres underskrift." : "Skriv befintliga skador eller brister innan saken lämnas ut. Båda parter godkänner samma anteckning med sin signatur.")))
+    : ((lang === "nb" ? nbText["Skriv nye skader, mangler eller andre forhold ved returneringen. Begge parter godkender den samme note med deres underskrift."] : (da ? "Skriv nye skader, mangler eller andre forhold ved returneringen. Begge parter godkender den samme note med deres underskrift." : "Skriv nya skador, brister eller andra förhållanden vid återlämningen. Båda parter godkänner samma anteckning med sin signatur.")));
   const placeholder = handover
-    ? (da ? "Fx: Plastikken ved håndtaget er revnet ved udlevering." : "T.ex.: Plasten vid handtaget är sprucken vid utlämning.")
-    : (da ? "Fx: Der er kommet en ny revne, eller en del mangler ved returnering." : "T.ex.: En ny spricka har uppstått eller en del saknas vid återlämning.");
+    ? ((lang === "nb" ? nbText["Fx: Plastikken ved håndtaget er revnet ved udlevering."] : (da ? "Fx: Plastikken ved håndtaget er revnet ved udlevering." : "T.ex.: Plasten vid handtaget är sprucken vid utlämning.")))
+    : ((lang === "nb" ? nbText["Fx: Der er kommet en ny revne, eller en del mangler ved returnering."] : (da ? "Fx: Der er kommet en ny revne, eller en del mangler ved returnering." : "T.ex.: En ny spricka har uppstått eller en del saknas vid återlämning.")));
 
   return <section id={`agreement-${phase}-section`} tabIndex={-1} className="agreement-condition-note">
-    <div className="condition-note-heading"><div><p className="eyebrow">{handover ? (da ? "Udlevering" : "Utlämning") : (da ? "Tilbagelevering" : "Återlämning")}</p><h3>{heading}</h3></div>{locked && <span className="condition-note-locked no-print"><LockKeyhole size={14} />{da ? "Låst" : "Låst"}</span>}</div>
+    <div className="condition-note-heading"><div><p className="eyebrow">{handover ? ((lang === "nb" ? nbText["Udlevering"] : (da ? "Udlevering" : "Utlämning"))) : ((lang === "nb" ? nbText["Tilbagelevering"] : (da ? "Tilbagelevering" : "Återlämning")))}</p><h3>{heading}</h3></div>{locked && <span className="condition-note-locked no-print"><LockKeyhole size={14} />{(lang === "nb" ? nbText["Låst"] : (da ? "Låst" : "Låst"))}</span>}</div>
     <p className="condition-note-help">{help}</p>
-    <div className={`condition-note-value ${normalizedSaved ? "has-note" : ""}`}><b>{da ? "Aftalt note:" : "Avtalad anteckning:"}</b><span>{normalizedSaved || emptyText}</span></div>
+    <div className={`condition-note-value ${normalizedSaved ? "has-note" : ""}`}><b>{(lang === "nb" ? nbText["Aftalt note:"] : (da ? "Aftalt note:" : "Avtalad anteckning:"))}</b><span>{normalizedSaved || emptyText}</span></div>
     {!normalizedSaved && <div className="paper-note-lines"><span /><span /></div>}
     {!locked && <div className="condition-note-editor no-print">
-      {!saved ? <p className="condition-note-notice">{da ? "Gem aftalen på kontoen, før noten kan redigeres og godkendes digitalt." : "Spara avtalet på kontot innan anteckningen kan redigeras och godkännas digitalt."}</p> : !enabled ? <p className="condition-note-notice">{handover ? (da ? "Ejeren skal først godkende forespørgslen. Derefter kan I gemme noten, før I underskriver." : "Ägaren måste först godkänna förfrågan. Därefter kan ni spara anteckningen innan ni signerar.") : (da ? "Returnoten åbnes, når begge parter har underskrevet udleveringen. Se øverst, hvem der mangler." : "Returanteckningen öppnas när båda parter har signerat utlämningen. Se överst vem som saknas.")}</p> : <>
-        <label htmlFor={`agreement-${phase}-note`}>{da ? "Fælles note" : "Gemensam anteckning"}<textarea id={`agreement-${phase}-note`} value={draft} onChange={event=>onChange(event.target.value)} maxLength={600} rows={3} placeholder={placeholder} /></label>
-        <footer><span>{draft.length} / 600</span><Button type="button" variant="outline" disabled={busy || !dirty} onClick={onSave}>{busy ? <LoaderCircle className="animate-spin" size={16} /> : <Save size={16} />}{busy ? (da ? "Gemmer…" : "Sparar…") : (da ? "Gem note" : "Spara anteckning")}</Button></footer>
-        {dirty && <p className="condition-note-unsaved">{da ? "Gem ændringen, før en af parterne underskriver." : "Spara ändringen innan någon av parterna signerar."}</p>}
+      {!saved ? <p className="condition-note-notice">{(lang === "nb" ? nbText["Gem aftalen på kontoen, før noten kan redigeres og godkendes digitalt."] : (da ? "Gem aftalen på kontoen, før noten kan redigeres og godkendes digitalt." : "Spara avtalet på kontot innan anteckningen kan redigeras och godkännas digitalt."))}</p> : !enabled ? <p className="condition-note-notice">{handover ? ((lang === "nb" ? nbText["Ejeren skal først godkende forespørgslen. Derefter kan I gemme noten, før I underskriver."] : (da ? "Ejeren skal først godkende forespørgslen. Derefter kan I gemme noten, før I underskriver." : "Ägaren måste först godkänna förfrågan. Därefter kan ni spara anteckningen innan ni signerar."))) : ((lang === "nb" ? nbText["Returnoten åbnes, når begge parter har underskrevet udleveringen. Se øverst, hvem der mangler."] : (da ? "Returnoten åbnes, når begge parter har underskrevet udleveringen. Se øverst, hvem der mangler." : "Returanteckningen öppnas när båda parter har signerat utlämningen. Se överst vem som saknas.")))}</p> : <>
+        <label htmlFor={`agreement-${phase}-note`}>{(lang === "nb" ? nbText["Fælles note"] : (da ? "Fælles note" : "Gemensam anteckning"))}<textarea id={`agreement-${phase}-note`} value={draft} onChange={event=>onChange(event.target.value)} maxLength={600} rows={3} placeholder={placeholder} /></label>
+        <footer><span>{draft.length} / 600</span><Button type="button" variant="outline" disabled={busy || !dirty} onClick={onSave}>{busy ? <LoaderCircle className="animate-spin" size={16} /> : <Save size={16} />}{busy ? ((lang === "nb" ? nbText["Gemmer…"] : (da ? "Gemmer…" : "Sparar…"))) : ((lang === "nb" ? nbText["Gem note"] : (da ? "Gem note" : "Spara anteckning")))}</Button></footer>
+        {dirty && <p className="condition-note-unsaved">{(lang === "nb" ? nbText["Gem ændringen, før en af parterne underskriver."] : (da ? "Gem ændringen, før en af parterne underskriver." : "Spara ändringen innan någon av parterna signerar."))}</p>}
       </>}
     </div>}
-    {locked && <p className="condition-note-lock-copy no-print"><LockKeyhole size={14} />{da ? "Noten er låst, fordi mindst én part har underskrevet. Den anden part godkender præcis denne note." : "Anteckningen är låst eftersom minst en part har signerat. Den andra parten godkänner exakt denna anteckning."}</p>}
+    {locked && <p className="condition-note-lock-copy no-print"><LockKeyhole size={14} />{(lang === "nb" ? nbText["Noten er låst, fordi mindst én part har underskrevet. Den anden part godkender præcis denne note."] : (da ? "Noten er låst, fordi mindst én part har underskrevet. Den anden part godkender præcis denne note." : "Anteckningen är låst eftersom minst en part har signerat. Den andra parten godkänner exakt denna anteckning."))}</p>}
   </section>;
 }
 
@@ -1205,17 +1231,17 @@ function SignatureBox({ title, name, signature, lang, canSign = true, busy = fal
   }
   function stop() { drawing.current = false; }
   function clear() { const canvas = canvasRef.current; if (canvas) canvas.getContext("2d")?.clearRect(0,0,canvas.width,canvas.height); setHasInk(false); }
-  return <section className={signature ? "is-signed" : ""}><small>{title}</small><b>{name}</b>{signature ? <><img className="signature-image" src={signature.dataUrl} alt={lang === "da" ? `Underskrift fra ${name}` : `Signatur från ${name}`} /><time>{new Intl.DateTimeFormat(lang === "da" ? "da-DK" : "sv-SE", { dateStyle: "medium", timeStyle: "short" }).format(new Date(signature.signedAt))}</time></> : <>{canSign ? <><div className="signature-pad no-print"><canvas ref={canvasRef} width={520} height={150} onPointerDown={start} onPointerMove={move} onPointerUp={stop} onPointerCancel={stop} aria-label={lang === "da" ? `Underskriftsfelt for ${name}` : `Signaturfält för ${name}`} /><span>{lang === "da" ? "Skriv med fingeren eller musen" : "Skriv med fingret eller musen"}</span></div><div className="signature-buttons no-print"><Button type="button" variant="outline" disabled={busy} onClick={clear}>{lang === "da" ? "Ryd" : "Rensa"}</Button><Button type="button" disabled={!hasInk || busy} onClick={() => { const dataUrl=canvasRef.current?.toDataURL("image/png"); if (dataUrl) onSign(dataUrl); }}>{busy ? <LoaderCircle className="animate-spin" size={17} /> : <FileSignature size={17} />}{busy ? (lang === "da" ? "Gemmer…" : "Sparar…") : (lang === "da" ? "Godkend underskrift" : "Godkänn signatur")}</Button></div></> : <p className="signature-waiting no-print">{waitingReason || (lang === "da" ? "Afventer denne parts underskrift." : "Inväntar den här partens signatur.")}</p>}<div className="paper-signature-line"><span>{lang === "da" ? "Dato og fysisk underskrift" : "Datum och fysisk underskrift"}</span></div></>}</section>;
+  return <section className={signature ? "is-signed" : ""}><small>{title}</small><b>{name}</b>{signature ? <><img className="signature-image" src={signature.dataUrl} alt={(lang === "nb" ? `Signatur fra ${name}` : (lang === "da" ? `Underskrift fra ${name}` : `Signatur från ${name}`))} /><time>{new Intl.DateTimeFormat((lang === "nb" ? nbText["da-DK"] : (lang === "da" ? "da-DK" : "sv-SE")), { dateStyle: "medium", timeStyle: "short" }).format(new Date(signature.signedAt))}</time></> : <>{canSign ? <><div className="signature-pad no-print"><canvas ref={canvasRef} width={520} height={150} onPointerDown={start} onPointerMove={move} onPointerUp={stop} onPointerCancel={stop} aria-label={(lang === "nb" ? `Signaturfelt for ${name}` : (lang === "da" ? `Underskriftsfelt for ${name}` : `Signaturfält för ${name}`))} /><span>{(lang === "nb" ? nbText["Skriv med fingeren eller musen"] : (lang === "da" ? "Skriv med fingeren eller musen" : "Skriv med fingret eller musen"))}</span></div><div className="signature-buttons no-print"><Button type="button" variant="outline" disabled={busy} onClick={clear}>{(lang === "nb" ? nbText["Ryd"] : (lang === "da" ? "Ryd" : "Rensa"))}</Button><Button type="button" disabled={!hasInk || busy} onClick={() => { const dataUrl=canvasRef.current?.toDataURL("image/png"); if (dataUrl) onSign(dataUrl); }}>{busy ? <LoaderCircle className="animate-spin" size={17} /> : <FileSignature size={17} />}{busy ? ((lang === "nb" ? nbText["Gemmer…"] : (lang === "da" ? "Gemmer…" : "Sparar…"))) : ((lang === "nb" ? nbText["Godkend underskrift"] : (lang === "da" ? "Godkend underskrift" : "Godkänn signatur")))}</Button></div></> : <p className="signature-waiting no-print">{waitingReason || ((lang === "nb" ? nbText["Afventer denne parts underskrift."] : (lang === "da" ? "Afventer denne parts underskrift." : "Inväntar den här partens signatur.")))}</p>}<div className="paper-signature-line"><span>{(lang === "nb" ? nbText["Dato og fysisk underskrift"] : (lang === "da" ? "Dato og fysisk underskrift" : "Datum och fysisk underskrift"))}</span></div></>}</section>;
 }
 
 function formatAgreementDate(value: string, lang: Lang) {
   const [year, month, day] = value.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat(lang === "da" ? "da-DK" : "sv-SE", {day:"numeric",month:"short",year:"numeric",timeZone:"UTC"}).format(date);
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat((lang === "nb" ? nbText["da-DK"] : (lang === "da" ? "da-DK" : "sv-SE")), {day:"numeric",month:"short",year:"numeric",timeZone:"UTC"}).format(date);
 }
 
 function LoanRow({ title, owner, ticket, status, statusClass, icon: Icon, onChat, chatLabel, dates, lang }: { title: string; owner: string; ticket: string; status: string; statusClass: string; icon: typeof Drill; onChat: () => void; chatLabel: string; dates: string; lang: Lang }) {
-  return <article className="loan-row"><div className="flex size-16 shrink-0 items-center justify-center rounded-xl bg-[#eef0f8]"><Icon size={31} className="text-[#008EAC]" /></div><div className="min-w-0 flex-1"><p className="loan-kind">{lang === "da" ? "Udlånt / lejet" : "Utlånat / hyrt"}</p><h3 className="truncate font-semibold">{title}</h3><p className="mt-1 text-sm text-[#73778b]">{owner}</p><div className="loan-ticket-meta"><span><b>Ticket:</b> {ticket}</span><span><b>{lang === "da" ? "Periode:" : "Period:"}</b> {dates}</span></div><span className={`loan-status ${statusClass}`}>{status}</span></div><button onClick={onChat} className="chat-button"><MessageCircle size={18} /><span className="hidden sm:inline">{chatLabel}</span></button></article>;
+  return <article className="loan-row"><div className="flex size-16 shrink-0 items-center justify-center rounded-xl bg-[#eef0f8]"><Icon size={31} className="text-[#008EAC]" /></div><div className="min-w-0 flex-1"><p className="loan-kind">{(lang === "nb" ? nbText["Udlånt / lejet"] : (lang === "da" ? "Udlånt / lejet" : "Utlånat / hyrt"))}</p><h3 className="truncate font-semibold">{title}</h3><p className="mt-1 text-sm text-[#73778b]">{owner}</p><div className="loan-ticket-meta"><span><b>Ticket:</b> {ticket}</span><span><b>{(lang === "nb" ? nbText["Periode:"] : (lang === "da" ? "Periode:" : "Period:"))}</b> {dates}</span></div><span className={`loan-status ${statusClass}`}>{status}</span></div><button onClick={onChat} className="chat-button"><MessageCircle size={18} /><span className="hidden sm:inline">{chatLabel}</span></button></article>;
 }
 
 function ProfileView({ lang, profile, authenticatedEmail, onSave, onLogout, onSubscription }: {
@@ -1224,7 +1250,7 @@ function ProfileView({ lang, profile, authenticatedEmail, onSave, onLogout, onSu
   onSubscription: () => void;
 }) {
   return <div className="content-panel">
-    <div className="profile-head"><div className="profile-identity"><span className="profile-avatar"><CircleUserRound size={32} /></span><div className="min-w-0 flex-1"><p className="eyebrow">{lang === "da" ? "Din konto" : "Ditt konto"}</p><h1 className="page-title">{profile?.name || (lang === "da" ? "Log ind eller opret konto" : "Logga in eller skapa konto")}</h1>{profile && <><p className="mt-2 text-sm">{profile.email}</p><p className="mt-1 text-sm">{profile.place.postcode} {profile.place.city} · {profile.place.country}</p></>}</div></div>{profile && <div className="profile-head-actions"><Button type="button" variant="outline" onClick={onSubscription}><Crown size={17} />{lang === "da" ? "Mit abonnement" : "Min prenumeration"}</Button><Button type="button" variant="outline" className="logout-button" onClick={onLogout}><LogOut size={17} />{lang === "da" ? "Log ud" : "Logga ut"}</Button></div>}</div>
+    <div className="profile-head"><div className="profile-identity"><span className="profile-avatar"><CircleUserRound size={32} /></span><div className="min-w-0 flex-1"><p className="eyebrow">{(lang === "nb" ? nbText["Din konto"] : (lang === "da" ? "Din konto" : "Ditt konto"))}</p><h1 className="page-title">{profile?.name || ((lang === "nb" ? nbText["Log ind eller opret konto"] : (lang === "da" ? "Log ind eller opret konto" : "Logga in eller skapa konto")))}</h1>{profile && <><p className="mt-2 text-sm">{profile.email}</p><p className="mt-1 text-sm">{profile.place.postcode} {profile.place.city} · {profile.place.country}</p></>}</div></div>{profile && <div className="profile-head-actions"><Button type="button" variant="outline" onClick={onSubscription}><Crown size={17} />{(lang === "nb" ? nbText["Mit abonnement"] : (lang === "da" ? "Mit abonnement" : "Min prenumeration"))}</Button><Button type="button" variant="outline" className="logout-button" onClick={onLogout}><LogOut size={17} />{(lang === "nb" ? nbText["Log ud"] : (lang === "da" ? "Log ud" : "Logga ut"))}</Button></div>}</div>
     <ProfileForm profile={profile} lang={lang} authenticatedEmail={authenticatedEmail} onSave={onSave} />
   </div>;
 }
@@ -1232,16 +1258,16 @@ function ProfileView({ lang, profile, authenticatedEmail, onSave, onLogout, onSu
 function SubscriptionView({ lang, plan, billingDetails, used, onBack, onUpgrade, onManage }: { lang: Lang; plan: ListingPlan; billingDetails:BillingDetails; used: number; onBack: () => void; onUpgrade: () => void; onManage: () => void }) {
   const limit = listingLimit(plan);
   const trialing=billingDetails.status==="trialing";
-  const end=billingDetails.trialEnd ? new Date(billingDetails.trialEnd).toLocaleDateString(lang==="da"?"da-DK":"sv-SE",{timeZone:"Europe/Copenhagen"}) : "";
+  const end=billingDetails.trialEnd ? new Date(billingDetails.trialEnd).toLocaleDateString((lang === "nb" ? nbText["da-DK"] : (lang==="da"?"da-DK":"sv-SE")),{timeZone:"Europe/Copenhagen"}) : "";
   return <div className="content-panel subscription-page">
-    <button type="button" className="text-link" onClick={onBack}>← {lang==="da"?"Tilbage til konto":"Tillbaka till konto"}</button>
-    <div><p className="eyebrow">Veyro Circle</p><h1 className="page-title">{lang==="da"?"Mit abonnement":"Min prenumeration"}</h1></div>
+    <button type="button" className="text-link" onClick={onBack}>← {(lang === "nb" ? nbText["Tilbage til konto"] : (lang==="da"?"Tilbage til konto":"Tillbaka till konto"))}</button>
+    <div><p className="eyebrow">Veyro Circle</p><h1 className="page-title">{(lang === "nb" ? nbText["Mit abonnement"] : (lang==="da"?"Mit abonnement":"Min prenumeration"))}</h1></div>
     <section className={`membership-card ${plan==="plus"?"is-plus":""}`}>
-      <div className="membership-top"><div className="membership-icon"><Crown size={22}/></div><div><p className="eyebrow">{lang==="da"?"Dit abonnement":"Din prenumeration"}</p><h2>{plan==="plus"?"Veyro Circle Plus":lang==="da"?"Gratis søgning og forespørgsler":"Gratis sökning och förfrågningar"}</h2></div><span className="plan-badge">{trialing?(lang==="da"?"Gratis prøveperiode":"Gratis provperiod"):plan==="plus"?"Aktiv":"0 kr."}</span></div>
-      <div className="membership-usage"><div><span>{lang==="da"?"Aktive ting":"Aktiva saker"}</span><b>{used} {lang==="da"?"af":"av"} {limit}</b></div><Progress value={limit?Math.min(100,used/limit*100):0}/></div>
-      {plan==="plus" ? <p>{lang==="da"?"Du har fuld Circle Plus-adgang med op til 20 aktive ting.":"Du har full Circle Plus-åtkomst med upp till 20 aktiva saker."}</p> : billingDetails.trialEligible===false ? <p>{trialCopy[lang].returning}</p> : billingDetails.trialEligible===true ? <><p>{trialCopy[lang].headline}</p><p>{trialCopy[lang].terms}</p></> : <p>{lang==="da"?"Se din pris og berettigelse, før du tilmelder dig Circle Plus.":"Se ditt pris och din behörighet innan du registrerar dig för Circle Plus."}</p>}
-      {trialing && <p>{billingDetails.cancelAtPeriodEnd ? (lang==="da"?`Prøveperioden er opsagt og slutter ${end}. Der opkræves ingen abonnementsbetaling.`:`Provperioden är uppsagd och slutar ${end}. Ingen prenumerationsavgift tas ut.`) : (lang==="da"?`Gratis til ${end}. Herefter fortsætter abonnementet automatisk til 49 DKK/md. i Danmark eller 69 SEK/md. i Sverige. Opsig før første betaling fra knappen nedenfor.`:`Gratis till ${end}. Därefter fortsätter prenumerationen automatiskt för 49 DKK/mån i Danmark eller 69 SEK/mån i Sverige. Säg upp före första betalningen via knappen nedan.`)}</p>}
-      {plan==="free" ? <Button type="button" onClick={onUpgrade} className="membership-cta h-auto whitespace-normal py-3"><Crown size={17}/>{billingDetails.trialEligible?trialCopy[lang].button:(lang==="da"?"Se Veyro Circle Plus":"Se Veyro Circle Plus")}</Button> : <Button type="button" onClick={onManage} variant="outline" className="membership-cta manage-subscription">{lang==="da"?"Administrer abonnement":"Hantera prenumeration"}</Button>}
+      <div className="membership-top"><div className="membership-icon"><Crown size={22}/></div><div><p className="eyebrow">{(lang === "nb" ? nbText["Dit abonnement"] : (lang==="da"?"Dit abonnement":"Din prenumeration"))}</p><h2>{plan==="plus"?"Veyro Circle Plus":(lang === "nb" ? nbText["Gratis søgning og forespørgsler"] : (lang==="da"?"Gratis søgning og forespørgsler":"Gratis sökning och förfrågningar"))}</h2></div><span className="plan-badge">{trialing?((lang === "nb" ? nbText["Gratis prøveperiode"] : (lang==="da"?"Gratis prøveperiode":"Gratis provperiod"))):plan==="plus"?"Aktiv":"0 kr."}</span></div>
+      <div className="membership-usage"><div><span>{(lang === "nb" ? nbText["Aktive ting"] : (lang==="da"?"Aktive ting":"Aktiva saker"))}</span><b>{used} {(lang === "nb" ? nbText["af"] : (lang==="da"?"af":"av"))} {limit}</b></div><Progress value={limit?Math.min(100,used/limit*100):0}/></div>
+      {plan==="plus" ? <p>{(lang === "nb" ? nbText["Du har fuld Circle Plus-adgang med op til 20 aktive ting."] : (lang==="da"?"Du har fuld Circle Plus-adgang med op til 20 aktive ting.":"Du har full Circle Plus-åtkomst med upp till 20 aktiva saker."))}</p> : billingDetails.trialEligible===false ? <p>{trialCopy[lang].returning}</p> : billingDetails.trialEligible===true ? <><p>{trialCopy[lang].headline}</p><p>{trialCopy[lang].terms}</p></> : <p>{(lang === "nb" ? nbText["Se din pris og berettigelse, før du tilmelder dig Circle Plus."] : (lang==="da"?"Se din pris og berettigelse, før du tilmelder dig Circle Plus.":"Se ditt pris och din behörighet innan du registrerar dig för Circle Plus."))}</p>}
+      {trialing && <p>{billingDetails.cancelAtPeriodEnd ? ((lang === "nb" ? `Prøveperioden er sagt opp og slutter ${end}. Ingen abonnementsbetaling kreves inn.` : (lang==="da"?`Prøveperioden er opsagt og slutter ${end}. Der opkræves ingen abonnementsbetaling.`:`Provperioden är uppsagd och slutar ${end}. Ingen prenumerationsavgift tas ut.`))) : ((lang === "nb" ? `Gratis til ${end}. Deretter fortsetter abonnementet automatisk til 49 DKK/md. i Danmark, 69 SEK/md. i Sverige eller 69 NOK/md. i Norge. Si opp før første betaling via knappen nedenfor.` : (lang==="da"?`Gratis til ${end}. Herefter fortsætter abonnementet automatisk til 49 DKK/md. i Danmark, 69 SEK/md. i Sverige eller 69 NOK/md. i Norge. Opsig før første betaling fra knappen nedenfor.`:`Gratis till ${end}. Därefter fortsätter prenumerationen automatiskt för 49 DKK/mån i Danmark, 69 SEK/mån i Sverige eller 69 NOK/mån i Norge. Säg upp före första betalningen via knappen nedan.`)))}</p>}
+      {plan==="free" ? <Button type="button" onClick={onUpgrade} className="membership-cta h-auto whitespace-normal py-3"><Crown size={17}/>{billingDetails.trialEligible?trialCopy[lang].button:((lang === "nb" ? nbText["Se Veyro Circle Plus"] : (lang==="da"?"Se Veyro Circle Plus":"Se Veyro Circle Plus")))}</Button> : <Button type="button" onClick={onManage} variant="outline" className="membership-cta manage-subscription">{(lang === "nb" ? nbText["Administrer abonnement"] : (lang==="da"?"Administrer abonnement":"Hantera prenumeration"))}</Button>}
     </section>
   </div>;
 }
@@ -1249,9 +1275,9 @@ function SubscriptionView({ lang, plan, billingDetails, used, onBack, onUpgrade,
 function ItemsView({ lang, profile, listings, plan, onAdd, onEdit, onDelete,onCalendar }: { lang: Lang; profile: Profile | null; listings: Listing[]; plan: ListingPlan; onAdd: () => void; onEdit: (item: Listing) => void; onDelete: (item: Listing) => void; onCalendar:(item:Listing)=>void }) {
   const used = listings.length;
   return <div className="content-panel"><section className="my-items my-items-page">
-      <div className="my-items-head"><div><p className="eyebrow">{lang === "da" ? "Dine annoncer" : "Dina annonser"}</p><h2>{lang === "da" ? "Mine ting" : "Mina saker"}</h2></div><Button type="button" onClick={onAdd} disabled={!profile || (plan === "plus" && used >= PLUS_LISTING_LIMIT)}><PackagePlus size={17} />{lang === "da" ? "Tilføj" : "Lägg till"}</Button></div>
-      {!profile ? <p className="my-items-empty">{lang === "da" ? "Opret din konto for at dele eller udleje en ting." : "Skapa ditt konto för att dela eller hyra ut en sak."}</p> : listings.length === 0 ? <div className="my-items-empty"><ImagePlus size={28} /><p>{lang === "da" ? "Du har endnu ingen ting. Circle Plus giver plads til op til 20 aktive annoncer." : "Du har inga saker ännu. Circle Plus ger plats för upp till 20 aktiva annonser."}</p><button type="button" onClick={onAdd}>{lang === "da" ? "Opret din første annonce" : "Skapa din första annons"}</button></div> : <div className="my-items-list">{plan!=="plus" && <p className="agreements-load-note">{lang==="da"?"Dine ting er gemt, men vises ikke i søgningen uden Circle Plus. Du kan stadig slette dem.":"Dina saker finns kvar men visas inte i sökningen utan Circle Plus. Du kan fortfarande ta bort dem."}</p>}
-        {listings.map(item => { const Icon = item.icon; return <article key={item.id} className="my-item-row"><div className={`my-item-thumb bg-gradient-to-br ${item.color}`}>{item.photos?.[0] ? <img src={item.photos[0].src} alt="" /> : <Icon size={27} />}</div><div className="min-w-0 flex-1"><h3>{item.name}</h3><p>{item.city} · {priceLabel(item, lang)}</p><small>{item.photos?.length || 0}/2 {lang === "da" ? "billeder" : "bilder"}</small></div><div className="my-item-actions"><button type="button" onClick={()=>onCalendar(item)}><CalendarDays size={16}/>{lang === "da" ? "Kalender" : "Kalender"}</button><button type="button" onClick={() => onEdit(item)}><Pencil size={16} />{lang === "da" ? "Rediger" : "Redigera"}</button><button type="button" className="delete" onClick={() => onDelete(item)}><Trash2 size={16} />{lang === "da" ? "Slet" : "Ta bort"}</button></div></article>; })}
+      <div className="my-items-head"><div><p className="eyebrow">{(lang === "nb" ? nbText["Dine annoncer"] : (lang === "da" ? "Dine annoncer" : "Dina annonser"))}</p><h2>{(lang === "nb" ? nbText["Mine ting"] : (lang === "da" ? "Mine ting" : "Mina saker"))}</h2></div><Button type="button" onClick={onAdd} disabled={!profile || (plan === "plus" && used >= PLUS_LISTING_LIMIT)}><PackagePlus size={17} />{(lang === "nb" ? nbText["Tilføj"] : (lang === "da" ? "Tilføj" : "Lägg till"))}</Button></div>
+      {!profile ? <p className="my-items-empty">{(lang === "nb" ? nbText["Opret din konto for at dele eller udleje en ting."] : (lang === "da" ? "Opret din konto for at dele eller udleje en ting." : "Skapa ditt konto för att dela eller hyra ut en sak."))}</p> : listings.length === 0 ? <div className="my-items-empty"><ImagePlus size={28} /><p>{(lang === "nb" ? nbText["Du har endnu ingen ting. Circle Plus giver plads til op til 20 aktive annoncer."] : (lang === "da" ? "Du har endnu ingen ting. Circle Plus giver plads til op til 20 aktive annoncer." : "Du har inga saker ännu. Circle Plus ger plats för upp till 20 aktiva annonser."))}</p><button type="button" onClick={onAdd}>{(lang === "nb" ? nbText["Opret din første annonce"] : (lang === "da" ? "Opret din første annonce" : "Skapa din första annons"))}</button></div> : <div className="my-items-list">{plan!=="plus" && <p className="agreements-load-note">{(lang === "nb" ? nbText["Dine ting er gemt, men vises ikke i søgningen uden Circle Plus. Du kan stadig slette dem."] : (lang==="da"?"Dine ting er gemt, men vises ikke i søgningen uden Circle Plus. Du kan stadig slette dem.":"Dina saker finns kvar men visas inte i sökningen utan Circle Plus. Du kan fortfarande ta bort dem."))}</p>}
+        {listings.map(item => { const Icon = item.icon; return <article key={item.id} className="my-item-row"><div className={`my-item-thumb bg-gradient-to-br ${item.color}`}>{item.photos?.[0] ? <img src={item.photos[0].src} alt="" /> : <Icon size={27} />}</div><div className="min-w-0 flex-1"><h3>{item.name}</h3><p>{item.city} · {priceLabel(item, lang)}</p><small>{item.photos?.length || 0}/2 {(lang === "nb" ? nbText["billeder"] : (lang === "da" ? "billeder" : "bilder"))}</small></div><div className="my-item-actions"><button type="button" onClick={()=>onCalendar(item)}><CalendarDays size={16}/>{(lang === "nb" ? nbText["Kalender"] : (lang === "da" ? "Kalender" : "Kalender"))}</button><button type="button" onClick={() => onEdit(item)}><Pencil size={16} />{(lang === "nb" ? nbText["Rediger"] : (lang === "da" ? "Rediger" : "Redigera"))}</button><button type="button" className="delete" onClick={() => onDelete(item)}><Trash2 size={16} />{(lang === "nb" ? nbText["Slet"] : (lang === "da" ? "Slet" : "Ta bort"))}</button></div></article>; })}
       </div>}
     </section></div>;
 }

@@ -1,4 +1,7 @@
 "use client";
+import { nbText } from "@/lib/norwegian-copy";
+import { LanguageSwitcher } from "@/components/language-switcher";
+
 import { COMPANY_IDENTITY } from "@/lib/company";
 import { CircleTour } from "@/components/circle-tour";
 
@@ -18,17 +21,17 @@ type Mode = "login" | "register" | "reset";
 function friendlyError(error: unknown, lang: Lang) {
   const code = typeof error === "object" && error && "code" in error ? String((error as {code: unknown}).code) : "";
   const da = lang === "da";
-  if (code.includes("invalid-credential")) return da ? "E-mail eller adgangskode er forkert." : "E-postadress eller lösenord är fel.";
-  if (code.includes("email-already-in-use")) return da ? "E-mailadressen er allerede i brug." : "E-postadressen används redan.";
-  if (code.includes("weak-password")) return da ? "Vælg en stærkere adgangskode på mindst 8 tegn." : "Välj ett starkare lösenord med minst 8 tecken.";
-  if (code.includes("too-many-requests")) return da ? "For mange forsøg. Vent lidt og prøv igen." : "För många försök. Vänta en stund och försök igen.";
-  if (code.includes("unauthorized-continue-uri")) return da ? "Circle-domænet er ikke godkendt i Firebase. Tilføj veyro-circle.netlify.app under Authentication → Settings → Authorized domains." : "Circle-domänen är inte godkänd i Firebase. Lägg till veyro-circle.netlify.app under Authentication → Settings → Authorized domains.";
-  if (code.includes("invalid-continue-uri")) return da ? "Returadressen til Circle er ugyldig. Kontakt support." : "Returadressen till Circle är ogiltig. Kontakta support.";
-  return da ? "Handlingen kunne ikke gennemføres. Prøv igen." : "Åtgärden kunde inte genomföras. Försök igen.";
+  if (code.includes("invalid-credential")) return (lang === "nb" ? nbText["E-mail eller adgangskode er forkert."] : (da ? "E-mail eller adgangskode er forkert." : "E-postadress eller lösenord är fel."));
+  if (code.includes("email-already-in-use")) return (lang === "nb" ? nbText["E-mailadressen er allerede i brug."] : (da ? "E-mailadressen er allerede i brug." : "E-postadressen används redan."));
+  if (code.includes("weak-password")) return (lang === "nb" ? nbText["Vælg en stærkere adgangskode på mindst 8 tegn."] : (da ? "Vælg en stærkere adgangskode på mindst 8 tegn." : "Välj ett starkare lösenord med minst 8 tecken."));
+  if (code.includes("too-many-requests")) return (lang === "nb" ? nbText["For mange forsøg. Vent lidt og prøv igen."] : (da ? "For mange forsøg. Vent lidt og prøv igen." : "För många försök. Vänta en stund och försök igen."));
+  if (code.includes("unauthorized-continue-uri")) return (lang === "nb" ? nbText["Circle-domænet er ikke godkendt i Firebase. Tilføj veyro-circle.netlify.app under Authentication → Settings → Authorized domains."] : (da ? "Circle-domænet er ikke godkendt i Firebase. Tilføj veyro-circle.netlify.app under Authentication → Settings → Authorized domains." : "Circle-domänen är inte godkänd i Firebase. Lägg till veyro-circle.netlify.app under Authentication → Settings → Authorized domains."));
+  if (code.includes("invalid-continue-uri")) return (lang === "nb" ? nbText["Returadressen til Circle er ugyldig. Kontakt support."] : (da ? "Returadressen til Circle er ugyldig. Kontakt support." : "Returadressen till Circle är ogiltig. Kontakta support."));
+  return (lang === "nb" ? nbText["Handlingen kunne ikke gennemføres. Prøv igen."] : (da ? "Handlingen kunne ikke gennemføres. Prøv igen." : "Åtgärden kunde inte genomföras. Försök igen."));
 }
 
 function prepareAuthEmail(lang: Lang) {
-  if (auth) auth.languageCode = lang === "da" ? "da" : "sv";
+  if (auth) auth.languageCode = (lang === "nb" ? nbText["da"] : (lang === "da" ? "da" : "sv"));
   return {
     url: `${window.location.origin}/`,
     handleCodeInApp: false,
@@ -54,7 +57,7 @@ export async function circleSignOut() {
 
 export function FirebaseSetupNotice({ lang }: { lang: Lang }) {
   if (firebaseConfigured) return null;
-  return <div className="firebase-setup" role="status"><AlertCircle size={18} /><div><b>{lang === "da" ? "Udviklingstilstand · Firebase mangler" : "Utvecklingsläge · Firebase saknas"}</b><p>{lang === "da" ? "Demoen virker fortsat, men rigtige konti aktiveres først, når Firebase-værdierne er indsat." : "Demon fungerar fortfarande, men riktiga konton aktiveras först när Firebase-värdena har lagts in."}</p><small>{missingFirebaseConfig.join(" · ")}</small></div></div>;
+  return <div className="firebase-setup" role="status"><AlertCircle size={18} /><div><b>{(lang === "nb" ? nbText["Udviklingstilstand · Firebase mangler"] : (lang === "da" ? "Udviklingstilstand · Firebase mangler" : "Utvecklingsläge · Firebase saknas"))}</b><p>{(lang === "nb" ? nbText["Demoen virker fortsat, men rigtige konti aktiveres først, når Firebase-værdierne er indsat."] : (lang === "da" ? "Demoen virker fortsat, men rigtige konti aktiveres først, når Firebase-værdierne er indsat." : "Demon fungerar fortfarande, men riktiga konton aktiveras först när Firebase-värdena har lagts in."))}</p><small>{missingFirebaseConfig.join(" · ")}</small></div></div>;
 }
 
 export function CircleAuthScreen({ lang, setLang,onBrowse }: { lang: Lang; setLang: (lang: Lang) => void; onBrowse?:()=>void }) {
@@ -71,9 +74,9 @@ export function CircleAuthScreen({ lang, setLang,onBrowse }: { lang: Lang; setLa
 
   async function submit(event: React.FormEvent) {
     event.preventDefault(); setError(""); setMessage("");
-    if (!auth) { setError(da ? "Firebase er ikke konfigureret." : "Firebase är inte konfigurerat."); return; }
+    if (!auth) { setError((lang === "nb" ? nbText["Firebase er ikke konfigureret."] : (da ? "Firebase er ikke konfigureret." : "Firebase är inte konfigurerat."))); return; }
     if (mode === "register" && (name.trim().length < 2 || password.length < 8 || password !== repeat || !acceptedTerms)) {
-      setError(da ? "Udfyld navn, brug to ens adgangskoder på mindst 8 tegn, og accepter betingelserne." : "Fyll i namn, använd två likadana lösenord med minst 8 tecken och acceptera villkoren."); return;
+      setError((lang === "nb" ? nbText["Udfyld navn, brug to ens adgangskoder på mindst 8 tegn, og accepter betingelserne."] : (da ? "Udfyld navn, brug to ens adgangskoder på mindst 8 tegn, og accepter betingelserne." : "Fyll i namn, använd två likadana lösenord med minst 8 tecken och acceptera villkoren."))); return;
     }
     setBusy(true);
     try {
@@ -86,7 +89,7 @@ export function CircleAuthScreen({ lang, setLang,onBrowse }: { lang: Lang; setLa
       if (mode === "reset") {
         prepareAuthEmail(lang);
         await sendPasswordResetEmail(auth, email.trim());
-        setMessage(da ? "Vi har sendt et link til nulstilling af adgangskoden." : "Vi har skickat en länk för att återställa lösenordet.");
+        setMessage((lang === "nb" ? nbText["Vi har sendt et link til nulstilling af adgangskoden."] : (da ? "Vi har sendt et link til nulstilling af adgangskoden." : "Vi har skickat en länk för att återställa lösenordet.")));
       }
     } catch (reason) { setError(friendlyError(reason, lang)); }
     finally { setBusy(false); }
@@ -95,40 +98,40 @@ export function CircleAuthScreen({ lang, setLang,onBrowse }: { lang: Lang; setLa
   return <main className="auth-page auth-entry-page">
     <img className="auth-company-logo" src="/branding/veyro-systems-logo.png" alt="Veyro Systems" />
     <section className="auth-card">
-      <div className="auth-entry-links">{onBrowse && <button type="button" className="browse-back" onClick={onBrowse}>{lang === "da" ? "Se annoncer uden login" : "Se annonser utan inloggning"}</button>}<CircleTour lang={lang}/></div>
-      <div className="auth-language"><button className={lang === "da" ? "active" : ""} onClick={()=>setLang("da")}>Dansk</button><button className={lang === "sv" ? "active" : ""} onClick={()=>setLang("sv")}>Svenska</button></div>
-      <div><p className="eyebrow">Veyro Circle</p><h1>{mode === "login" ? (da ? "Log ind" : "Logga in") : mode === "register" ? (da ? "Opret konto" : "Skapa konto") : (da ? "Glemt adgangskode" : "Glömt lösenord")}</h1><p>{mode === "reset" ? (da ? "Indtast din e-mail, så sender vi et sikkert nulstillingslink." : "Ange din e-postadress så skickar vi en säker återställningslänk.") : (da ? "Del, lån og lej ting i dit lokalområde." : "Dela, låna och hyr saker i ditt närområde.")}</p></div>
-      {mode!=="reset" && <aside className="auth-trial-banner"><span>{da?"For nye, berettigede Circle Plus-kunder":"För nya, berättigade Circle Plus-kunder"}</span><strong>{da?"180 dage gratis":"180 dagar gratis"}</strong><p>{da?"Derefter 49 DKK/md. i Danmark eller 69 SEK/md. i Sverige. Automatisk fortsættelse. Du registrerer kort og kan opsige før første betaling.":"Därefter 49 DKK/mån i Danmark eller 69 SEK/mån i Sverige. Automatisk förnyelse. Du registrerar kort och kan säga upp före första betalningen."}</p></aside>}
+      <div className="auth-entry-links">{onBrowse && <button type="button" className="browse-back" onClick={onBrowse}>{(lang === "nb" ? nbText["Se annoncer uden login"] : (lang === "da" ? "Se annoncer uden login" : "Se annonser utan inloggning"))}</button>}<CircleTour lang={lang}/></div>
+      <LanguageSwitcher lang={lang} onChange={setLang}/>
+      <div><p className="eyebrow">Veyro Circle</p><h1>{mode === "login" ? ((lang === "nb" ? nbText["Log ind"] : (da ? "Log ind" : "Logga in"))) : mode === "register" ? ((lang === "nb" ? nbText["Opret konto"] : (da ? "Opret konto" : "Skapa konto"))) : ((lang === "nb" ? nbText["Glemt adgangskode"] : (da ? "Glemt adgangskode" : "Glömt lösenord")))}</h1><p>{mode === "reset" ? ((lang === "nb" ? nbText["Indtast din e-mail, så sender vi et sikkert nulstillingslink."] : (da ? "Indtast din e-mail, så sender vi et sikkert nulstillingslink." : "Ange din e-postadress så skickar vi en säker återställningslänk."))) : ((lang === "nb" ? nbText["Del, lån og lej ting i dit lokalområde."] : (da ? "Del, lån og lej ting i dit lokalområde." : "Dela, låna och hyr saker i ditt närområde.")))}</p></div>
+      {mode!=="reset" && <aside className="auth-trial-banner"><span>{(lang === "nb" ? nbText["For nye, berettigede Circle Plus-kunder"] : (da?"For nye, berettigede Circle Plus-kunder":"För nya, berättigade Circle Plus-kunder"))}</span><strong>{(lang === "nb" ? nbText["180 dage gratis"] : (da?"180 dage gratis":"180 dagar gratis"))}</strong><p>{(lang === "nb" ? nbText["Derefter 49 DKK/md. i Danmark eller 69 SEK/md. i Sverige. Automatisk fortsættelse. Du registrerer kort og kan opsige før første betaling."] : (da?"Derefter 49 DKK/md. i Danmark, 69 SEK/md. i Sverige eller 69 NOK/md. i Norge. Automatisk fortsættelse. Du registrerer kort og kan opsige før første betaling.":"Därefter 49 DKK/mån i Danmark, 69 SEK/mån i Sverige eller 69 NOK/mån i Norge. Automatisk förnyelse. Du registrerar kort och kan säga upp före första betalningen."))}</p></aside>}
       <form onSubmit={submit}>
-        {mode === "register" && <aside className="signup-trial"><strong>Veyro Circle Plus</strong><p>{da?"Din Circle-konto er gratis. Hvis du vil annoncere med Circle Plus, viser vi din pris og eventuelle prøveperiode, når din konto er kontrolleret. Du ser alle betalingsvilkår hos Stripe, før du bekræfter abonnementet.":"Ditt Circle-konto är gratis. Om du vill annonsera med Circle Plus visar vi ditt pris och eventuell provperiod när ditt konto har kontrollerats. Du ser alla betalningsvillkor hos Stripe innan du bekräftar prenumerationen."}</p></aside>}
-        {mode === "register" && <label className="field-label">{da ? "Fulde navn" : "Fullständigt namn"}<input autoComplete="name" required value={name} onChange={e=>setName(e.target.value)} /></label>}
-        <label className="field-label">E-mail<input type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)} /></label>
-        {mode !== "reset" && <label className="field-label">{da ? "Adgangskode" : "Lösenord"}<input type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} required minLength={8} value={password} onChange={e=>setPassword(e.target.value)} /></label>}
-        {mode === "register" && <label className="field-label">{da ? "Gentag adgangskode" : "Upprepa lösenord"}<input type="password" autoComplete="new-password" required minLength={8} value={repeat} onChange={e=>setRepeat(e.target.value)} /></label>}
-        {mode === "register" && <label className="terms-check"><input type="checkbox" required checked={acceptedTerms} onChange={e=>setAcceptedTerms(e.target.checked)} /><span>{da ? "Jeg accepterer " : "Jag accepterar "}<a href="/legal#terms" target="_blank">{da ? "handelsbetingelserne" : "köpvillkoren"}</a>{da ? " og har læst " : " och har läst "}<a href="/legal#privacy" target="_blank">{da ? "privatlivspolitikken" : "integritetspolicyn"}</a>.</span></label>}
+        {mode === "register" && <aside className="signup-trial"><strong>Veyro Circle Plus</strong><p>{(lang === "nb" ? nbText["Din Circle-konto er gratis. Hvis du vil annoncere med Circle Plus, viser vi din pris og eventuelle prøveperiode, når din konto er kontrolleret. Du ser alle betalingsvilkår hos Stripe, før du bekræfter abonnementet."] : (da?"Din Circle-konto er gratis. Hvis du vil annoncere med Circle Plus, viser vi din pris og eventuelle prøveperiode, når din konto er kontrolleret. Du ser alle betalingsvilkår hos Stripe, før du bekræfter abonnementet.":"Ditt Circle-konto är gratis. Om du vill annonsera med Circle Plus visar vi ditt pris och eventuell provperiod när ditt konto har kontrollerats. Du ser alla betalningsvillkor hos Stripe innan du bekräftar prenumerationen."))}</p></aside>}
+        {mode === "register" && <label className="field-label">{(lang === "nb" ? nbText["Fulde navn"] : (da ? "Fulde navn" : "Fullständigt namn"))}<input autoComplete="name" required value={name} onChange={e=>setName(e.target.value)} /></label>}
+        <label className="field-label">{lang === "nb" ? "E-post" : "E-mail"}<input type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)} /></label>
+        {mode !== "reset" && <label className="field-label">{(lang === "nb" ? nbText["Adgangskode"] : (da ? "Adgangskode" : "Lösenord"))}<input type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} required minLength={8} value={password} onChange={e=>setPassword(e.target.value)} /></label>}
+        {mode === "register" && <label className="field-label">{(lang === "nb" ? nbText["Gentag adgangskode"] : (da ? "Gentag adgangskode" : "Upprepa lösenord"))}<input type="password" autoComplete="new-password" required minLength={8} value={repeat} onChange={e=>setRepeat(e.target.value)} /></label>}
+        {mode === "register" && <label className="terms-check"><input type="checkbox" required checked={acceptedTerms} onChange={e=>setAcceptedTerms(e.target.checked)} /><span>{(lang === "nb" ? nbText["Jeg accepterer "] : (da ? "Jeg accepterer " : "Jag accepterar "))}<a href={lang === "nb" ? "/legal/nb#terms" : "/legal#terms"} target="_blank">{(lang === "nb" ? nbText["handelsbetingelserne"] : (da ? "handelsbetingelserne" : "köpvillkoren"))}</a>{(lang === "nb" ? nbText[" og har læst "] : (da ? " og har læst " : " och har läst "))}<a href={lang === "nb" ? "/legal/nb#privacy" : "/legal#privacy"} target="_blank">{(lang === "nb" ? nbText["privatlivspolitikken"] : (da ? "privatlivspolitikken" : "integritetspolicyn"))}</a>.</span></label>}
         {error && <p className="auth-error" role="alert"><AlertCircle size={17} />{error}</p>}
         {message && <p className="auth-success" role="status"><CheckCircle2 size={17} />{message}</p>}
-        <Button type="submit" disabled={busy} className="auth-submit">{busy ? <LoaderCircle className="animate-spin" size={18} /> : mode === "login" ? <LogIn size={18} /> : mode === "register" ? <UserPlus size={18} /> : <KeyRound size={18} />}{mode === "login" ? (da ? "Log ind" : "Logga in") : mode === "register" ? (da ? "Opret konto" : "Skapa konto") : (da ? "Send nulstillingslink" : "Skicka återställningslänk")}</Button>
+        <Button type="submit" disabled={busy} className="auth-submit">{busy ? <LoaderCircle className="animate-spin" size={18} /> : mode === "login" ? <LogIn size={18} /> : mode === "register" ? <UserPlus size={18} /> : <KeyRound size={18} />}{mode === "login" ? ((lang === "nb" ? nbText["Log ind"] : (da ? "Log ind" : "Logga in"))) : mode === "register" ? ((lang === "nb" ? nbText["Opret konto"] : (da ? "Opret konto" : "Skapa konto"))) : ((lang === "nb" ? nbText["Send nulstillingslink"] : (da ? "Send nulstillingslink" : "Skicka återställningslänk")))}</Button>
       </form>
       <div className="auth-actions">
-        {mode !== "login" && <button onClick={()=>{setMode("login");setError("");setMessage("");}}>{da ? "Tilbage til login" : "Tillbaka till inloggning"}</button>}
-        {mode === "login" && <><button onClick={()=>setMode("reset")}>{da ? "Glemt adgangskode?" : "Glömt lösenordet?"}</button><button onClick={()=>setMode("register")}>{da ? "Opret ny konto" : "Skapa nytt konto"}</button></>}
+        {mode !== "login" && <button onClick={()=>{setMode("login");setError("");setMessage("");}}>{(lang === "nb" ? nbText["Tilbage til login"] : (da ? "Tilbage til login" : "Tillbaka till inloggning"))}</button>}
+        {mode === "login" && <><button onClick={()=>setMode("reset")}>{(lang === "nb" ? nbText["Glemt adgangskode?"] : (da ? "Glemt adgangskode?" : "Glömt lösenordet?"))}</button><button onClick={()=>setMode("register")}>{(lang === "nb" ? nbText["Opret ny konto"] : (da ? "Opret ny konto" : "Skapa nytt konto"))}</button></>}
       </div>
-      <p className="auth-legal"><a href="/legal#privacy">{da ? "Privatliv og GDPR" : "Integritet och GDPR"}</a><span>·</span><a href="/legal#terms">{da ? "Handelsbetingelser" : "Köpvillkor"}</a></p>
+      <p className="auth-legal"><a href={lang === "nb" ? "/legal/nb#privacy" : "/legal#privacy"}>{(lang === "nb" ? nbText["Privatliv og GDPR"] : (da ? "Privatliv og GDPR" : "Integritet och GDPR"))}</a><span>·</span><a href={lang === "nb" ? "/legal/nb#terms" : "/legal#terms"}>{(lang === "nb" ? nbText["Handelsbetingelser"] : (da ? "Handelsbetingelser" : "Köpvillkor"))}</a></p>
     </section>
     <section className="auth-brand">
-      <div className="auth-promo-image" role="img" aria-label={da ? "Naboer der deler ting i lokalområdet" : "Grannar som delar saker i närområdet"}><span>{da ? "Del mere · køb mindre" : "Dela mer · köp mindre"}</span></div>
+      <div className="auth-promo-image" role="img" aria-label={(lang === "nb" ? nbText["Naboer der deler ting i lokalområdet"] : (da ? "Naboer der deler ting i lokalområdet" : "Grannar som delar saker i närområdet"))}><span>{(lang === "nb" ? nbText["Del mere · køb mindre"] : (da ? "Del mere · køb mindre" : "Dela mer · köp mindre"))}</span></div>
       <div className="auth-promo-copy">
         <p className="auth-product-name">Veyro Circle</p>
-        <h2>{da ? <>Tingene findes sikkert allerede<br />Del dem med hinanden</> : <>Sakerna finns säkert redan<br />Dela dem med varandra</>}</h2>
-        <p>{da ? "Circle gør det enkelt at finde, låne og leje ting i dit lokalområde – eller dele det, du ikke selv bruger hver dag." : "Circle gör det enkelt att hitta, låna och hyra saker i ditt närområde – eller dela det du inte använder varje dag."}</p>
+        <h2>{lang === "nb" ? <>Tingene finnes sikkert allerede<br />Del dem med hverandre</> : da ? <>Tingene findes sikkert allerede<br />Del dem med hinanden</> : <>Sakerna finns säkert redan<br />Dela dem med varandra</>}</h2>
+        <p>{(lang === "nb" ? nbText["Circle gør det enkelt at finde, låne og leje ting i dit lokalområde – eller dele det, du ikke selv bruger hver dag."] : (da ? "Circle gør det enkelt at finde, låne og leje ting i dit lokalområde – eller dele det, du ikke selv bruger hver dag." : "Circle gör det enkelt att hitta, låna och hyra saker i ditt närområde – eller dela det du inte använder varje dag."))}</p>
         <ul>
-          <li><PackageCheck /><span><b>{da ? "Lån gratis eller lej" : "Låna gratis eller hyr"}</b>{da ? "Find værktøj, trailer, fritidsudstyr og meget mere." : "Hitta verktyg, släp, fritidsutrustning och mycket mer."}</span></li>
-          <li><MapPin /><span><b>{da ? "Find ting i nærheden" : "Hitta saker i närheten"}</b>{da ? "Søg efter kategori, land og afstand." : "Sök efter kategori, land och avstånd."}</span></li>
-          <li><ShieldCheck /><span><b>{da ? "Lav en tydelig aftale" : "Skapa ett tydligt avtal"}</b>{da ? "Aftal periode, pris, depositum og underskrift." : "Avtala period, pris, deposition och signatur."}</span></li>
+          <li><PackageCheck /><span><b>{(lang === "nb" ? nbText["Lån gratis eller lej"] : (da ? "Lån gratis eller lej" : "Låna gratis eller hyr"))}</b>{(lang === "nb" ? nbText["Find værktøj, trailer, fritidsudstyr og meget mere."] : (da ? "Find værktøj, trailer, fritidsudstyr og meget mere." : "Hitta verktyg, släp, fritidsutrustning och mycket mer."))}</span></li>
+          <li><MapPin /><span><b>{(lang === "nb" ? nbText["Find ting i nærheden"] : (da ? "Find ting i nærheden" : "Hitta saker i närheten"))}</b>{(lang === "nb" ? nbText["Søg efter kategori, land og afstand."] : (da ? "Søg efter kategori, land og afstand." : "Sök efter kategori, land och avstånd."))}</span></li>
+          <li><ShieldCheck /><span><b>{(lang === "nb" ? nbText["Lav en tydelig aftale"] : (da ? "Lav en tydelig aftale" : "Skapa ett tydligt avtal"))}</b>{(lang === "nb" ? nbText["Aftal periode, pris, depositum og underskrift."] : (da ? "Aftal periode, pris, depositum og underskrift." : "Avtala period, pris, deposition och signatur."))}</span></li>
         </ul>
       </div>
-      <small>{da ? `Et produkt fra ${COMPANY_IDENTITY}` : `En produkt från ${COMPANY_IDENTITY}`}</small>
+      <small>{(lang === "nb" ? `Et produkt fra ${COMPANY_IDENTITY}` : (da ? `Et produkt fra ${COMPANY_IDENTITY}` : `En produkt från ${COMPANY_IDENTITY}`))}</small>
     </section>
   </main>;
 }
@@ -144,7 +147,7 @@ export function EmailVerificationScreen({ lang, user }: { lang: Lang; user: User
     try {
       await user.reload();
       if (user.emailVerified) window.location.reload();
-      else setError(da ? "E-mailen er endnu ikke bekræftet. Åbn linket i mailen først." : "E-postadressen är ännu inte bekräftad. Öppna länken i mailet först.");
+      else setError((lang === "nb" ? nbText["E-mailen er endnu ikke bekræftet. Åbn linket i mailen først."] : (da ? "E-mailen er endnu ikke bekræftet. Åbn linket i mailen først." : "E-postadressen är ännu inte bekräftad. Öppna länken i mailet först.")));
     } catch (reason) { setError(friendlyError(reason, lang)); }
     finally { setChecking(false); }
   }
@@ -156,5 +159,5 @@ export function EmailVerificationScreen({ lang, user }: { lang: Lang; user: User
     } catch (reason) { setError(friendlyError(reason, lang)); }
     finally { setBusy(false); }
   }
-  return <main className="auth-page"><section className="auth-brand"><img src="/branding/veyro-systems-logo.png" alt="Veyro Systems" /><p>Veyro Circle</p><small>{da ? `Et produkt fra ${COMPANY_IDENTITY}` : `En produkt från ${COMPANY_IDENTITY}`}</small></section><section className="auth-card verification-card"><CheckCircle2 size={38} /><h1>{da ? "Bekræft din e-mail" : "Bekräfta din e-post"}</h1><p>{da ? `Vi sender bekræftelsesmailen til ${user.email ?? "din e-mail"}. Åbn linket i mailen, og vend derefter tilbage hertil.` : `Vi skickar bekräftelsemailet till ${user.email ?? "din e-post"}. Öppna länken i mailet och gå sedan tillbaka hit.`}</p><p className="verification-help">{da ? "Kan du ikke se mailen? Tjek Spam/Uønsket post og fanen Promoveringer. Det kan tage et par minutter." : "Ser du inte mailet? Kontrollera skräppost och fliken Kampanjer. Det kan ta ett par minuter."}</p>{error && <p className="auth-error" role="alert"><AlertCircle size={17} />{error}</p>}{sent && <p className="auth-success" role="status"><CheckCircle2 size={17} />{da ? "En ny bekræftelsesmail er sendt. Tjek også Spam/Uønsket post." : "Ett nytt bekräftelsemail har skickats. Kontrollera även skräpposten."}</p>}<Button disabled={checking} onClick={checkVerification}>{checking && <LoaderCircle className="animate-spin" size={18} />}{da ? "Jeg har bekræftet" : "Jag har bekräftat"}</Button><button className="text-link" disabled={busy} onClick={resendVerification}>{busy ? (da ? "Sender…" : "Skickar…") : (da ? "Send en ny mail" : "Skicka ett nytt mail")}</button><button className="text-link" onClick={circleSignOut}>{da ? "Log ud" : "Logga ut"}</button></section></main>;
+  return <main className="auth-page"><section className="auth-brand"><img src="/branding/veyro-systems-logo.png" alt="Veyro Systems" /><p>Veyro Circle</p><small>{(lang === "nb" ? `Et produkt fra ${COMPANY_IDENTITY}` : (da ? `Et produkt fra ${COMPANY_IDENTITY}` : `En produkt från ${COMPANY_IDENTITY}`))}</small></section><section className="auth-card verification-card"><CheckCircle2 size={38} /><h1>{(lang === "nb" ? nbText["Bekræft din e-mail"] : (da ? "Bekræft din e-mail" : "Bekräfta din e-post"))}</h1><p>{(lang === "nb" ? `Vi sender bekreftelsen til ${user.email ?? "e-postadressen din"}. Åpne lenken i e-posten, og kom deretter tilbake hit.` : (da ? `Vi sender bekræftelsesmailen til ${user.email ?? "din e-mail"}. Åbn linket i mailen, og vend derefter tilbage hertil.` : `Vi skickar bekräftelsemailet till ${user.email ?? "din e-post"}. Öppna länken i mailet och gå sedan tillbaka hit.`))}</p><p className="verification-help">{(lang === "nb" ? nbText["Kan du ikke se mailen? Tjek Spam/Uønsket post og fanen Promoveringer. Det kan tage et par minutter."] : (da ? "Kan du ikke se mailen? Tjek Spam/Uønsket post og fanen Promoveringer. Det kan tage et par minutter." : "Ser du inte mailet? Kontrollera skräppost och fliken Kampanjer. Det kan ta ett par minuter."))}</p>{error && <p className="auth-error" role="alert"><AlertCircle size={17} />{error}</p>}{sent && <p className="auth-success" role="status"><CheckCircle2 size={17} />{(lang === "nb" ? nbText["En ny bekræftelsesmail er sendt. Tjek også Spam/Uønsket post."] : (da ? "En ny bekræftelsesmail er sendt. Tjek også Spam/Uønsket post." : "Ett nytt bekräftelsemail har skickats. Kontrollera även skräpposten."))}</p>}<Button disabled={checking} onClick={checkVerification}>{checking && <LoaderCircle className="animate-spin" size={18} />}{(lang === "nb" ? nbText["Jeg har bekræftet"] : (da ? "Jeg har bekræftet" : "Jag har bekräftat"))}</Button><button className="text-link" disabled={busy} onClick={resendVerification}>{busy ? ((lang === "nb" ? nbText["Sender…"] : (da ? "Sender…" : "Skickar…"))) : ((lang === "nb" ? nbText["Send en ny mail"] : (da ? "Send en ny mail" : "Skicka ett nytt mail")))}</button><button className="text-link" onClick={circleSignOut}>{(lang === "nb" ? nbText["Log ud"] : (da ? "Log ud" : "Logga ut"))}</button></section></main>;
 }

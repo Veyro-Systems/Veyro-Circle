@@ -1,4 +1,5 @@
 import { serverConfig } from "@/lib/server-config";
+import { storedCountry } from "@/lib/region";
 
 type FirebaseIdentity = { localId: string; email: string; emailVerified: boolean };
 export type FirestoreField = { stringValue?: string; booleanValue?: boolean; doubleValue?: number; timestampValue?: string; mapValue?: { fields?: Record<string, FirestoreField> } };
@@ -91,13 +92,13 @@ export async function getServerProfile(uid: string) {
     street: fields.street?.stringValue ?? "",
     place: {
       id: fields.place?.mapValue?.fields?.id?.stringValue ?? "",
-      country: fields.place?.mapValue?.fields?.country?.stringValue === "SE" ? "SE" as const : "DK" as const,
+      country: storedCountry(fields.place?.mapValue?.fields?.country?.stringValue),
       postcode: fields.place?.mapValue?.fields?.postcode?.stringValue ?? "",
       city: fields.place?.mapValue?.fields?.city?.stringValue ?? "",
       lat: fields.place?.mapValue?.fields?.lat?.doubleValue ?? 0,
       lon: fields.place?.mapValue?.fields?.lon?.doubleValue ?? 0,
     },
-    country: fields.place?.mapValue?.fields?.country?.stringValue === "SE" ? "SE" as const : "DK" as const,
+    country: storedCountry(fields.place?.mapValue?.fields?.country?.stringValue),
     stripeCustomerId: fields.stripeCustomerId?.stringValue,
     stripeSubscriptionId: fields.stripeSubscriptionId?.stringValue,
     circlePlusStartedAt: fields.circlePlusStartedAt?.timestampValue,
