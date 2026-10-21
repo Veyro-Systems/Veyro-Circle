@@ -1,5 +1,6 @@
 "use client";
 import { COMPANY_IDENTITY } from "@/lib/company";
+import { CircleTour } from "@/components/circle-tour";
 
 import { useEffect, useState } from "react";
 import {
@@ -91,26 +92,13 @@ export function CircleAuthScreen({ lang, setLang,onBrowse }: { lang: Lang; setLa
     finally { setBusy(false); }
   }
 
-  return <main className="auth-page">
-    <section className="auth-brand">
-      <img className="auth-company-logo" src="/branding/veyro-systems-logo.png" alt="Veyro Systems" />
-      <div className="auth-promo-image" role="img" aria-label={da ? "Naboer der deler ting i lokalområdet" : "Grannar som delar saker i närområdet"}><span>{da ? "Del mere · køb mindre" : "Dela mer · köp mindre"}</span></div>
-      <div className="auth-promo-copy">
-        <p className="auth-product-name">Veyro Circle</p>
-        <h2>{da ? <>Tingene findes sikkert allerede<br />Del dem med hinanden</> : <>Sakerna finns säkert redan<br />Dela dem med varandra</>}</h2>
-        <p>{da ? "Circle gør det enkelt at finde, låne og leje ting i dit lokalområde – eller dele det, du ikke selv bruger hver dag." : "Circle gör det enkelt att hitta, låna och hyra saker i ditt närområde – eller dela det du inte använder varje dag."}</p>
-        <ul>
-          <li><PackageCheck /><span><b>{da ? "Lån gratis eller lej" : "Låna gratis eller hyr"}</b>{da ? "Find værktøj, trailer, fritidsudstyr og meget mere." : "Hitta verktyg, släp, fritidsutrustning och mycket mer."}</span></li>
-          <li><MapPin /><span><b>{da ? "Find ting i nærheden" : "Hitta saker i närheten"}</b>{da ? "Søg efter kategori, land og afstand." : "Sök efter kategori, land och avstånd."}</span></li>
-          <li><ShieldCheck /><span><b>{da ? "Lav en tydelig aftale" : "Skapa ett tydligt avtal"}</b>{da ? "Aftal periode, pris, depositum og underskrift." : "Avtala period, pris, deposition och signatur."}</span></li>
-        </ul>
-      </div>
-      <small>{da ? `Et produkt fra ${COMPANY_IDENTITY}` : `En produkt från ${COMPANY_IDENTITY}`}</small>
-    </section>
+  return <main className="auth-page auth-entry-page">
+    <img className="auth-company-logo" src="/branding/veyro-systems-logo.png" alt="Veyro Systems" />
     <section className="auth-card">
-      {onBrowse && <button type="button" className="browse-back" onClick={onBrowse}>{lang === "da" ? "← Se annoncer uden login" : "← Se annonser utan inloggning"}</button>}
+      <div className="auth-entry-links">{onBrowse && <button type="button" className="browse-back" onClick={onBrowse}>{lang === "da" ? "Se annoncer uden login" : "Se annonser utan inloggning"}</button>}<CircleTour lang={lang}/></div>
       <div className="auth-language"><button className={lang === "da" ? "active" : ""} onClick={()=>setLang("da")}>Dansk</button><button className={lang === "sv" ? "active" : ""} onClick={()=>setLang("sv")}>Svenska</button></div>
       <div><p className="eyebrow">Veyro Circle</p><h1>{mode === "login" ? (da ? "Log ind" : "Logga in") : mode === "register" ? (da ? "Opret konto" : "Skapa konto") : (da ? "Glemt adgangskode" : "Glömt lösenord")}</h1><p>{mode === "reset" ? (da ? "Indtast din e-mail, så sender vi et sikkert nulstillingslink." : "Ange din e-postadress så skickar vi en säker återställningslänk.") : (da ? "Del, lån og lej ting i dit lokalområde." : "Dela, låna och hyr saker i ditt närområde.")}</p></div>
+      {mode!=="reset" && <aside className="auth-trial-banner"><span>{da?"For nye, berettigede Circle Plus-kunder":"För nya, berättigade Circle Plus-kunder"}</span><strong>{da?"180 dage gratis":"180 dagar gratis"}</strong><p>{da?"Derefter 49 DKK/md. i Danmark eller 69 SEK/md. i Sverige. Automatisk fortsættelse. Du registrerer kort og kan opsige før første betaling.":"Därefter 49 DKK/mån i Danmark eller 69 SEK/mån i Sverige. Automatisk förnyelse. Du registrerar kort och kan säga upp före första betalningen."}</p></aside>}
       <form onSubmit={submit}>
         {mode === "register" && <aside className="signup-trial"><strong>Veyro Circle Plus</strong><p>{da?"Din Circle-konto er gratis. Hvis du vil annoncere med Circle Plus, viser vi din pris og eventuelle prøveperiode, når din konto er kontrolleret. Du ser alle betalingsvilkår hos Stripe, før du bekræfter abonnementet.":"Ditt Circle-konto är gratis. Om du vill annonsera med Circle Plus visar vi ditt pris och eventuell provperiod när ditt konto har kontrollerats. Du ser alla betalningsvillkor hos Stripe innan du bekräftar prenumerationen."}</p></aside>}
         {mode === "register" && <label className="field-label">{da ? "Fulde navn" : "Fullständigt namn"}<input autoComplete="name" required value={name} onChange={e=>setName(e.target.value)} /></label>}
@@ -127,6 +115,20 @@ export function CircleAuthScreen({ lang, setLang,onBrowse }: { lang: Lang; setLa
         {mode === "login" && <><button onClick={()=>setMode("reset")}>{da ? "Glemt adgangskode?" : "Glömt lösenordet?"}</button><button onClick={()=>setMode("register")}>{da ? "Opret ny konto" : "Skapa nytt konto"}</button></>}
       </div>
       <p className="auth-legal"><a href="/legal#privacy">{da ? "Privatliv og GDPR" : "Integritet och GDPR"}</a><span>·</span><a href="/legal#terms">{da ? "Handelsbetingelser" : "Köpvillkor"}</a></p>
+    </section>
+    <section className="auth-brand">
+      <div className="auth-promo-image" role="img" aria-label={da ? "Naboer der deler ting i lokalområdet" : "Grannar som delar saker i närområdet"}><span>{da ? "Del mere · køb mindre" : "Dela mer · köp mindre"}</span></div>
+      <div className="auth-promo-copy">
+        <p className="auth-product-name">Veyro Circle</p>
+        <h2>{da ? <>Tingene findes sikkert allerede<br />Del dem med hinanden</> : <>Sakerna finns säkert redan<br />Dela dem med varandra</>}</h2>
+        <p>{da ? "Circle gør det enkelt at finde, låne og leje ting i dit lokalområde – eller dele det, du ikke selv bruger hver dag." : "Circle gör det enkelt att hitta, låna och hyra saker i ditt närområde – eller dela det du inte använder varje dag."}</p>
+        <ul>
+          <li><PackageCheck /><span><b>{da ? "Lån gratis eller lej" : "Låna gratis eller hyr"}</b>{da ? "Find værktøj, trailer, fritidsudstyr og meget mere." : "Hitta verktyg, släp, fritidsutrustning och mycket mer."}</span></li>
+          <li><MapPin /><span><b>{da ? "Find ting i nærheden" : "Hitta saker i närheten"}</b>{da ? "Søg efter kategori, land og afstand." : "Sök efter kategori, land och avstånd."}</span></li>
+          <li><ShieldCheck /><span><b>{da ? "Lav en tydelig aftale" : "Skapa ett tydligt avtal"}</b>{da ? "Aftal periode, pris, depositum og underskrift." : "Avtala period, pris, deposition och signatur."}</span></li>
+        </ul>
+      </div>
+      <small>{da ? `Et produkt fra ${COMPANY_IDENTITY}` : `En produkt från ${COMPANY_IDENTITY}`}</small>
     </section>
   </main>;
 }

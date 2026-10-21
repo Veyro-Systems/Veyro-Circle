@@ -2,6 +2,7 @@
 import { COMPANY_IDENTITY } from "@/lib/company";
 import { trialCopy } from "@/lib/circle-plus-copy";
 import { CirclePlusOffer } from "@/components/circle-plus-offer";
+import { CirclePricingInfo } from "@/components/circle-pricing-info";
 
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { ListingReviews,ReviewForm } from "@/components/circle-reviews";
@@ -159,7 +160,7 @@ export default function HomePage() {
   const [onlyFavorites,setOnlyFavorites]=useState(false);
   const [listingView,setListingView]=useState<"list"|"kanban">("kanban");
   const [favoriteBusy,setFavoriteBusy]=useState<string|null>(null);
-  const [authOpen,setAuthOpen]=useState(false);
+  const [authOpen,setAuthOpen]=useState(true);
   const [calendarItem,setCalendarItem]=useState<Listing|null>(null);
   const [searchFrom,setSearchFrom]=useState("");
   const [searchTo,setSearchTo]=useState("");
@@ -376,7 +377,7 @@ export default function HomePage() {
     return subscribeToCircleListings(records => {
       setListingsLoading(false);setListingsError(false);
       const linkedId=new URLSearchParams(window.location.search).get("listing");
-      if(linkedId){const linked=records.find(r=>r.id===linkedId);if(linked){setSelected(listingFromCloud(linked,user?.uid??""));window.history.replaceState(null,"",window.location.pathname);}}
+      if(linkedId){const linked=records.find(r=>r.id===linkedId);if(linked){setAuthOpen(false);setSelected(listingFromCloud(linked,user?.uid??""));window.history.replaceState(null,"",window.location.pathname);}}
       setListings(records.map(record => ({...listingFromCloud(record, user?.uid ?? ""),availability:lang === "da" ? "Forespørg om datoer" : "Fråga om datum"})));
     }, error => {
       setListingsLoading(false);setListingsError(true);
@@ -474,7 +475,7 @@ export default function HomePage() {
 
   async function logout() {
     if (configured) await circleSignOut();
-    setPrefs({favorites:[],searches:[]});setOnlyFavorites(false);setProfile(null); setLoans([]); setAgreementLoan(null); setChatLoan(null); setNotificationsOpen(false); setListingPlan("free"); setOrigin(null); setRadius("all");setTab("home");setAuthOpen(false);
+    setPrefs({favorites:[],searches:[]});setOnlyFavorites(false);setProfile(null); setLoans([]); setAgreementLoan(null); setChatLoan(null); setNotificationsOpen(false); setListingPlan("free"); setOrigin(null); setRadius("all");setTab("home");setAuthOpen(true);
     toast.success(lang === "da" ? "Du er logget ud." : "Du har loggats ut.");
   }
 
@@ -817,12 +818,7 @@ export default function HomePage() {
 
         <aside className="hidden xl:block">
           <div className="sticky top-24 space-y-4">
-            <div className="sharing-info">
-              <h2>{lang === "da" ? "Enkel og ærlig pris" : "Enkelt och tydligt pris"}</h2>
-              <p><b>{lang === "da" ? "Gratis at søge og forespørge" : "Gratis att söka och skicka förfrågningar"}</b>{lang === "da" ? "Det koster ikke noget at finde ting eller sende en forespørgsel." : "Det kostar inget att hitta saker eller skicka en förfrågan."}</p>
-              <p><b>{lang === "da" ? "Annoncer kræver Circle Plus" : "Annonser kräver Circle Plus"}</b>{lang === "da" ? "Op til 20 aktive ting for 49 DKK eller 69 SEK om måneden." : "Upp till 20 aktiva saker för 49 DKK eller 69 SEK per månad."}</p>
-              <p className="muted">{lang === "da" ? "Veyro Circle tager ingen provision af den private lejeaftale." : "Veyro Circle tar ingen provision på den privata hyresaffären."}</p>
-            </div>
+            <CirclePricingInfo lang={lang} trialEligible={currentOffer.trialEligible} hasSubscription={currentOffer.hasSubscription} onOffer={()=>user?setShowUpgrade(true):setAuthOpen(true)}/>
             <div className="rounded-xl border border-[#dde1ec] bg-white p-5">
               <div className="mb-4 flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-xl bg-[#edf2f6] text-[#008EAC]"><MessageCircle size={20} /></span><div><p className="font-bold">Veyro Circle</p><p className="text-xs text-[#74788b]">Danmark · Sverige</p></div></div>
               <p className="text-sm leading-6 text-[#5f6376]">{lang === "da" ? "Del kun ting, du føler dig tryg ved. Aftal altid stand og aflevering i chatten." : "Dela bara saker du känner dig trygg med. Kom alltid överens om skick och återlämning i chatten."}</p>

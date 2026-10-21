@@ -14,12 +14,60 @@ const vite = await createServer({
   configFile: false,
   root,
   resolve: { alias: { "@": root } },
-  plugins:[{name:"test-only-loan-export",transform(code,id){if(id.replaceAll("\\","/") === path.join(root,"app/page.tsx").replaceAll("\\","/")) return code + "\nexport { RequestsView, DepositSummary, SignatureBox, SubscriptionView };";}}],
+  plugins:[{name:"test-only-page-boundaries",transform(code,id){
+    const normalized=id.replaceAll("\\","/");
+    if(normalized===path.join(root,"app/page.tsx").replaceAll("\\","/"))return code+"\nexport { RequestsView, DepositSummary, SignatureBox, SubscriptionView }; export { setEntryTestUser } from '@/components/circle-auth';";
+    if(normalized===path.join(root,"components/circle-auth.tsx").replaceAll("\\","/")){
+      const start=code.indexOf('export function useCircleAuth()');
+      const end=code.indexOf('export async function circleSignOut()',start);
+      return code.slice(0,start)+'let entryTestUser=null; export function setEntryTestUser(user){entryTestUser=user;} export function useCircleAuth(){return {user:entryTestUser,loading:false,configured:true};}\n'+code.slice(end);
+    }
+  }}],
   server: { middlewareMode: true, hmr:false, ws:false },
 });
 
 after(async () => {
   await vite.close();
+});
+
+test('root opens the login landing page for visitors and preserves signed-in access',async()=>{
+  const {default:HomePage,setEntryTestUser}=await vite.ssrLoadModule('/app/page.tsx');
+  setEntryTestUser(null);
+  const visitor=renderToStaticMarkup(React.createElement(HomePage));
+  assert.match(visitor,/auth-entry-page/);assert.match(visitor,/Log ind/);assert.match(visitor,/Se annoncer uden login/);assert.match(visitor,/Se rundvisning/);assert.match(visitor,/180 dage gratis/);assert.doesNotMatch(visitor,/specific-listing-search/);
+  try{
+    setEntryTestUser({uid:'unit-user',emailVerified:true,email:'unit@example.invalid'});
+    const member=renderToStaticMarkup(React.createElement(HomePage));
+    assert.doesNotMatch(member,/auth-entry-page/);assert.match(member,/specific-listing-search/);
+  }finally{setEntryTestUser(null);}
+});
+
+test('tour explains the whole sharing journey and discloses trial eligibility and renewal in both languages',async()=>{
+  const {CircleTourSlide}=await vite.ssrLoadModule('/components/circle-tour.tsx');
+  const {CircleAuthScreen}=await vite.ssrLoadModule('/components/circle-auth.tsx');
+  for(const lang of ['da','sv']){
+    for(let step=0;step<4;step++){
+      const html=renderToStaticMarkup(React.createElement(CircleTourSlide,{lang,step}));
+      assert.equal((html.match(/<li>/g)||[]).length,3);assert.match(html,/circle-tour-step-title/);
+      if(step===0)assert.match(html,/uden at oprette en konto|utan att skapa ett konto/);
+      if(step===2)assert.match(html,/underskriver|signerar/);
+      if(step===3){assert.match(html,/180/);assert.match(html,/berettigede|berättigade/);assert.match(html,/49 DKK/);assert.match(html,/69 SEK/);assert.match(html,/automatisk/);assert.match(html,/opsiger|säger upp/);}
+    }
+    const entry=renderToStaticMarkup(React.createElement(CircleAuthScreen,{lang,setLang(){},onBrowse(){}}));
+    assert.match(entry,/180 dage gratis|180 dagar gratis/);assert.match(entry,/berettigede|berättigade/);assert.match(entry,/49 DKK/);assert.match(entry,/69 SEK/);assert.match(entry,/registrerer kort|registrerar kort/);assert.match(entry,/før første betaling|före första betalningen/);
+  }
+});
+
+test('pricing card explains the public offer without granting a new trial to existing accounts',async()=>{
+  const {CirclePricingInfo}=await vite.ssrLoadModule('/components/circle-pricing-info.tsx');
+  for(const lang of ['da','sv'])for(const [trialEligible,hasSubscription] of [[true,false],[null,false],[false,false],[false,true]]){
+    const html=renderToStaticMarkup(React.createElement(CirclePricingInfo,{lang,trialEligible,hasSubscription,onOffer(){}}));
+    assert.match(html,/180/);assert.match(html,/nye, berettigede|nya, berättigade/);assert.match(html,/49 DKK/);assert.match(html,/69 SEK/);assert.match(html,/automatisk/);
+    if(hasSubscription){assert.match(html,/allerede Circle Plus|redan Circle Plus/);assert.doesNotMatch(html,/<button/);}
+    else if(trialEligible===false){assert.match(html,/ikke berettiget|inte berättigat/);assert.doesNotMatch(html,/<button/);}
+    else if(trialEligible===true)assert.match(html,/Start 180 dage gratis|Starta 180 dagar gratis/);
+    else{assert.match(html,/personlige tilbud|personliga erbjudande/);assert.doesNotMatch(html,/Start 180|Starta 180/);}
+  }
 });
 
 test("owner deposit is displayed in both languages with no borrower input",async()=>{
