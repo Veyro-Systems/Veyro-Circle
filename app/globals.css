@@ -83,8 +83,8 @@ button,input,textarea,select { font:inherit; }
 button { cursor:pointer; }
 button:disabled { cursor:not-allowed; }
 button:focus-visible,a:focus-visible { outline:3px solid #819eb6; outline-offset:3px; }
-.brand-lockup { display:flex; align-items:center; gap:.8rem; white-space:nowrap; border:0; background:none; color:white; font-size:1.08rem; font-weight:750; letter-spacing:-.02em; }
-.brand-lockup img { width:auto; height:72px; max-width:210px; object-fit:contain; object-position:left center; }
+.brand-lockup { display:flex; height:100%; flex-shrink:0; align-items:center; gap:.8rem; padding-block:6px; white-space:nowrap; border:0; background:none; color:white; font-size:1.08rem; font-weight:750; letter-spacing:-.02em; }
+.brand-lockup img { display:block; width:auto; height:100%; max-height:60px; max-width:210px; object-fit:contain; object-position:left center; }
 .brand-lockup span { padding-left:.75rem; border-left:1px solid #42606c; }
 .icon-button { display:flex; width:2.5rem; height:2.5rem; align-items:center; justify-content:center; border:1px solid var(--border); border-radius:7px; background:white; color:#4b6070; }
 .language-button { display:flex; height:2.5rem; align-items:center; gap:.35rem; border:1px solid var(--border); border-radius:7px; background:white; padding:0 .65rem; color:#42576a; font-size:.875rem; font-weight:600; }
@@ -583,7 +583,7 @@ button:focus-visible,a:focus-visible { outline:3px solid #819eb6; outline-offset
   .auth-brand { justify-items:center; text-align:center; gap:.8rem; }.auth-brand .auth-company-logo { position:static; width:190px; height:auto; }.auth-promo-image { width:100%; min-height:145px; }.auth-promo-copy h2 { font-size:1.55rem; }.auth-promo-copy>p:last-of-type { font-size:.9rem; }.auth-promo-copy ul { grid-template-columns:1fr; text-align:left; }.auth-promo-copy li:nth-child(n+2) { display:none; }
   .auth-card { align-self:start; gap:1rem; border-radius:12px; padding:1.15rem; }
   .auth-card h1 { font-size:1.75rem; }
-  .brand-lockup img { width:58px; height:58px; max-width:none; object-fit:cover; object-position:left center; }.brand-lockup span { padding-left:.45rem; }
+  .brand-lockup img { width:48px; height:48px; max-width:none; object-fit:cover; object-position:left center; }.brand-lockup span { padding-left:.45rem; }
   .language-button { height:2.35rem; padding:0 .55rem; }
   .site-footer { grid-template-columns:1fr; }.footer-meta { grid-column:auto; }.site-footer nav { display:grid; }
   .membership-top { grid-template-columns:auto 1fr; }
