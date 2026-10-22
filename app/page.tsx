@@ -30,7 +30,7 @@ import { agreementsChanged, loadBookedPeriods, loadCircleAgreements, saveCircleA
 import { agreementErrorText, agreementNotices, agreementStage, circleToday, decisionAllowed, isArchived, noticeLabels, overlaps, stageLabels, type AgreementNotice, type Decision, type WorkflowAgreement } from "@/lib/agreement-workflow";
 import { sendCircleMessage, subscribeToCircleMessages, type CircleMessage } from "@/lib/firebase-messages";
 import { deleteCircleListing, saveCircleListing, subscribeToCircleListings, type CircleListingRecord } from "@/lib/firebase-listings";
-import { openBilling, BillingOfferChangedError } from "@/lib/billing-client";
+import { openBilling, BillingOfferChangedError, BillingPortalUnavailableError } from "@/lib/billing-client";
 import { PlacePicker, CountrySelect, ProfileForm } from "@/components/marketplace-fields";
 import { CommunityMap } from "@/components/community-map";
 import { AgreementJourney } from "@/components/agreement-journey";
@@ -257,6 +257,7 @@ export default function HomePage() {
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [billingBusy, setBillingBusy] = useState(false);
+  const [portalUnavailableFor,setPortalUnavailableFor]=useState<string|null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [loanDirection,setLoanDirection] = useState<"borrower"|"lender">("borrower");
   const [loanArchive,setLoanArchive] = useState(false);
@@ -300,7 +301,10 @@ export default function HomePage() {
     setBillingBusy(true);
     try { await openBilling(user, action,action==="checkout"?{expectedTrialEligible:currentOffer.trialEligible!,expectedCountry:currentOffer.country!,lang}:undefined); }
     catch (error) {
-      if(error instanceof BillingOfferChangedError){
+      if(error instanceof BillingPortalUnavailableError){
+        setPortalUnavailableFor(user.uid);
+        toast.info(error.message);
+      }else if(error instanceof BillingOfferChangedError){
         setBillingDetails(previous=>({...previous,trialEligible:null}));setOfferRevision(value=>value+1);
         toast.info((lang === "nb" ? nbText["Dit tilbud er ændret. Gennemgå den opdaterede pris, før du fortsætter."] : (lang==="da"?"Dit tilbud er ændret. Gennemgå den opdaterede pris, før du fortsætter.":"Ditt erbjudande har ändrats. Kontrollera det uppdaterade priset innan du fortsätter.")));
       }else toast.error(error instanceof Error ? error.message : ((lang === "nb" ? nbText["Stripe kunne ikke åbnes."] : (lang === "da" ? "Stripe kunne ikke åbnes." : "Stripe kunde inte öppnas."))));
@@ -847,7 +851,7 @@ export default function HomePage() {
           {tab === "requests" && <RequestsView t={t} loans={loans} lang={lang} userUid={user?.uid ?? ""} loading={agreementsLoading} loadError={agreementsError} direction={loanDirection} setDirection={setLoanDirection} archive={loanArchive} setArchive={setLoanArchive} onChat={setChatLoan} onAgreement={openAgreement} onDecision={(loan,action)=>setPendingDecision({loan,action})} />}
           {tab === "profile" && <ProfileView lang={lang} profile={profile} authenticatedEmail={user?.email || undefined} onSave={saveProfile}
             onLogout={logout} onSubscription={() => setTab("subscription")} />}
-          {tab === "subscription" && <SubscriptionView lang={lang} plan={listingPlan} billingDetails={currentOffer} used={listings.filter(item => item.owned).length} onBack={() => setTab("profile")} onUpgrade={() => setShowUpgrade(true)} onManage={() => billing("portal")} />}
+          {tab === "subscription" && <SubscriptionView lang={lang} plan={listingPlan} billingDetails={currentOffer} portalUnavailable={portalUnavailableFor===user?.uid} used={listings.filter(item => item.owned).length} onBack={() => setTab("profile")} onUpgrade={() => setShowUpgrade(true)} onManage={() => billing("portal")} />}
         </section>
 
         <aside className="hidden xl:block">
@@ -1263,7 +1267,7 @@ function ProfileView({ lang, profile, authenticatedEmail, onSave, onLogout, onSu
   </div>;
 }
 
-function SubscriptionView(props:{lang:Lang;plan:ListingPlan;billingDetails:BillingDetails;used:number;onBack:()=>void;onUpgrade:()=>void;onManage:()=>void}) {return <CircleMembership {...props}/>;}
+function SubscriptionView(props:{lang:Lang;plan:ListingPlan;billingDetails:BillingDetails;portalUnavailable?:boolean;used:number;onBack:()=>void;onUpgrade:()=>void;onManage:()=>void}) {return <CircleMembership {...props}/>;}
 
 function ItemsView({ lang, profile, listings, plan, onAdd, onEdit, onDelete,onCalendar }: { lang: Lang; profile: Profile | null; listings: Listing[]; plan: ListingPlan; onAdd: () => void; onEdit: (item: Listing) => void; onDelete: (item: Listing) => void; onCalendar:(item:Listing)=>void }) {
   const used = listings.length;

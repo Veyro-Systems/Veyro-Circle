@@ -9,6 +9,31 @@ export type StripeSubscription = StripeRecord & {id:string;customer:string|{id:s
 export const hasPlusAccess = (status:string) => status === "active" || status === "trialing";
 export const stripeId = (value:unknown):string => typeof value === "string" ? value : value && typeof value === "object" && "id" in value ? String(value.id) : "";
 
+export class PortalCustomerUnavailableError extends Error {
+  constructor() { super("Der er ingen Stripe-betalingskonto at administrere for dette login. Din adgang er uændret. Der er ikke oprettet et nyt abonnement eller trukket penge."); }
+}
+
+export async function portalCustomerId(uid:string,email:string,profile:BillingProfile) {
+  if(profile.stripeCustomerId){
+    try {
+      const customer=await stripeRequest(`/customers/${encodeURIComponent(profile.stripeCustomerId)}`);
+      if(!customer.deleted){
+        const owner=(customer.metadata as {uid?:string}|undefined)?.uid;
+        if(owner && owner!==uid)throw Error("Stripe-kunden matcher ikke din konto. Kontakt support.");
+        return stripeId(customer);
+      }
+    }catch(error){
+      if(!(error instanceof StripeRequestError && error.status===404 && error.code==="resource_missing"))throw error;
+    }
+  }
+  // A legacy test customer cannot be opened with the Live key. Recover only
+  // through the verified email AND the server-recorded Firebase UID on Stripe.
+  // Email alone is not sufficient to grant access to another billing account.
+  const matches=(await all(`/customers?email=${encodeURIComponent(email)}`)).filter(customer=>!customer.deleted && (customer.metadata as {uid?:string}|undefined)?.uid===uid);
+  if(matches.length!==1)throw new PortalCustomerUnavailableError();
+  return stripeId(matches[0]);
+}
+
 async function all(path:string) {
   const result:StripeRecord[]=[];
   let cursor="";
