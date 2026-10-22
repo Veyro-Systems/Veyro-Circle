@@ -2,7 +2,6 @@ import { stripeRequest, StripeRequestError } from "@/lib/stripe-server";
 import { serverConfig } from "@/lib/server-config";
 import { COUNTRIES, regions } from "@/lib/region";
 
-export const CIRCLE_PLUS_TRIAL_DAYS = 180;
 export type BillingProfile = { subscriptionPlan:string; stripeCustomerId?:string; stripeSubscriptionId?:string; circlePlusStartedAt?:string; circlePlusTrialStartedAt?:string };
 export type StripeRecord = Record<string, unknown>;
 export type StripeSubscription = StripeRecord & {id:string;customer:string|{id:string};status:string;metadata?:{uid?:string;app?:string;plan?:string};trial_end?:number;cancel_at_period_end?:boolean;items?:{data?:Array<{current_period_end?:number;price?:{id?:string;product?:string|{id:string}}}>}};

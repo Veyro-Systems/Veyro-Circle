@@ -7,7 +7,7 @@ import { COMPANY_IDENTITY } from "@/lib/company";
 import {membershipCopy} from "@/lib/membership-copy";
 import type {CircleAccess} from "@/lib/circle-access";
 import {CircleMembership} from "@/components/circle-membership";
-import { trialCopy } from "@/lib/circle-plus-copy";
+import { PLUS_OFFER_VERSION } from "@/lib/circle-plus-copy";
 import { CirclePlusOffer } from "@/components/circle-plus-offer";
 import { CirclePricingInfo } from "@/components/circle-pricing-info";
 
@@ -297,9 +297,9 @@ export default function HomePage() {
       toast.error((lang === "nb" ? nbText["Betaling er ikke konfigureret endnu."] : (lang === "da" ? "Betaling er ikke konfigureret endnu." : "Betalning är inte konfigurerad ännu.")));
       return;
     }
-    if(action==="checkout" && (currentOffer.trialEligible===null || !currentOffer.country || !currentOffer.access?.paymentRequired))return;
+    if(action==="checkout" && (currentOffer.trialEligible===null || !currentOffer.country || currentOffer.access?.plan!=="free" || currentOffer.hasSubscription))return;
     setBillingBusy(true);
-    try { await openBilling(user, action,action==="checkout"?{expectedTrialEligible:currentOffer.trialEligible!,expectedCountry:currentOffer.country!,lang}:undefined); }
+    try { await openBilling(user, action,action==="checkout"?{expectedTrialEligible:currentOffer.trialEligible!,expectedCountry:currentOffer.country!,expectedOfferVersion:PLUS_OFFER_VERSION,lang}:undefined); }
     catch (error) {
       if(error instanceof BillingPortalUnavailableError){
         setPortalUnavailableFor(user.uid);
@@ -340,9 +340,8 @@ export default function HomePage() {
         const response=await fetch("/api/stripe/checkout",{headers:{authorization:`Bearer ${await user.getIdToken()}`},cache:"no-store"});
         if(!response.ok)throw Error();
         const data=await response.json() as {trialEligible:boolean;hasSubscription:boolean;country:Country;access:CircleAccess};
-        if(typeof data.trialEligible!=="boolean" || typeof data.hasSubscription!=="boolean" || !["DK","SE","NO"].includes(data.country)||!["free","plus","expired"].includes(data.access?.plan))throw Error();
+        if(typeof data.trialEligible!=="boolean" || typeof data.hasSubscription!=="boolean" || !["DK","SE","NO"].includes(data.country)||!["free","plus"].includes(data.access?.plan))throw Error();
         if(active){setBillingDetails(previous=>({...previous,...data}));setListingPlan(data.access.plan);
-          if(data.access.paymentRequired){try{const key=`circle:payment-prompt:${user.uid}:${data.access.freeUntil??"legacy"}`;if(!localStorage.getItem(key)){localStorage.setItem(key,"shown");setShowUpgrade(true);}}catch{/* Voluntary payment remains available from the account page. */}}
         }
       }catch{if(active)setBillingDetails(previous=>({...previous,trialEligible:null,offerError:true}));}
     };
@@ -484,8 +483,7 @@ export default function HomePage() {
     if (!profile) { setTab("profile"); toast.info((lang === "nb" ? nbText["Opret først din profil med adresse og by."] : (lang === "da" ? "Opret først din profil med adresse og by." : "Skapa först din profil med adress och ort."))); return; }
     const activeCount = listings.filter(item => item.owned).length;
     if (!canCreateListing(activeCount, listingPlan)) {
-      if (listingPlan === "expired") setShowUpgrade(true);
-      else if(listingPlan === "free") toast.info(memberCopy.limit);
+      if(listingPlan === "free") {toast.info(memberCopy.limit);setShowUpgrade(true);}
       else toast.info((lang === "nb" ? nbText["Du har nået grænsen på 20 aktive ting. Slet en ting, før du opretter en ny."] : (lang === "da" ? "Du har nået grænsen på 20 aktive ting. Slet en ting, før du opretter en ny." : "Du har nått gränsen på 20 aktiva saker. Ta bort en sak innan du skapar en ny.")));
       return;
     }
@@ -494,7 +492,6 @@ export default function HomePage() {
 
   function openEdit(item: Listing) {
     if (!item.owned) return;
-    if(listingPlan==="expired"){setSelected(null);setShowUpgrade(true);return;}
     setSelected(null); setEditingId(item.id); setNewName(item.name); setNewDescription(item.description);
     setNewCategory(item.category);setNewDetails(item.details??{}); setNewCountry(item.country); setNewPlace(item.place);
     setPricing(item.dailyPrice > 0 ? "paid" : "free");
@@ -553,8 +550,7 @@ export default function HomePage() {
     const activeCount = listings.filter(item => item.owned).length;
     if (editingId === null && !canCreateListing(activeCount, listingPlan)) {
       setShowAdd(false);
-      if (listingPlan === "expired") setShowUpgrade(true);
-      else if(listingPlan === "free") toast.info(memberCopy.limit);
+      if(listingPlan === "free") {toast.info(memberCopy.limit);setShowUpgrade(true);}
       else toast.info((lang === "nb" ? nbText["Du kan højst have 20 aktive ting."] : (lang === "da" ? "Du kan højst have 20 aktive ting." : "Du kan ha högst 20 aktiva saker.")));
       return;
     }
@@ -595,7 +591,6 @@ export default function HomePage() {
   function openRequest() {
     if(!user){setAuthOpen(true);return;}
     if (!profile) { setSelected(null); setTab("profile"); toast.info((lang === "nb" ? nbText["Opret først din profil med adresse og by."] : (lang === "da" ? "Opret først din profil med adresse og by." : "Skapa först din profil med adress och ort."))); return; }
-    if(listingPlan==="expired"){setSelected(null);setShowUpgrade(true);return;}
     const today = todayLocal();
     requestTicket.current = null;
     setBookedPeriods([]);setAvailabilityError(false);
@@ -777,7 +772,7 @@ export default function HomePage() {
               <div className="relative z-10 max-w-[540px] p-6 text-white sm:p-8 lg:p-10">
                 <span className="hero-kicker"><Sparkles size={15} />{t.heroKicker}</span>
                 <h1>{t.heroTitle}</h1><p>{t.heroText}</p>
-                {currentOffer.trialEligible===true&&!currentOffer.hasSubscription && <div className="hero-trial"><strong>{trialCopy[lang].headline}</strong><p>{trialCopy[lang].terms}</p></div>}
+                {!currentOffer.hasSubscription && <div className="hero-trial"><strong>{memberCopy.headline}</strong><p>{memberCopy.freeNote}</p></div>}
                 <div className="mt-6 flex flex-wrap gap-3">
                   <Button onClick={() => document.getElementById("specific-listing-search")?.focus()} className="h-12 rounded-lg bg-[#f5bf42] px-6 font-semibold text-[#172936] hover:bg-[#ffcf62]"><Search className="mr-2" size={18} />{t.heroButton}</Button>
                   <Button onClick={openAdd} variant="outline" className="h-12 rounded-lg border-white/35 bg-white/12 px-6 font-bold text-white backdrop-blur hover:bg-white/20 hover:text-white"><PackagePlus className="mr-2" size={18} />{t.addItem}</Button>
@@ -868,7 +863,7 @@ export default function HomePage() {
       <footer className="site-footer">
         <div className="footer-brand"><img src="/branding/veyro-systems-logo.png" alt="Veyro Systems" /><div><b>Veyro Circle</b><span>{(lang === "nb" ? `Et produkt fra ${COMPANY_IDENTITY}` : (lang === "da" ? `Et produkt fra ${COMPANY_IDENTITY}` : `En produkt från ${COMPANY_IDENTITY}`))}</span></div></div>
         <nav aria-label="Juridisk information">
-          <a href={lang === "nb" ? "/legal/nb#privacy" : "/legal#privacy"}>{(lang === "nb" ? nbText["Privatliv og GDPR"] : (lang === "da" ? "Privatliv og GDPR" : "Integritet och GDPR"))}</a><a href={lang === "nb" ? "/legal/nb#terms" : "/legal#terms"}>{(lang === "nb" ? nbText["Handelsbetingelser"] : (lang === "da" ? "Handelsbetingelser" : "Köpvillkor"))}</a><a href={lang === "nb" ? "/legal/nb#cookies" : "/legal#cookies"}>Cookies</a><a href={lang === "nb" ? "/legal/nb#complaints" : "/legal#complaints"}>{(lang === "nb" ? nbText["Klager"] : (lang === "da" ? "Klager" : "Klagomål"))}</a><a href={lang === "nb" ? "/legal/nb#safety" : "/legal#safety"}>{(lang === "nb" ? nbText["Sikkerhed og ansvar"] : (lang === "da" ? "Sikkerhed og ansvar" : "Säkerhet och ansvar"))}</a>
+          <a href={lang === "nb" ? "/legal/nb#privacy" : lang === "sv" ? "/legal/sv#privacy" : "/legal#privacy"}>{(lang === "nb" ? nbText["Privatliv og GDPR"] : (lang === "da" ? "Privatliv og GDPR" : "Integritet och GDPR"))}</a><a href={lang === "nb" ? "/legal/nb#terms" : lang === "sv" ? "/legal/sv#terms" : "/legal#terms"}>{(lang === "nb" ? nbText["Handelsbetingelser"] : (lang === "da" ? "Handelsbetingelser" : "Köpvillkor"))}</a><a href={lang === "nb" ? "/legal/nb#cookies" : lang === "sv" ? "/legal/sv#cookies" : "/legal#cookies"}>Cookies</a><a href={lang === "nb" ? "/legal/nb#complaints" : lang === "sv" ? "/legal/sv#complaints" : "/legal#complaints"}>{(lang === "nb" ? nbText["Klager"] : (lang === "da" ? "Klager" : "Klagomål"))}</a><a href={lang === "nb" ? "/legal/nb#safety" : lang === "sv" ? "/legal/sv#safety" : "/legal#safety"}>{(lang === "nb" ? nbText["Sikkerhed og ansvar"] : (lang === "da" ? "Sikkerhed og ansvar" : "Säkerhet och ansvar"))}</a>
         </nav>
         <div className="footer-meta"><span>© {new Date().getFullYear()} {COMPANY_IDENTITY}</span><small>{(lang === "nb" ? nbText["Postområder og omtrentlige koordinater:"] : (lang === "da" ? "Postområder og omtrentlige koordinater:" : "Postområden och ungefärliga koordinater:"))} <a href="https://www.geonames.org/" target="_blank" rel="noreferrer">GeoNames</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a></small></div>
       </footer>
@@ -1021,7 +1016,7 @@ export default function HomePage() {
       <Dialog open={showUpgrade} onOpenChange={setShowUpgrade}>
         <DialogContent className="form-dialog circle-plus-dialog max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-xl sm:max-w-[520px]">
           <DialogHeader><DialogTitle className="flex items-center gap-3 text-2xl font-bold"><span className="plus-icon"><Crown size={23}/></span>Veyro Circle Plus</DialogTitle><DialogDescription>{(lang === "nb" ? nbText["Del og udlej dine ting i lokalområdet."] : (lang==="da"?"Del og udlej dine ting i lokalområdet.":"Dela och hyr ut dina saker i närområdet."))}</DialogDescription></DialogHeader>
-          <CirclePlusOffer lang={lang} country={currentOffer.country??profile?.place.country??"DK"} trialEligible={currentOffer.trialEligible} hasSubscription={currentOffer.hasSubscription} access={currentOffer.access} busy={billingBusy} error={currentOffer.offerError} onContinue={()=>currentOffer.hasSubscription?void billing("portal"):currentOffer.access?.paymentRequired?void billing("checkout"):setShowUpgrade(false)} onRetry={()=>setOfferRevision(value=>value+1)} onClose={()=>setShowUpgrade(false)}/>
+          <CirclePlusOffer lang={lang} country={currentOffer.country??profile?.place.country??"DK"} trialEligible={currentOffer.trialEligible} hasSubscription={currentOffer.hasSubscription} access={currentOffer.access} busy={billingBusy} error={currentOffer.offerError} onContinue={()=>currentOffer.hasSubscription?void billing("portal"):void billing("checkout")} onRetry={()=>setOfferRevision(value=>value+1)} onClose={()=>setShowUpgrade(false)}/>
         </DialogContent>
       </Dialog>
 

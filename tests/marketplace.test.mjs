@@ -70,7 +70,7 @@ test("address check works for recognized Danish and Swedish postcodes", () => {
   assert.equal(m.validAddress("Storgatan", se), false);
   assert.equal(m.validAddress("Skellet 8", {...dk, city:"Forkert by"}), false);
 });
-test('free accounts have 5 slots, paid accounts 20, expired accounts zero',()=>{assert.equal(m.listingLimit('free'),5);assert.equal(m.canCreateListing(4,'free'),true);assert.equal(m.canCreateListing(5,'free'),false);assert.equal(m.canCreateListing(0,'expired'),false);assert.equal(m.canCreateListing(19,'plus'),true);assert.equal(m.canCreateListing(20,'plus'),false);});
+test('free accounts have 5 slots and paid accounts 20',()=>{assert.equal(m.listingLimit('free'),5);assert.equal(m.canCreateListing(4,'free'),true);assert.equal(m.canCreateListing(5,'free'),false);assert.equal(m.canCreateListing(19,'plus'),true);assert.equal(m.canCreateListing(20,'plus'),false);});
 
 test("profile search radius accepts all six choices and defaults old profiles to 10 km",()=>{
   for(const km of [2,5,10,20,50,100]) assert.equal(m.defaultSearchRadius(km),km);

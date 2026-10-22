@@ -531,7 +531,8 @@ test("language changes update only the authenticated user's preference",async()=
   assert.doesNotMatch(source,/\[configured, lang, user\?\.email, user\?\.emailVerified, user\?\.uid\]/);
 });
 
-test('card-free members can publish and borrow, but expired members cannot create new activity',async()=>{const s=setup();const recent={...s.profile,subscriptionPlan:'free',createdAt:new Date().toISOString()};s.profiles.set('borrower',recent);s.profiles.set('owner',recent);const draft={...base.item,id:'new_listing_1234567890',description:'Trailer',place:s.profile.place,photos:[]};assert.equal((await s.listingCall('borrower',draft)).status,200);assert.equal((await s.call('POST','borrower',{agreement:base})).status,200);assert.equal((await s.call('PATCH','owner',{id:base.id,action:'accept'})).status,200);s.profiles.set('borrower',{...recent,createdAt:'2020-01-01'});assert.equal((await s.listingCall('borrower',{...draft,id:'new_listing_1234567891'})).status,403);assert.equal((await s.call('POST','borrower',{agreement:{...base,id:'VC-2099-NEW123456789'}})).status,403);assert.equal((await s.call('GET','borrower')).status,200);assert.equal(s.docs.has('agreements/'+base.id),true);});
+test('new and old free accounts can publish, borrow and finish agreements without payment',async()=>{for(const createdAt of [new Date().toISOString(),'2020-01-01',undefined]){const s=setup();const free={...s.profile,subscriptionPlan:'free',createdAt};s.profiles.set('borrower',free);s.profiles.set('owner',free);s.put('users/owner',free);const draft={...base.item,id:'new_listing_1234567890',description:'Trailer',place:s.profile.place,photos:[]};assert.equal((await s.listingCall('borrower',draft)).status,200);assert.equal((await s.call('POST','borrower',{agreement:base})).status,200);assert.equal((await s.call('PATCH','owner',{id:base.id,action:'accept'})).status,200);assert.equal((await s.call('GET','borrower')).status,200);assert.equal(s.docs.has('agreements/'+base.id),true);}});
+
 test("paid listing limit cannot be exceeded by concurrent submissions",async()=>{
   const s=setup();for(let i=0;i<18;i++)s.put("listings/existing_listing_"+i,{...base.item,ownerUid:"owner",active:true});
   const draft={...base.item,description:"Trailer",place:s.profile.place,photos:[]};
@@ -552,22 +553,27 @@ test('five free slots remain atomic and inactive listings cannot bypass the limi
   assert.equal((await s.listingCall('owner',{...draft,id:'inactive_listing_123456789'})).status,409);
 });
 
-test('free listings are public before individual expiry, then paused without data deletion',async()=>{
+test('free listings remain public regardless of signup date, excess listings pause without deletion',async()=>{
   const s=setup();const recent={...s.profile,subscriptionPlan:'free',createdAt:new Date().toISOString()};s.put('users/owner',recent);
   for(let i=0;i<5;i++)s.put('listings/free_public_123456789'+i,{...base.item,ownerUid:'owner',active:true,createdAt:new Date().toISOString()});
   const read=async uid=>(await (await s.communityCall('listings/feed','GET',uid)).json()).listings;
   assert.equal((await read(null)).length,5);const own=await read('owner');assert.equal(own.length,6);assert.equal(own.filter(l=>l.publishable).length,5);assert.ok(own.every(l=>!('street'in l)&&!('phone'in l)));
   s.put('users/owner',{...recent,createdAt:'2020-01-01'});
-  assert.equal((await read(null)).length,0);assert.equal((await read('owner')).length,6);
+  assert.equal((await read(null)).length,5);assert.equal((await read('owner')).length,6);
   assert.equal([...s.docs.keys()].filter(k=>k.startsWith('listings/')).length,6);
 });
-test("public feed pauses unpaid listings without deleting owners' items or exposing contacts",async()=>{
-  const s=setup();s.put("users/owner",{subscriptionPlan:"free",street:"Private",phone:"123"});
+test("Plus downgrade retains five public listings and all private data without exposing contacts",async()=>{
+  const s=setup();s.put("users/owner",{subscriptionPlan:"plus",street:"Private",phone:"123"});
+  for(let i=0;i<19;i++)s.put('listings/plus_listing_'+i,{...base.item,ownerUid:'owner',active:true,photos:['https://example.invalid/preserved.jpg'],createdAt:'2020-01-01'});
+  s.put('agreements/'+base.id,base);s.put('messages/preserved_message',{text:'Keep',ownerUid:'owner'});
+  const before=structuredClone([...s.docs.entries()]);
   const read=async uid=>(await (await s.communityCall("listings/feed","GET",uid)).json()).listings;
-  assert.equal((await read(null)).length,0);const own=await read("owner");assert.equal(own.length,1);assert.equal(own[0].publishable,false);
-  s.put("users/owner",{subscriptionPlan:"plus",street:"Private",phone:"123"});
-  const publicItems=await read(null);assert.equal(publicItems.length,1);assert.equal(publicItems[0].publishable,true);assert.equal(publicItems[0].street,undefined);assert.equal(publicItems[0].phone,undefined);
-  s.put("users/owner",{subscriptionPlan:"free"});assert.equal((await read("borrower")).length,0);assert.equal(s.docs.has("listings/"+base.item.id),true);
+  assert.equal((await read(null)).length,20);
+  s.put("users/owner",{subscriptionPlan:"free",street:"Private",phone:"123"});
+  const publicItems=await read(null);assert.equal(publicItems.length,5);assert.ok(publicItems.every(l=>l.publishable&&!('street'in l)&&!('phone'in l)));
+  const own=await read('owner');assert.equal(own.length,20);assert.equal(own.filter(l=>l.publishable).length,5);
+  assert.deepEqual([...s.docs.entries()].filter(([k])=>!k.startsWith('users/')),before.filter(([k])=>!k.startsWith('users/')));
+  s.put("users/owner",{subscriptionPlan:"plus"});assert.equal((await read(null)).length,20);
 });
 
 test("lender reviews span listings, retain legacy scale and exclude borrower ratings",async()=>{

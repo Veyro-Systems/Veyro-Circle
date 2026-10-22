@@ -35,8 +35,8 @@ test('saved searches accept Norway and reject unsupported country values',()=>{
 });
 
 test('Norwegian offer and country-specific tax acknowledgement are complete',()=>{
-  const {circlePlusOffer,trialCopy}=load('@/lib/circle-plus-copy'),tax=load('@/lib/tax-guidance');
-  for(const lang of regions.LANGUAGES){assert.equal(circlePlusOffer(lang,'NO',true).price,'41 NOK');assert.match(circlePlusOffer(lang,'NO',true).renewal,/41 NOK/);assert.match(circlePlusOffer(lang,'NO',true).headline,/180/);assert.doesNotMatch(circlePlusOffer(lang,'NO',false).headline,/180/);assert.ok(trialCopy[lang].returning);assert.ok(tax.taxRows[lang].every(row=>row.NO));}
+  const {circlePlusOffer}=load('@/lib/circle-plus-copy'),tax=load('@/lib/tax-guidance');
+  for(const lang of regions.LANGUAGES){assert.equal(circlePlusOffer(lang,'NO').price,'41 NOK');assert.match(circlePlusOffer(lang,'NO').renewal,/41 NOK/);assert.equal(circlePlusOffer(lang,'NO').headline,'41 NOK');assert.doesNotMatch(circlePlusOffer(lang,'NO').headline,/180/);assert.ok(tax.taxRows[lang].every(row=>row.NO));}
   assert.equal(tax.taxGuidanceVersion('DK'),'2026-09-05');assert.equal(tax.taxGuidanceVersion('SE'),'2026-09-05');assert.equal(tax.taxGuidanceVersion('NO'),'2026-10-21-no');
   assert.equal(tax.hasReadTaxGuidance({version:'2026-09-05',country:'DK',acceptedAt:'2026-10-01'},'DK'),true);
   assert.ok(tax.taxSources.filter(s=>s.id.startsWith('no')).every(s=>s.href.startsWith('https://www.skatteetaten.no/')));
