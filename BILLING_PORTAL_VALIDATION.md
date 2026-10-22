@@ -13,9 +13,9 @@ The production failure was confirmed in Stripe Workbench: a Live portal request 
 
 ## Validation
 
-- `npm test`: **193 passed, zero failed**, including production build.
+- `npm test`: **194 passed, zero failed**, including production build.
 - Fourteen new server portal cases cover stale test IDs, deleted customers, correct existing customers, legacy metadata, pagination, forged client parameters, ownership mismatch, ambiguous/missing matches, authentication, permission errors and outages.
-- Client coverage confirms a missing billing account cannot redirect to Checkout. Rendered UI coverage checks the explanation and preserved Plus access in all three languages.
+- Client coverage confirms a missing billing account cannot redirect to Checkout. Rendered UI coverage checks the explanation, preserved Plus access and consistent sidebar text in all three languages.
 - Stripe Live accepted a portal session for an existing authorised Live customer. This only created an expiring portal link; no subscription or payment was changed.
 - The current login is expected to show the account-specific explanation, since its stored test subscription has no corresponding Live billing customer. The release is verified through that actual signed-in browser flow after deployment.
 

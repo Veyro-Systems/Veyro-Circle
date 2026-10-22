@@ -856,7 +856,7 @@ export default function HomePage() {
 
         <aside className="hidden xl:block">
           <div className="sticky top-24 space-y-4">
-            <CirclePricingInfo lang={lang} trialEligible={currentOffer.trialEligible} hasSubscription={currentOffer.hasSubscription} onOffer={()=>user?setShowUpgrade(true):setAuthOpen(true)}/>
+            <CirclePricingInfo lang={lang} trialEligible={currentOffer.trialEligible} hasSubscription={currentOffer.hasSubscription} portalUnavailable={portalUnavailableFor===user?.uid} onOffer={()=>user?setShowUpgrade(true):setAuthOpen(true)}/>
             <div className="rounded-xl border border-[#dde1ec] bg-white p-5">
               <div className="mb-4 flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-xl bg-[#edf2f6] text-[#008EAC]"><MessageCircle size={20} /></span><div><p className="font-bold">Veyro Circle</p><p className="text-xs text-[#74788b]">Danmark · Sverige · Norge</p></div></div>
               <p className="text-sm leading-6 text-[#5f6376]">{(lang === "nb" ? nbText["Del kun ting, du føler dig tryg ved. Aftal altid stand og aflevering i chatten."] : (lang === "da" ? "Del kun ting, du føler dig tryg ved. Aftal altid stand og aflevering i chatten." : "Dela bara saker du känner dig trygg med. Kom alltid överens om skick och återlämning i chatten."))}</p>

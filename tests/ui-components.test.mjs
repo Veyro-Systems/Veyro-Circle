@@ -46,6 +46,11 @@ test('tour and signup explain five items without card and a voluntary subscripti
 
 test('public pricing describes the personal card-free period in all languages',async()=>{const {CirclePricingInfo}=await vite.ssrLoadModule('/components/circle-pricing-info.tsx');for(const lang of ['da','sv','nb'])for(const hasSubscription of [false,true]){const html=renderToStaticMarkup(React.createElement(CirclePricingInfo,{lang,trialEligible:false,hasSubscription,onOffer(){}}));assert.match(html,/180/);assert.match(html,/5/);assert.match(html,/29 DKK/);assert.match(html,/43 SEK/);assert.match(html,/41 NOK/);assert.match(html,/Ingen automatisk/);if(hasSubscription){assert.doesNotMatch(html,/<button/);assert.match(html,/aftalte|avtalade|avtalte/);}}});
 
+test('pricing sidebar does not promise Stripe management after a legacy billing account is unavailable',async()=>{
+ const {CirclePricingInfo}=await vite.ssrLoadModule('/components/circle-pricing-info.tsx');
+ for(const lang of ['da','sv','nb']){const html=renderToStaticMarkup(React.createElement(CirclePricingInfo,{lang,trialEligible:false,hasSubscription:true,portalUnavailable:true,onOffer(){}}));assert.doesNotMatch(html,/aftalte|avtalade|avtalte|<button/);assert.match(html,/180/);}
+});
+
 test("owner deposit is displayed in both languages with no borrower input",async()=>{
   const {DepositSummary}=await vite.ssrLoadModule("/app/page.tsx");
   for(const [lang,country,label,currency] of [["da","DK","Depositum fastsat af ejeren","DKK"],["sv","SE","Deposition bestämd av ägaren","SEK"]]) {
