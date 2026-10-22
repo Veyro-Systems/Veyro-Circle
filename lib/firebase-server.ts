@@ -1,7 +1,7 @@
 import { serverConfig } from "@/lib/server-config";
 import { storedCountry } from "@/lib/region";
 
-type FirebaseIdentity = { localId: string; email: string; emailVerified: boolean };
+type FirebaseIdentity = { localId: string; email: string; emailVerified: boolean; createdAt?:string };
 export type FirestoreField = { stringValue?: string; booleanValue?: boolean; doubleValue?: number; timestampValue?: string; mapValue?: { fields?: Record<string, FirestoreField> } };
 const cachedTokens = new Map<string, { value: string; expiresAt: number }>();
 
@@ -44,7 +44,7 @@ export async function verifyFirebaseRequest(request: Request): Promise<FirebaseI
   if (!idToken) throw new Error("Du skal være logget ind");
   const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(serverConfig("NEXT_PUBLIC_FIREBASE_API_KEY"))}`, { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({idToken}) });
   if (!response.ok) throw new Error("Din login-session er udløbet");
-  const data = await response.json() as { users?: Array<{localId:string;email:string;emailVerified:boolean}> };
+  const data = await response.json() as { users?: FirebaseIdentity[] };
   const user = data.users?.[0]; if (!user?.emailVerified) throw new Error("E-mailadressen skal bekræftes først");
   return user;
 }
@@ -66,7 +66,7 @@ export async function getFirestoreDocument(path: string) {
   const response = await fetch(firestoreDocumentUrl(path), { headers:{ authorization:`Bearer ${await serviceToken()}` } });
   if (response.status === 404) return null;
   if (!response.ok) throw new Error("Firestore-dokumentet kunne ikke hentes");
-  return response.json() as Promise<{ name:string; fields?:Record<string, FirestoreField>; updateTime?:string }>;
+  return response.json() as Promise<{ name:string; fields?:Record<string, FirestoreField>; updateTime?:string;createTime?:string }>;
 }
 
 export async function commitFirestoreWrites(writes: unknown[]) {
@@ -83,7 +83,7 @@ export async function commitFirestoreWrites(writes: unknown[]) {
 export async function getServerProfile(uid: string) {
   const response = await fetch(documentUrl(uid), { headers:{ authorization:`Bearer ${await serviceToken()}` } });
   if (!response.ok) throw new Error("Brugerprofilen kunne ikke hentes");
-  const data = await response.json() as { fields?: Record<string, FirestoreField> };
+  const data = await response.json() as { fields?: Record<string, FirestoreField>;createTime?:string };
   const fields = data.fields ?? {};
   return {
     name: fields.name?.stringValue ?? "",
@@ -99,6 +99,9 @@ export async function getServerProfile(uid: string) {
       lon: fields.place?.mapValue?.fields?.lon?.doubleValue ?? 0,
     },
     country: storedCountry(fields.place?.mapValue?.fields?.country?.stringValue),
+    createdAt:fields.createdAt?.timestampValue || data.createTime,
+    freeAccessStartedAt:fields.freeAccessStartedAt?.timestampValue,
+    subscriptionStatus:fields.subscriptionStatus?.stringValue ?? "",
     stripeCustomerId: fields.stripeCustomerId?.stringValue,
     stripeSubscriptionId: fields.stripeSubscriptionId?.stringValue,
     circlePlusStartedAt: fields.circlePlusStartedAt?.timestampValue,

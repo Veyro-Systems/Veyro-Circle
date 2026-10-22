@@ -3,15 +3,7 @@ import type { TaxAcknowledgement } from "./tax-guidance";
 import { regions, locales, type Country, type Lang } from "./region";
 
 export type { Country, Lang } from "./region";
-export type ListingPlan = "free" | "plus";
-export const FREE_LISTING_LIMIT = 0;
-export const PLUS_LISTING_LIMIT = 20;
-export function listingLimit(plan: ListingPlan) {
-  return plan === "plus" ? PLUS_LISTING_LIMIT : FREE_LISTING_LIMIT;
-}
-export function canCreateListing(activeListings: number, plan: ListingPlan) {
-  return activeListings < listingLimit(plan);
-}
+export { listingLimit, canCreateListing, FREE_LISTING_LIMIT, PLUS_LISTING_LIMIT, type ListingPlan } from "./listing-limits";
 export type Place = { id: string; country: Country; postcode: string; city: string; lat: number; lon: number };
 export const SEARCH_RADII = [2, 5, 10, 20, 50, 100] as const;
 export function defaultSearchRadius(value: unknown): number { return typeof value === "number" && SEARCH_RADII.some(r => r === value) ? value : 10; }

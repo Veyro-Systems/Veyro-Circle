@@ -28,13 +28,13 @@ async function all(path:string) {
 export async function circlePlusCatalog() {
   const priceIds=COUNTRIES.map(country=>serverConfig(regions[country].priceKey));
   const products=new Set<string>();
-  for(const priceId of priceIds){
+  for(const country of COUNTRIES){
+    const region=regions[country];
+    const priceId=serverConfig(region.priceKey);
     const price=await stripeRequest(`/prices/${encodeURIComponent(priceId)}`);
     if(!stripeId(price.product))throw Error("Circle Plus-prisen kunne ikke kontrolleres.");
-    if(priceId===serverConfig("STRIPE_PRICE_NOK")){
-      const recurring=price.recurring as {interval?:string;interval_count?:number}|undefined;
-      if(price.active!==true || price.currency!=="nok" || price.unit_amount!==6900 || recurring?.interval!=="month" || recurring.interval_count!==1 || !products.has(stripeId(price.product)))throw Error("Den norske Circle Plus-pris kunne ikke kontrolleres.");
-    }
+    const recurring=price.recurring as {interval?:string;interval_count?:number}|undefined;
+    if(price.active!==true || price.currency!==region.currency.toLowerCase() || price.unit_amount!==region.monthlyPrice*100 || recurring?.interval!=="month" || recurring.interval_count!==1 || (products.size>0&&!products.has(stripeId(price.product))))throw Error("Circle Plus-prisen kunne ikke kontrolleres.");
     products.add(stripeId(price.product));
   }
   return {priceIds,products};

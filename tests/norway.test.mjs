@@ -13,7 +13,7 @@ const load=loader(),regions=load('@/lib/region'),market=load('@/lib/marketplace'
 test('Norway extends supported regions and keeps language independent of currency',()=>{
   assert.deepEqual(regions.COUNTRIES,['DK','SE','NO']);
   assert.deepEqual(regions.LANGUAGES,['da','sv','nb']);
-  assert.equal(regions.regions.NO.currency,'NOK');assert.equal(regions.regions.NO.monthlyPrice,69);
+  assert.equal(regions.regions.NO.currency,'NOK');assert.equal(regions.regions.NO.monthlyPrice,41);
   for(const lang of regions.LANGUAGES){assert.match(market.money(6900,'NO',lang),/69/);assert.match(market.money(6900,'NO',lang),/NOK/);}
   assert.equal(regions.storedCountry('NO'),'NO');assert.equal(regions.storedLanguage('nb'),'nb');
   assert.equal(regions.isCountry('FI'),false);assert.equal(regions.isLang('unknown'),false);
@@ -36,7 +36,7 @@ test('saved searches accept Norway and reject unsupported country values',()=>{
 
 test('Norwegian offer and country-specific tax acknowledgement are complete',()=>{
   const {circlePlusOffer,trialCopy}=load('@/lib/circle-plus-copy'),tax=load('@/lib/tax-guidance');
-  for(const lang of regions.LANGUAGES){assert.equal(circlePlusOffer(lang,'NO',true).price,'69 NOK');assert.match(circlePlusOffer(lang,'NO',true).renewal,/69 NOK/);assert.match(circlePlusOffer(lang,'NO',true).headline,/180/);assert.doesNotMatch(circlePlusOffer(lang,'NO',false).headline,/180/);assert.ok(trialCopy[lang].returning);assert.ok(tax.taxRows[lang].every(row=>row.NO));}
+  for(const lang of regions.LANGUAGES){assert.equal(circlePlusOffer(lang,'NO',true).price,'41 NOK');assert.match(circlePlusOffer(lang,'NO',true).renewal,/41 NOK/);assert.match(circlePlusOffer(lang,'NO',true).headline,/180/);assert.doesNotMatch(circlePlusOffer(lang,'NO',false).headline,/180/);assert.ok(trialCopy[lang].returning);assert.ok(tax.taxRows[lang].every(row=>row.NO));}
   assert.equal(tax.taxGuidanceVersion('DK'),'2026-09-05');assert.equal(tax.taxGuidanceVersion('SE'),'2026-09-05');assert.equal(tax.taxGuidanceVersion('NO'),'2026-10-21-no');
   assert.equal(tax.hasReadTaxGuidance({version:'2026-09-05',country:'DK',acceptedAt:'2026-10-01'},'DK'),true);
   assert.ok(tax.taxSources.filter(s=>s.id.startsWith('no')).every(s=>s.href.startsWith('https://www.skatteetaten.no/')));

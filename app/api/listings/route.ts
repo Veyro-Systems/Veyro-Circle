@@ -5,6 +5,7 @@ import { cleanDetails } from "@/lib/listing-details";
 import { NextResponse } from "next/server";
 import { commitFirestoreWrites, firestoreDocumentName, firestoreDocumentUrl, getFirestoreDocument, getServerProfile, serviceToken, verifyFirebaseRequest } from "@/lib/firebase-server";
 import { serverConfig } from "@/lib/server-config";
+import { circleAccess } from "@/lib/circle-access";
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key:string]:JsonValue };
 type FirestoreValue = { nullValue?:null; booleanValue?:boolean; integerValue?:string; doubleValue?:number; stringValue?:string; timestampValue?:string; arrayValue?:{values?:FirestoreValue[]}; mapValue?:{fields?:Record<string,FirestoreValue>} };
@@ -47,7 +48,8 @@ export async function POST(request:Request) {
   try {
     const identity = await verifyFirebaseRequest(request);
     const profile = await getServerProfile(identity.localId);
-    if(profile.subscriptionPlan!=="plus")return error("Circle Plus kræves for at oprette og udgive annoncer. 49 DKK, 69 SEK eller 69 NOK pr. måned for op til 20 aktive ting.",403);
+    const access=circleAccess(profile);
+    if(!access.canUseApp)return error("FREE_PERIOD_ENDED",403);
     const body = await request.json() as {listing?:ListingPayload};
     const listing = body.listing;
     const id = listing?.id ?? "";
@@ -68,12 +70,12 @@ export async function POST(request:Request) {
     // Older clients must not erase an owner's deposit by omitting the field.
     const deposit = listing?.deposit ?? (existing?.fields?.deposit ? decode(existing.fields.deposit) : 0);
     if (typeof deposit !== "number" || !Number.isSafeInteger(deposit) || deposit < 0 || deposit > 10_000_000) return error("Depositum skal være mellem 0 og 100.000 kr. med højst to decimaler.");
-    const listingLock=!existing?await getFirestoreDocument(`listingLocks/${identity.localId}`):null;
-    if (!existing) {
+    const activating=!existing || existing.fields?.active?.booleanValue===false;
+    const listingLock=activating?await getFirestoreDocument(`listingLocks/${identity.localId}`):null;
+    if (activating) {
       const current = await ownerListings(identity.localId);
       const activeCount = current.filter(item => item.data.active !== false).length;
-      const limit = 20;
-      if (activeCount >= limit) return error("Du kan højst have 20 aktive annoncer.",409);
+      if (activeCount >= access.listingLimit) return error(`LISTING_LIMIT_${access.listingLimit}`,409);
     }
     const now = new Date().toISOString();
     const data:Record<string,JsonValue> = {
@@ -85,7 +87,7 @@ export async function POST(request:Request) {
     fields.updatedAt = {timestampValue:now};
     fields.createdAt = existing?.fields?.createdAt ?? {timestampValue:now};
     const writes:unknown[]=[{update:{name:firestoreDocumentName(`listings/${id}`),fields},currentDocument:existing?{updateTime:existing.updateTime}:{exists:false}}];
-    if(!existing)writes.push({update:{name:firestoreDocumentName(`listingLocks/${identity.localId}`),fields:{updatedAt:{timestampValue:now}}},currentDocument:listingLock?{updateTime:listingLock.updateTime}:{exists:false}});
+    if(activating)writes.push({update:{name:firestoreDocumentName(`listingLocks/${identity.localId}`),fields:{updatedAt:{timestampValue:now}}},currentDocument:listingLock?{updateTime:listingLock.updateTime}:{exists:false}});
     await commitFirestoreWrites(writes);
     if(!existing) after(()=>notifyListingMatches(id,identity.localId,{name,description,country,category:listing!.category!,dailyPrice:listing!.dailyPrice!,place:place as unknown as Place,city:String(place.city)}));
     return NextResponse.json({ok:true,id});

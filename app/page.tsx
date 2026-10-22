@@ -4,6 +4,9 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { regions, isLang } from "@/lib/region";
 
 import { COMPANY_IDENTITY } from "@/lib/company";
+import {membershipCopy} from "@/lib/membership-copy";
+import type {CircleAccess} from "@/lib/circle-access";
+import {CircleMembership} from "@/components/circle-membership";
 import { trialCopy } from "@/lib/circle-plus-copy";
 import { CirclePlusOffer } from "@/components/circle-plus-offer";
 import { CirclePricingInfo } from "@/components/circle-pricing-info";
@@ -48,7 +51,6 @@ import {
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -58,7 +60,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 type Lang = "da" | "sv" | "nb";
-type BillingDetails = {trialEligible:boolean|null;hasSubscription:boolean;status:string;trialEnd?:string;cancelAtPeriodEnd:boolean;offerUid?:string;country?:Country;offerError?:boolean};
+type BillingDetails = {access?:CircleAccess;trialEligible:boolean|null;hasSubscription:boolean;status:string;trialEnd?:string;cancelAtPeriodEnd:boolean;offerUid?:string;country?:Country;offerError?:boolean};
 type Tab = "saved" | "wanted" | "home" | "map" | "items" | "requests" | "profile" | "subscription";
 type AgreementSignature = { dataUrl: string; signedAt: string };
 type Loan = WorkflowAgreement & AgreementPhotos & AgreementSchedule & { id: string; item: Listing; from: string; to: string; days: number; total: number; deposit: number; message: string; handoverNote?: string; returnNote?: string; borrower: Profile; borrowerUid?: string; lenderUid?: string; borrowerSignature?: AgreementSignature; lenderSignature?: AgreementSignature; borrowerReturnSignature?: AgreementSignature; lenderReturnSignature?: AgreementSignature; returnedAt?: string; returnCondition?: "good" | "remarks"; saved?: boolean };
@@ -271,6 +273,7 @@ export default function HomePage() {
   const awaitingCount = loans.filter(loan=>loan.lenderUid === user?.uid && agreementStage(loan) === "requested").length;
   const requestSent = awaitingCount > 0;
   const t = copy[lang];
+  const memberCopy=membershipCopy[lang];
   const days = dayCount(from, to);
   const dateValid = days !== null && from >= todayLocal() && validTime(pickupTime) && validTime(returnTime) && (from!==to || returnTime>pickupTime);
 
@@ -293,7 +296,7 @@ export default function HomePage() {
       toast.error((lang === "nb" ? nbText["Betaling er ikke konfigureret endnu."] : (lang === "da" ? "Betaling er ikke konfigureret endnu." : "Betalning är inte konfigurerad ännu.")));
       return;
     }
-    if(action==="checkout" && (currentOffer.trialEligible===null || !currentOffer.country))return;
+    if(action==="checkout" && (currentOffer.trialEligible===null || !currentOffer.country || !currentOffer.access?.paymentRequired))return;
     setBillingBusy(true);
     try { await openBilling(user, action,action==="checkout"?{expectedTrialEligible:currentOffer.trialEligible!,expectedCountry:currentOffer.country!,lang}:undefined); }
     catch (error) {
@@ -316,8 +319,8 @@ export default function HomePage() {
       if (cloud) {
         const next = { defaultRadiusKm: cloud.defaultRadiusKm, name: cloud.name, email: user.email || cloud.email, phone: cloud.phone, street: cloud.street, place: cloud.place, taxAcknowledgement: cloud.taxAcknowledgement };
         setProfile(next); setLang(cloud.preferredLanguage); setOrigin(cloud.place);setRadius(String(defaultSearchRadius(cloud.defaultRadiusKm))); setNewPlace(cloud.place); setNewCountry(cloud.place.country);
-        setListingPlan(cloud.subscriptionPlan === "plus" ? "plus" : "free");
-        setBillingDetails(previous=>({...previous,trialEligible:cloud.hasPlusHistory?false:previous.trialEligible,hasSubscription:cloud.subscriptionPlan==="plus",status:cloud.subscriptionStatus,trialEnd:cloud.subscriptionTrialEnd,cancelAtPeriodEnd:cloud.subscriptionCancelAtPeriodEnd}));
+        setListingPlan(cloud.access.plan);
+        setBillingDetails(previous=>({...previous,access:cloud.access,trialEligible:cloud.hasPlusHistory?false:previous.trialEligible,hasSubscription:cloud.subscriptionPlan==="plus",status:cloud.subscriptionStatus,trialEnd:cloud.subscriptionTrialEnd,cancelAtPeriodEnd:cloud.subscriptionCancelAtPeriodEnd}));
       } else setTab("profile");
     }).catch(() => reportProfileError())
       .finally(() => active && setProfileLoading(false));
@@ -332,12 +335,14 @@ export default function HomePage() {
       try{
         const response=await fetch("/api/stripe/checkout",{headers:{authorization:`Bearer ${await user.getIdToken()}`},cache:"no-store"});
         if(!response.ok)throw Error();
-        const data=await response.json() as {trialEligible:boolean;hasSubscription:boolean;country:Country};
-        if(typeof data.trialEligible!=="boolean" || typeof data.hasSubscription!=="boolean" || !["DK","SE"].includes(data.country))throw Error();
-        if(active)setBillingDetails(previous=>({...previous,...data}));
+        const data=await response.json() as {trialEligible:boolean;hasSubscription:boolean;country:Country;access:CircleAccess};
+        if(typeof data.trialEligible!=="boolean" || typeof data.hasSubscription!=="boolean" || !["DK","SE","NO"].includes(data.country)||!["free","plus","expired"].includes(data.access?.plan))throw Error();
+        if(active){setBillingDetails(previous=>({...previous,...data}));setListingPlan(data.access.plan);
+          if(data.access.paymentRequired){try{const key=`circle:payment-prompt:${user.uid}:${data.access.freeUntil??"legacy"}`;if(!localStorage.getItem(key)){localStorage.setItem(key,"shown");setShowUpgrade(true);}}catch{/* Voluntary payment remains available from the account page. */}}
+        }
       }catch{if(active)setBillingDetails(previous=>({...previous,trialEligible:null,offerError:true}));}
     };
-    void check();return()=>{active=false;};
+    void check();const timer=setInterval(()=>void check(),60_000);return()=>{active=false;clearInterval(timer);};
   },[showUpgrade,tab,user,lang,profile?.place.country,hasProfile,offerRevision]);
 
   useEffect(()=>{
@@ -349,8 +354,8 @@ export default function HomePage() {
       try{
         const cloud=await loadCircleProfile(user.uid);
         if(active&&cloud){
-          setListingPlan(cloud.subscriptionPlan);
-          setBillingDetails(previous=>({...previous,trialEligible:cloud.hasPlusHistory?false:previous.trialEligible,hasSubscription:cloud.subscriptionPlan==="plus",status:cloud.subscriptionStatus,trialEnd:cloud.subscriptionTrialEnd,cancelAtPeriodEnd:cloud.subscriptionCancelAtPeriodEnd}));
+          setListingPlan(cloud.access.plan);
+          setBillingDetails(previous=>({...previous,access:cloud.access,trialEligible:cloud.hasPlusHistory?false:previous.trialEligible,hasSubscription:cloud.subscriptionPlan==="plus",status:cloud.subscriptionStatus,trialEnd:cloud.subscriptionTrialEnd,cancelAtPeriodEnd:cloud.subscriptionCancelAtPeriodEnd}));
         }
       }catch{/* Keep the last verified subscription state on a network error. */}
       finally{busy=false;}
@@ -475,7 +480,8 @@ export default function HomePage() {
     if (!profile) { setTab("profile"); toast.info((lang === "nb" ? nbText["Opret først din profil med adresse og by."] : (lang === "da" ? "Opret først din profil med adresse og by." : "Skapa först din profil med adress och ort."))); return; }
     const activeCount = listings.filter(item => item.owned).length;
     if (!canCreateListing(activeCount, listingPlan)) {
-      if (listingPlan === "free") setShowUpgrade(true);
+      if (listingPlan === "expired") setShowUpgrade(true);
+      else if(listingPlan === "free") toast.info(memberCopy.limit);
       else toast.info((lang === "nb" ? nbText["Du har nået grænsen på 20 aktive ting. Slet en ting, før du opretter en ny."] : (lang === "da" ? "Du har nået grænsen på 20 aktive ting. Slet en ting, før du opretter en ny." : "Du har nått gränsen på 20 aktiva saker. Ta bort en sak innan du skapar en ny.")));
       return;
     }
@@ -484,7 +490,7 @@ export default function HomePage() {
 
   function openEdit(item: Listing) {
     if (!item.owned) return;
-    if(listingPlan!=="plus"){setSelected(null);setShowUpgrade(true);return;}
+    if(listingPlan==="expired"){setSelected(null);setShowUpgrade(true);return;}
     setSelected(null); setEditingId(item.id); setNewName(item.name); setNewDescription(item.description);
     setNewCategory(item.category);setNewDetails(item.details??{}); setNewCountry(item.country); setNewPlace(item.place);
     setPricing(item.dailyPrice > 0 ? "paid" : "free");
@@ -543,7 +549,8 @@ export default function HomePage() {
     const activeCount = listings.filter(item => item.owned).length;
     if (editingId === null && !canCreateListing(activeCount, listingPlan)) {
       setShowAdd(false);
-      if (listingPlan === "free") setShowUpgrade(true);
+      if (listingPlan === "expired") setShowUpgrade(true);
+      else if(listingPlan === "free") toast.info(memberCopy.limit);
       else toast.info((lang === "nb" ? nbText["Du kan højst have 20 aktive ting."] : (lang === "da" ? "Du kan højst have 20 aktive ting." : "Du kan ha högst 20 aktiva saker.")));
       return;
     }
@@ -584,6 +591,7 @@ export default function HomePage() {
   function openRequest() {
     if(!user){setAuthOpen(true);return;}
     if (!profile) { setSelected(null); setTab("profile"); toast.info((lang === "nb" ? nbText["Opret først din profil med adresse og by."] : (lang === "da" ? "Opret først din profil med adresse og by." : "Skapa först din profil med adress och ort."))); return; }
+    if(listingPlan==="expired"){setSelected(null);setShowUpgrade(true);return;}
     const today = todayLocal();
     requestTicket.current = null;
     setBookedPeriods([]);setAvailabilityError(false);
@@ -1009,7 +1017,7 @@ export default function HomePage() {
       <Dialog open={showUpgrade} onOpenChange={setShowUpgrade}>
         <DialogContent className="form-dialog circle-plus-dialog max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-xl sm:max-w-[520px]">
           <DialogHeader><DialogTitle className="flex items-center gap-3 text-2xl font-bold"><span className="plus-icon"><Crown size={23}/></span>Veyro Circle Plus</DialogTitle><DialogDescription>{(lang === "nb" ? nbText["Del og udlej dine ting i lokalområdet."] : (lang==="da"?"Del og udlej dine ting i lokalområdet.":"Dela och hyr ut dina saker i närområdet."))}</DialogDescription></DialogHeader>
-          <CirclePlusOffer lang={lang} country={currentOffer.country??profile?.place.country??"DK"} trialEligible={currentOffer.trialEligible} hasSubscription={currentOffer.hasSubscription} busy={billingBusy} error={currentOffer.offerError} onContinue={()=>void billing(currentOffer.hasSubscription?"portal":"checkout")} onRetry={()=>setOfferRevision(value=>value+1)} onClose={()=>setShowUpgrade(false)}/>
+          <CirclePlusOffer lang={lang} country={currentOffer.country??profile?.place.country??"DK"} trialEligible={currentOffer.trialEligible} hasSubscription={currentOffer.hasSubscription} access={currentOffer.access} busy={billingBusy} error={currentOffer.offerError} onContinue={()=>currentOffer.hasSubscription?void billing("portal"):currentOffer.access?.paymentRequired?void billing("checkout"):setShowUpgrade(false)} onRetry={()=>setOfferRevision(value=>value+1)} onClose={()=>setShowUpgrade(false)}/>
         </DialogContent>
       </Dialog>
 
@@ -1255,28 +1263,13 @@ function ProfileView({ lang, profile, authenticatedEmail, onSave, onLogout, onSu
   </div>;
 }
 
-function SubscriptionView({ lang, plan, billingDetails, used, onBack, onUpgrade, onManage }: { lang: Lang; plan: ListingPlan; billingDetails:BillingDetails; used: number; onBack: () => void; onUpgrade: () => void; onManage: () => void }) {
-  const limit = listingLimit(plan);
-  const trialing=billingDetails.status==="trialing";
-  const end=billingDetails.trialEnd ? new Date(billingDetails.trialEnd).toLocaleDateString((lang === "nb" ? nbText["da-DK"] : (lang==="da"?"da-DK":"sv-SE")),{timeZone:"Europe/Copenhagen"}) : "";
-  return <div className="content-panel subscription-page">
-    <button type="button" className="text-link" onClick={onBack}>← {(lang === "nb" ? nbText["Tilbage til konto"] : (lang==="da"?"Tilbage til konto":"Tillbaka till konto"))}</button>
-    <div><p className="eyebrow">Veyro Circle</p><h1 className="page-title">{(lang === "nb" ? nbText["Mit abonnement"] : (lang==="da"?"Mit abonnement":"Min prenumeration"))}</h1></div>
-    <section className={`membership-card ${plan==="plus"?"is-plus":""}`}>
-      <div className="membership-top"><div className="membership-icon"><Crown size={22}/></div><div><p className="eyebrow">{(lang === "nb" ? nbText["Dit abonnement"] : (lang==="da"?"Dit abonnement":"Din prenumeration"))}</p><h2>{plan==="plus"?"Veyro Circle Plus":(lang === "nb" ? nbText["Gratis søgning og forespørgsler"] : (lang==="da"?"Gratis søgning og forespørgsler":"Gratis sökning och förfrågningar"))}</h2></div><span className="plan-badge">{trialing?((lang === "nb" ? nbText["Gratis prøveperiode"] : (lang==="da"?"Gratis prøveperiode":"Gratis provperiod"))):plan==="plus"?"Aktiv":"0 kr."}</span></div>
-      <div className="membership-usage"><div><span>{(lang === "nb" ? nbText["Aktive ting"] : (lang==="da"?"Aktive ting":"Aktiva saker"))}</span><b>{used} {(lang === "nb" ? nbText["af"] : (lang==="da"?"af":"av"))} {limit}</b></div><Progress value={limit?Math.min(100,used/limit*100):0}/></div>
-      {plan==="plus" ? <p>{(lang === "nb" ? nbText["Du har fuld Circle Plus-adgang med op til 20 aktive ting."] : (lang==="da"?"Du har fuld Circle Plus-adgang med op til 20 aktive ting.":"Du har full Circle Plus-åtkomst med upp till 20 aktiva saker."))}</p> : billingDetails.trialEligible===false ? <p>{trialCopy[lang].returning}</p> : billingDetails.trialEligible===true ? <><p>{trialCopy[lang].headline}</p><p>{trialCopy[lang].terms}</p></> : <p>{(lang === "nb" ? nbText["Se din pris og berettigelse, før du tilmelder dig Circle Plus."] : (lang==="da"?"Se din pris og berettigelse, før du tilmelder dig Circle Plus.":"Se ditt pris och din behörighet innan du registrerar dig för Circle Plus."))}</p>}
-      {trialing && <p>{billingDetails.cancelAtPeriodEnd ? ((lang === "nb" ? `Prøveperioden er sagt opp og slutter ${end}. Ingen abonnementsbetaling kreves inn.` : (lang==="da"?`Prøveperioden er opsagt og slutter ${end}. Der opkræves ingen abonnementsbetaling.`:`Provperioden är uppsagd och slutar ${end}. Ingen prenumerationsavgift tas ut.`))) : ((lang === "nb" ? `Gratis til ${end}. Deretter fortsetter abonnementet automatisk til 49 DKK/md. i Danmark, 69 SEK/md. i Sverige eller 69 NOK/md. i Norge. Si opp før første betaling via knappen nedenfor.` : (lang==="da"?`Gratis til ${end}. Herefter fortsætter abonnementet automatisk til 49 DKK/md. i Danmark, 69 SEK/md. i Sverige eller 69 NOK/md. i Norge. Opsig før første betaling fra knappen nedenfor.`:`Gratis till ${end}. Därefter fortsätter prenumerationen automatiskt för 49 DKK/mån i Danmark, 69 SEK/mån i Sverige eller 69 NOK/mån i Norge. Säg upp före första betalningen via knappen nedan.`)))}</p>}
-      {plan==="free" ? <Button type="button" onClick={onUpgrade} className="membership-cta h-auto whitespace-normal py-3"><Crown size={17}/>{billingDetails.trialEligible?trialCopy[lang].button:((lang === "nb" ? nbText["Se Veyro Circle Plus"] : (lang==="da"?"Se Veyro Circle Plus":"Se Veyro Circle Plus")))}</Button> : <Button type="button" onClick={onManage} variant="outline" className="membership-cta manage-subscription">{(lang === "nb" ? nbText["Administrer abonnement"] : (lang==="da"?"Administrer abonnement":"Hantera prenumeration"))}</Button>}
-    </section>
-  </div>;
-}
+function SubscriptionView(props:{lang:Lang;plan:ListingPlan;billingDetails:BillingDetails;used:number;onBack:()=>void;onUpgrade:()=>void;onManage:()=>void}) {return <CircleMembership {...props}/>;}
 
 function ItemsView({ lang, profile, listings, plan, onAdd, onEdit, onDelete,onCalendar }: { lang: Lang; profile: Profile | null; listings: Listing[]; plan: ListingPlan; onAdd: () => void; onEdit: (item: Listing) => void; onDelete: (item: Listing) => void; onCalendar:(item:Listing)=>void }) {
   const used = listings.length;
   return <div className="content-panel"><section className="my-items my-items-page">
       <div className="my-items-head"><div><p className="eyebrow">{(lang === "nb" ? nbText["Dine annoncer"] : (lang === "da" ? "Dine annoncer" : "Dina annonser"))}</p><h2>{(lang === "nb" ? nbText["Mine ting"] : (lang === "da" ? "Mine ting" : "Mina saker"))}</h2></div><Button type="button" onClick={onAdd} disabled={!profile || (plan === "plus" && used >= PLUS_LISTING_LIMIT)}><PackagePlus size={17} />{(lang === "nb" ? nbText["Tilføj"] : (lang === "da" ? "Tilføj" : "Lägg till"))}</Button></div>
-      {!profile ? <p className="my-items-empty">{(lang === "nb" ? nbText["Opret din konto for at dele eller udleje en ting."] : (lang === "da" ? "Opret din konto for at dele eller udleje en ting." : "Skapa ditt konto för att dela eller hyra ut en sak."))}</p> : listings.length === 0 ? <div className="my-items-empty"><ImagePlus size={28} /><p>{(lang === "nb" ? nbText["Du har endnu ingen ting. Circle Plus giver plads til op til 20 aktive annoncer."] : (lang === "da" ? "Du har endnu ingen ting. Circle Plus giver plads til op til 20 aktive annoncer." : "Du har inga saker ännu. Circle Plus ger plats för upp till 20 aktiva annonser."))}</p><button type="button" onClick={onAdd}>{(lang === "nb" ? nbText["Opret din første annonce"] : (lang === "da" ? "Opret din første annonce" : "Skapa din första annons"))}</button></div> : <div className="my-items-list">{plan!=="plus" && <p className="agreements-load-note">{(lang === "nb" ? nbText["Dine ting er gemt, men vises ikke i søgningen uden Circle Plus. Du kan stadig slette dem."] : (lang==="da"?"Dine ting er gemt, men vises ikke i søgningen uden Circle Plus. Du kan stadig slette dem.":"Dina saker finns kvar men visas inte i sökningen utan Circle Plus. Du kan fortfarande ta bort dem."))}</p>}
+      {!profile ? <p className="my-items-empty">{(lang === "nb" ? nbText["Opret din konto for at dele eller udleje en ting."] : (lang === "da" ? "Opret din konto for at dele eller udleje en ting." : "Skapa ditt konto för att dela eller hyra ut en sak."))}</p> : listings.length === 0 ? <div className="my-items-empty"><ImagePlus size={28} /><p>{plan==="plus"?membershipCopy[lang].twenty:membershipCopy[lang].five}</p><button type="button" onClick={onAdd}>{(lang === "nb" ? nbText["Opret din første annonce"] : (lang === "da" ? "Opret din første annonce" : "Skapa din första annons"))}</button></div> : <div className="my-items-list">{listings.some(item=>item.publishable===false) && <p className="agreements-load-note">{membershipCopy[lang].paused}</p>}
         {listings.map(item => { const Icon = item.icon; return <article key={item.id} className="my-item-row"><div className={`my-item-thumb bg-gradient-to-br ${item.color}`}>{item.photos?.[0] ? <img src={item.photos[0].src} alt="" /> : <Icon size={27} />}</div><div className="min-w-0 flex-1"><h3>{item.name}</h3><p>{item.city} · {priceLabel(item, lang)}</p><small>{item.photos?.length || 0}/2 {(lang === "nb" ? nbText["billeder"] : (lang === "da" ? "billeder" : "bilder"))}</small></div><div className="my-item-actions"><button type="button" onClick={()=>onCalendar(item)}><CalendarDays size={16}/>{(lang === "nb" ? nbText["Kalender"] : (lang === "da" ? "Kalender" : "Kalender"))}</button><button type="button" onClick={() => onEdit(item)}><Pencil size={16} />{(lang === "nb" ? nbText["Rediger"] : (lang === "da" ? "Rediger" : "Redigera"))}</button><button type="button" className="delete" onClick={() => onDelete(item)}><Trash2 size={16} />{(lang === "nb" ? nbText["Slet"] : (lang === "da" ? "Slet" : "Ta bort"))}</button></div></article>; })}
       </div>}
     </section></div>;

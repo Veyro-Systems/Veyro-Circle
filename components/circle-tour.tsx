@@ -1,4 +1,5 @@
 "use client";
+import {membershipCopy} from "@/lib/membership-copy";
 import { nbText } from "@/lib/norwegian-copy";
 
 
@@ -30,7 +31,8 @@ const content={
   ] };
 
 export function CircleTourSlide({lang,step}:{lang:Lang;step:number}) {
-  const slide=content[lang][step];
+  const original=content[lang][step],c=membershipCopy[lang];
+  const slide=step===3?{...original,description:c.tourShare,points:[c.tourPoint,c.terms,c.commission],note:c.freeNote}:step===1?{...original,note:c.borrow}:original;
   const Icon=icons[step];
   return <section className="circle-tour-slide" aria-labelledby="circle-tour-step-title">
     <div className="circle-tour-illustration" aria-hidden="true"><span>{String(step+1).padStart(2,"0")}</span><Icon size={44}/><b>Veyro Circle</b></div>

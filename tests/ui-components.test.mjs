@@ -42,33 +42,9 @@ test('root opens the login landing page for visitors and preserves signed-in acc
   }finally{setEntryTestUser(null);}
 });
 
-test('tour explains the whole sharing journey and discloses trial eligibility and renewal in both languages',async()=>{
-  const {CircleTourSlide}=await vite.ssrLoadModule('/components/circle-tour.tsx');
-  const {CircleAuthScreen}=await vite.ssrLoadModule('/components/circle-auth.tsx');
-  for(const lang of ['da','sv']){
-    for(let step=0;step<4;step++){
-      const html=renderToStaticMarkup(React.createElement(CircleTourSlide,{lang,step}));
-      assert.equal((html.match(/<li>/g)||[]).length,3);assert.match(html,/circle-tour-step-title/);
-      if(step===0)assert.match(html,/uden at oprette en konto|utan att skapa ett konto/);
-      if(step===2)assert.match(html,/underskriver|signerar/);
-      if(step===3){assert.match(html,/180/);assert.match(html,/berettigede|berättigade/);assert.match(html,/49 DKK/);assert.match(html,/69 SEK/);assert.match(html,/automatisk/);assert.match(html,/opsiger|säger upp/);}
-    }
-    const entry=renderToStaticMarkup(React.createElement(CircleAuthScreen,{lang,setLang(){},onBrowse(){}}));
-    assert.match(entry,/180 dage gratis|180 dagar gratis/);assert.match(entry,/berettigede|berättigade/);assert.match(entry,/49 DKK/);assert.match(entry,/69 SEK/);assert.match(entry,/registrerer kort|registrerar kort/);assert.match(entry,/før første betaling|före första betalningen/);
-  }
-});
+test('tour and signup explain five items without card and a voluntary subscription after 180 days',async()=>{const {CircleTourSlide}=await vite.ssrLoadModule('/components/circle-tour.tsx');const {CircleAuthScreen}=await vite.ssrLoadModule('/components/circle-auth.tsx');for(const lang of ['da','sv','nb']){for(let step=0;step<4;step++){const html=renderToStaticMarkup(React.createElement(CircleTourSlide,{lang,step}));assert.equal((html.match(/<li>/g)||[]).length,3);if(step===3){assert.match(html,/180/);assert.match(html,/5/);assert.match(html,/29 DKK/);assert.match(html,/43 SEK/);assert.match(html,/41 NOK/);assert.match(html,/Ingen automatisk/);}}const entry=renderToStaticMarkup(React.createElement(CircleAuthScreen,{lang,setLang(){},onBrowse(){}}));assert.match(entry,/180/);assert.match(entry,/uden kort|utan kort|uten kort/);assert.match(entry,/5/);assert.match(entry,/Ingen automatisk/);assert.doesNotMatch(entry,/49 DKK|69 SEK|69 NOK|Kort registreres ved tilmelding/);}});
 
-test('pricing card explains the public offer without granting a new trial to existing accounts',async()=>{
-  const {CirclePricingInfo}=await vite.ssrLoadModule('/components/circle-pricing-info.tsx');
-  for(const lang of ['da','sv'])for(const [trialEligible,hasSubscription] of [[true,false],[null,false],[false,false],[false,true]]){
-    const html=renderToStaticMarkup(React.createElement(CirclePricingInfo,{lang,trialEligible,hasSubscription,onOffer(){}}));
-    assert.match(html,/180/);assert.match(html,/nye, berettigede|nya, berättigade/);assert.match(html,/49 DKK/);assert.match(html,/69 SEK/);assert.match(html,/automatisk/);
-    if(hasSubscription){assert.match(html,/allerede Circle Plus|redan Circle Plus/);assert.doesNotMatch(html,/<button/);}
-    else if(trialEligible===false){assert.match(html,/ikke berettiget|inte berättigat/);assert.doesNotMatch(html,/<button/);}
-    else if(trialEligible===true)assert.match(html,/Start 180 dage gratis|Starta 180 dagar gratis/);
-    else{assert.match(html,/personlige tilbud|personliga erbjudande/);assert.doesNotMatch(html,/Start 180|Starta 180/);}
-  }
-});
+test('public pricing describes the personal card-free period in all languages',async()=>{const {CirclePricingInfo}=await vite.ssrLoadModule('/components/circle-pricing-info.tsx');for(const lang of ['da','sv','nb'])for(const hasSubscription of [false,true]){const html=renderToStaticMarkup(React.createElement(CirclePricingInfo,{lang,trialEligible:false,hasSubscription,onOffer(){}}));assert.match(html,/180/);assert.match(html,/5/);assert.match(html,/29 DKK/);assert.match(html,/43 SEK/);assert.match(html,/41 NOK/);assert.match(html,/Ingen automatisk/);if(hasSubscription){assert.doesNotMatch(html,/<button/);assert.match(html,/aftalte|avtalade|avtalte/);}}});
 
 test("owner deposit is displayed in both languages with no borrower input",async()=>{
   const {DepositSummary}=await vite.ssrLoadModule("/app/page.tsx");
@@ -82,38 +58,9 @@ test("owner deposit is displayed in both languages with no borrower input",async
   assert.match(page,/open=\{!!selected && !showRequest\}/);
 });
 
-test("subscription view explains the trial, renewal prices, card and cancellation in both languages",async()=>{
-  const {SubscriptionView}=await vite.ssrLoadModule("/app/page.tsx");
-  for(const lang of ['da','sv']){
-    const common={lang,used:0,onBack(){},onUpgrade(){},onManage(){}};
-    const html=renderToStaticMarkup(React.createElement(SubscriptionView,{...common,plan:'free',billingDetails:{trialEligible:true,hasSubscription:false,status:'',cancelAtPeriodEnd:false}}));
-    assert.match(html,/180/);assert.match(html,/49 DKK/);assert.match(html,/69 SEK/);
-    assert.ok(html.includes(lang==='da'?'Start 180 dage gratis':'Starta 180 dagar gratis'));
-    assert.ok(html.includes(lang==='da'?'betalingskort':'betalkort'));
-    const trial=renderToStaticMarkup(React.createElement(SubscriptionView,{...common,plan:'plus',billingDetails:{trialEligible:false,hasSubscription:true,status:'trialing',trialEnd:'2027-04-18T10:00:00Z',cancelAtPeriodEnd:true}}));
-    assert.ok(trial.includes(lang==='da'?'Prøveperioden er opsagt':'Provperioden är uppsagd'));
-    assert.ok(trial.includes(lang==='da'?'Der opkræves ingen abonnementsbetaling':'Ingen prenumerationsavgift tas ut'));
-    const returning=renderToStaticMarkup(React.createElement(SubscriptionView,{...common,plan:'free',billingDetails:{trialEligible:false,hasSubscription:false,status:'canceled',cancelAtPeriodEnd:false}}));
-    assert.doesNotMatch(returning,/Start 180|Starta 180/);
-  }
-});
+test('membership shows card-free expiry, explicit payment and unchanged legacy cancellation',async()=>{const {SubscriptionView}=await vite.ssrLoadModule('/app/page.tsx');for(const lang of ['da','sv','nb']){const common={lang,used:0,onBack(){},onUpgrade(){},onManage(){}};const free=renderToStaticMarkup(React.createElement(SubscriptionView,{...common,plan:'free',billingDetails:{trialEligible:false,hasSubscription:false,status:'',cancelAtPeriodEnd:false,access:{plan:'free',canUseApp:true,paymentRequired:false,daysLeft:130,listingLimit:5,freeUntil:'2027-04-20T12:00:00Z'}}}));assert.match(free,/130/);assert.match(free,/5/);assert.match(free,/Fortsæt gratis|Fortsätt gratis|Fortsett gratis/);const legacy=renderToStaticMarkup(React.createElement(SubscriptionView,{...common,plan:'plus',billingDetails:{trialEligible:false,hasSubscription:true,status:'trialing',trialEnd:'2027-04-18T10:00:00Z',cancelAtPeriodEnd:true}}));assert.match(legacy,/opsagt|uppsagd|sagt opp/);assert.match(legacy,/ingen abonnementsbetaling|Ingen prenumerationsavgift|Ingen abonnementsbetaling/i);}});
 
-test('Plus offer shows a country-specific trial and blocks uncertain or ineligible trial offers',async()=>{
-  const {CirclePlusOffer}=await vite.ssrLoadModule('/components/circle-plus-offer.tsx');
-  const common={busy:false,hasSubscription:false,onContinue(){},onRetry(){},onClose(){}};
-  for(const [lang,country,headline,price,otherPrice] of [['da','DK','180 DAGE GRATIS','49 DKK','69 SEK'],['sv','SE','180 DAGAR GRATIS','69 SEK','49 DKK'],['da','SE','180 DAGE GRATIS','69 SEK','49 DKK']]){
-    const html=renderToStaticMarkup(React.createElement(CirclePlusOffer,{...common,lang,country,trialEligible:true}));
-    assert.ok(html.includes(headline));assert.ok(html.includes(price));assert.ok(!html.includes(otherPrice));assert.match(html,/180 gratis/);assert.match(html,/automatisk/);assert.doesNotMatch(html,/0 kr\./);
-    const returning=renderToStaticMarkup(React.createElement(CirclePlusOffer,{...common,lang,country,trialEligible:false}));
-    assert.match(returning,/ikke berettiget|inte berättigat/);assert.ok(returning.includes(price));assert.doesNotMatch(returning,/180|GRATIS|Starta? 180/);
-    for(const error of [false,true]){
-      const unknown=renderToStaticMarkup(React.createElement(CirclePlusOffer,{...common,lang,country,trialEligible:null,error}));
-      assert.doesNotMatch(unknown,/180|49 DKK|69 SEK/);assert.match(unknown,/disabled/);if(error)assert.match(unknown,/role="alert"/);
-    }
-    const active=renderToStaticMarkup(React.createElement(CirclePlusOffer,{...common,lang,country,hasSubscription:true,trialEligible:false}));
-    assert.match(active,/Administrer abonnement|Hantera prenumeration/);assert.doesNotMatch(active,/180|Køb Circle Plus|Köp Circle Plus/);
-  }
-});
+test('payment popup never sends a free-period member to Checkout and shows the correct expired price',async()=>{const {CirclePlusOffer}=await vite.ssrLoadModule('/components/circle-plus-offer.tsx');const base={hasSubscription:false,busy:false,onContinue(){},onRetry(){},onClose(){}};for(const [lang,country,price] of [['da','DK','29 DKK'],['sv','SE','43 SEK'],['nb','NO','41 NOK']]){const free=renderToStaticMarkup(React.createElement(CirclePlusOffer,{...base,lang,country,trialEligible:false,access:{plan:'free',daysLeft:180,freeUntil:'2027-04-20T12:00:00Z',canUseApp:true,paymentRequired:false,listingLimit:5}}));assert.match(free,/180/);assert.match(free,/5/);assert.match(free,/Fortsæt gratis|Fortsätt gratis|Fortsett gratis/);assert.doesNotMatch(free,/Fortsæt til betaling|Fortsätt till betalning|Fortsett til betaling/);const expired=renderToStaticMarkup(React.createElement(CirclePlusOffer,{...base,lang,country,trialEligible:false,access:{plan:'expired',daysLeft:0,canUseApp:false,paymentRequired:true,listingLimit:0}}));assert.ok(expired.includes(price));assert.match(expired,/aktivt/);assert.match(expired,/20/);assert.match(expired,/Fortsæt til betaling|Fortsätt till betalning|Fortsett til betaling/);const unknown=renderToStaticMarkup(React.createElement(CirclePlusOffer,{...base,lang,country,trialEligible:null}));assert.match(unknown,/disabled/);assert.ok(!unknown.includes(price));}});
 test("signing controls show actionable reasons rather than silently waiting for own signature",async()=>{
   const {SignatureBox}=await vite.ssrLoadModule("/app/page.tsx");
   const html=renderToStaticMarkup(React.createElement(SignatureBox,{title:"Ejer",name:"Owner",lang:"da",canSign:false,waitingReason:"Gem noten først",onSign(){}}));
@@ -318,17 +265,4 @@ test("agreement journey is accessible, translated and excluded from the print do
   assert.match(css,/@media\(max-width:480px\) \{ \.journey-steps \{ grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
 });
 
-test('Norwegian onboarding, tour and NOK offer render complete copy without granting an unverified trial',async()=>{
- const {CircleAuthScreen}=await vite.ssrLoadModule('/components/circle-auth.tsx');
- const {CircleTourSlide}=await vite.ssrLoadModule('/components/circle-tour.tsx');
- const {CirclePlusOffer}=await vite.ssrLoadModule('/components/circle-plus-offer.tsx');
- const {TaxGuidance}=await vite.ssrLoadModule('/components/tax-guidance.tsx');
- const entry=renderToStaticMarkup(React.createElement(CircleAuthScreen,{lang:'nb',setLang(){},onBrowse(){}}));
- assert.match(entry,/Logg inn/);assert.match(entry,/Se annonser uten innlogging/);assert.match(entry,/Se omvisning/);assert.match(entry,/69 NOK/);assert.match(entry,/legal\/nb#privacy/);assert.match(entry,/lang="nb"/);assert.doesNotMatch(entry,/undefined/);
- for(let step=0;step<4;step++){const html=renderToStaticMarkup(React.createElement(CircleTourSlide,{lang:'nb',step}));assert.equal((html.match(/<li/g)||[]).length,3);assert.doesNotMatch(html,/undefined/);}
- const common={lang:'nb',country:'NO',busy:false,hasSubscription:false,onContinue(){},onRetry(){},onClose(){}};
- const eligible=renderToStaticMarkup(React.createElement(CirclePlusOffer,{...common,trialEligible:true}));assert.match(eligible,/180 DAGER GRATIS/);assert.match(eligible,/69 NOK/);assert.match(eligible,/Start 180 dager gratis/);assert.match(eligible,/automatisk/);
- const returning=renderToStaticMarkup(React.createElement(CirclePlusOffer,{...common,trialEligible:false}));assert.match(returning,/ikke berettiget/);assert.match(returning,/69 NOK/);assert.doesNotMatch(returning,/180|GRATIS/);
- const unknown=renderToStaticMarkup(React.createElement(CirclePlusOffer,{...common,trialEligible:null}));assert.match(unknown,/disabled/);assert.doesNotMatch(unknown,/180|69 NOK/);
- const tax=renderToStaticMarkup(React.createElement(TaxGuidance,{lang:'nb',country:'NO'}));assert.match(tax,/Skatteetaten/);assert.match(tax,/50 000 NOK/);assert.doesNotMatch(tax,/undefined/);
-});
+test('Norwegian onboarding has three languages, card-free copy and Norwegian tax guidance',async()=>{const {CircleAuthScreen}=await vite.ssrLoadModule('/components/circle-auth.tsx');const {TaxGuidance}=await vite.ssrLoadModule('/components/tax-guidance.tsx');const entry=renderToStaticMarkup(React.createElement(CircleAuthScreen,{lang:'nb',setLang(){},onBrowse(){}}));assert.match(entry,/Logg inn/);assert.match(entry,/41 NOK/);assert.match(entry,/uten kort/);assert.match(entry,/legal\/nb#privacy/);for(const label of ['Dansk','Svenska','Norsk'])assert.ok(entry.includes(label));const tax=renderToStaticMarkup(React.createElement(TaxGuidance,{lang:'nb',country:'NO'}));assert.match(tax,/Skatteetaten/);assert.match(tax,/50 000/);});

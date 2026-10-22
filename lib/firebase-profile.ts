@@ -4,6 +4,7 @@ import { doc, getDoc } from "firebase/firestore";
 import type { User } from "firebase/auth";
 import { db } from "@/lib/firebase-client";
 import { storedLanguage } from "@/lib/region";
+import {circleAccess,type CircleAccess} from "@/lib/circle-access";
 import { defaultSearchRadius, type Lang, type ListingPlan, type Profile } from "@/lib/marketplace";
 
 export type CircleCloudProfile = Profile & {
@@ -15,6 +16,7 @@ export type CircleCloudProfile = Profile & {
   subscriptionTrialEnd?:string;
   subscriptionCancelAtPeriodEnd:boolean;
   hasPlusHistory:boolean;
+  access:CircleAccess;
 };
 
 export async function loadCircleProfile(uid: string): Promise<CircleCloudProfile | null> {
@@ -25,6 +27,7 @@ export async function loadCircleProfile(uid: string): Promise<CircleCloudProfile
   if (!data.place || !data.name || !data.street || !data.email) return null;
   return {
     uid,
+    access:circleAccess({subscriptionPlan:data.subscriptionPlan,createdAt:typeof data.createdAt?.toDate==="function"?data.createdAt.toDate().toISOString():data.createdAt,freeAccessStartedAt:typeof data.freeAccessStartedAt?.toDate==="function"?data.freeAccessStartedAt.toDate().toISOString():data.freeAccessStartedAt}),
     defaultRadiusKm: defaultSearchRadius(data.defaultRadiusKm),
     name: data.name,
     email: data.email,

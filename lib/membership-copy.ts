@@ -1,0 +1,41 @@
+import {LANGUAGES,locales,regions,type Lang,type Country} from "./region";
+const copy={
+ headline:["180 dage gratis – uden kort","180 dagar gratis – utan kort","180 dager gratis – uten kort"],
+ kicker:["Gratis at komme i gang","Gratis att komma igång","Gratis å komme i gang"],
+ signup:["Opret gratis konto","Skapa gratis konto","Opprett gratis konto"],
+ terms:["Op til 5 aktive ting i 180 dage fra din egen oprettelsesdato. Intet betalingskort ved oprettelse. Derefter vælger du selv et abonnement: 29 DKK/md. i Danmark, 43 SEK/md. i Sverige eller 41 NOK/md. i Norge. Ingen automatisk tilmelding eller opkrævning.","Upp till 5 aktiva saker i 180 dagar från ditt eget registreringsdatum. Inget betalkort vid registrering. Därefter väljer du själv ett abonnemang: 29 DKK/mån i Danmark, 43 SEK/mån i Sverige eller 41 NOK/mån i Norge. Ingen automatisk registrering eller debitering.","Opptil 5 aktive ting i 180 dager fra din egen registreringsdato. Ingen betalingskort ved registrering. Deretter velger du selv et abonnement: 29 DKK/md. i Danmark, 43 SEK/md. i Sverige eller 41 NOK/md. i Norge. Ingen automatisk påmelding eller belastning."],
+ freeTitle:["Din gratisperiode er aktiv","Din gratisperiod är aktiv","Gratisperioden din er aktiv"],
+ until:["Gratis til og med","Gratis till och med","Gratis til og med"],
+ freeNote:["Del og udlej op til 5 ting. Du skal først tage stilling til betaling, når dine 180 dage er gået.","Dela och hyr ut upp till 5 saker. Du behöver ta ställning till betalning först när dina 180 dagar har gått.","Del og lei ut opptil 5 ting. Du trenger først å ta stilling til betaling når dine 180 dager har gått."],
+ expired:["Dine 180 gratis dage er gået","Dina 180 gratisdagar har gått","Dine 180 gratis dager er over"],
+ expiredNote:["Vælg et abonnement for at fortsætte med annoncer og nye aftaler. Dine ting sættes på pause, indtil betalingen er bekræftet. Eksisterende aftaler og beskeder bevares.","Välj ett abonnemang för att fortsätta med annonser och nya avtal. Dina saker pausas tills betalningen bekräftats. Befintliga avtal och meddelanden bevaras.","Velg et abonnement for å fortsette med annonser og nye avtaler. Tingene dine settes på pause til betalingen er bekreftet. Eksisterende avtaler og meldinger beholdes."],
+ pay:["Fortsæt til betaling","Fortsätt till betalning","Fortsett til betaling"],
+ continueFree:["Fortsæt gratis","Fortsätt gratis","Fortsett gratis"],
+ manage:["Administrer abonnement","Hantera prenumeration","Administrer abonnement"],
+ later:["Ikke nu","Inte nu","Ikke nå"],
+ five:["Op til 5 aktive ting","Upp till 5 aktiva saker","Opptil 5 aktive ting"],
+ twenty:["Op til 20 aktive ting","Upp till 20 aktiva saker","Opptil 20 aktive ting"],
+ sharing:["Gratis deling og betalt udlejning","Gratis delning och betald uthyrning","Gratis deling og betalt utleie"],
+ commission:["Ingen provision","Ingen provision","Ingen provisjon"],
+ payment:["Første betaling sker, når du aktivt tilmelder abonnementet hos Stripe. Betalingsoplysninger registreres først dér.","Första betalningen sker när du aktivt tecknar abonnemanget hos Stripe. Betalningsuppgifter registreras först då.","Første betaling skjer når du aktivt tegner abonnementet hos Stripe. Betalingsopplysninger registreres først da."],
+ renewal:["Abonnementet fornyes automatisk hver måned, indtil du opsiger det.","Abonnemanget förnyas automatiskt varje månad tills du säger upp det.","Abonnementet fornyes automatisk hver måned til du sier opp."],
+ limit:["Du kan have op til 5 aktive ting i gratisperioden. Slet en ting for at oprette en ny.","Du kan ha upp till 5 aktiva saker under gratisperioden. Ta bort en sak för att skapa en ny.","Du kan ha opptil 5 aktive ting i gratisperioden. Slett en ting for å opprette en ny."],
+ paused:["Nogle annoncer er sat på pause. Aktivér betaling for at vise dem igen. Aftaler og beskeder bevares.","Vissa annonser är pausade. Aktivera betalning för att visa dem igen. Avtal och meddelanden bevaras.","Noen annonser er satt på pause. Aktiver betaling for å vise dem igjen. Avtaler og meldinger beholdes."],
+ already:["Dit eksisterende abonnement fortsætter på de aftalte vilkår. Du kan administrere det hos Stripe.","Ditt befintliga abonnemang fortsätter enligt avtalade villkor. Du kan hantera det hos Stripe.","Det eksisterende abonnementet ditt fortsetter på avtalte vilkår. Du kan administrere det hos Stripe."],
+ unknown:["Kontrollerer din adgang…","Kontrollerar din åtkomst…","Kontrollerer tilgangen din…"],
+ retry:["Prøv igen","Försök igen","Prøv igjen"],
+ error:["Din adgang kunne ikke kontrolleres. Prøv igen.","Din åtkomst kunde inte kontrolleras. Försök igen.","Tilgangen din kunne ikke kontrolleres. Prøv igjen."],
+ account:["Mit abonnement","Min prenumeration","Mitt abonnement"],
+ active:["Aktiv","Aktiv","Aktiv"],
+ back:["Tilbage til konto","Tillbaka till konto","Tilbake til konto"],
+ used:["Aktive ting","Aktiva saker","Aktive ting"],
+ days:["dage tilbage","dagar kvar","dager igjen"],
+ plan:["Gratisperiode","Gratisperiod","Gratisperiode"],
+ view:["Se din adgang","Se din åtkomst","Se tilgangen din"],
+ tourShare:["Del op til 5 ting gratis i dine første 180 dage. Vælg gratis udlån eller betalt udlejning.","Dela upp till 5 saker gratis under dina första 180 dagar. Välj gratis utlåning eller betald uthyrning.","Del opptil 5 ting gratis i dine første 180 dager. Velg gratis utlån eller betalt utleie."],
+ tourPoint:["Personlig gratisperiode på 180 dage. Intet kort ved oprettelse.","Personlig gratisperiod på 180 dagar. Inget kort vid registrering.","Personlig gratisperiode på 180 dager. Ingen kort ved registrering."],
+ borrow:["Send forespørgsler i dine 180 gratis dage og derefter med et aktivt abonnement.","Skicka förfrågningar under dina 180 gratisdagar och därefter med ett aktivt abonnemang.","Send forespørsler i dine 180 gratis dager og deretter med et aktivt abonnement."]
+} as const;
+export const membershipCopy=Object.fromEntries(LANGUAGES.map((lang,index)=>[lang,Object.fromEntries(Object.entries(copy).map(([key,value])=>[key,value[index]]))])) as Record<Lang,Record<keyof typeof copy,string>>;
+export function membershipPrice(country:Country) {return `${regions[country].monthlyPrice} ${regions[country].currency}`;}
+export function freeEndLabel(end:string|undefined,lang:Lang) {return end?new Date(Date.parse(end)-1).toLocaleDateString(locales[lang],{timeZone:"Europe/Copenhagen"}):"";}

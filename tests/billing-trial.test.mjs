@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHmac,generateKeyPairSync} from 'node:crypto';
 import ts from 'typescript';
+import {createTsLoader} from './load-typescript.mjs';
 
 // Exercise the actual routes and HTTP client. Firebase/Stripe boundaries are
 // in-memory doubles; no production credentials or customer records are used.
 function harness(t,options={}){
-  const profile={subscriptionPlan:'free',country:'DK',...options.profile};
+  const profile={subscriptionPlan:'free',createdAt:'2020-01-01T00:00:00Z',country:'DK',...options.profile};
   const customers=structuredClone(options.customers??[]);
   const subscriptions=structuredClone(options.subscriptions??[]);
   const documents=new Map();const sessions=new Map();const idempotency=new Map();
@@ -28,15 +29,7 @@ function harness(t,options={}){
     findUserByStripeCustomer:async id=>profile.stripeCustomerId===id?'user-one':undefined,
     updateSubscription:async(uid,values)=>{assert.equal(uid,'user-one');updates.push(values);},
   };
-  const cache=new Map();
-  const load=path=>{
-    if(path==='@/lib/firebase-server')return firebase;
-    if(path==='@/lib/server-config')return {serverConfig:key=>{if(!config[key])throw Error('Missing configuration');return config[key];}};
-    if(cache.has(path))return cache.get(path);
-    const source=new URL(`../${path.replace('@/','')}.ts`,import.meta.url);
-    const compiled=ts.transpileModule(readFileSync(source,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
-    const exports={};cache.set(path,exports);new Function('require','exports',compiled)(load,exports);return exports;
-  };
+  const load=createTsLoader({'@/lib/firebase-server':firebase,'@/lib/server-config':{serverConfig:key=>{if(!config[key])throw Error('Missing configuration');return config[key];}}});
   const originalFetch=globalThis.fetch;t.after(()=>{globalThis.fetch=originalFetch;});
   globalThis.fetch=async(input,init={})=>{
     const url=new URL(input);assert.equal(url.origin,'https://api.stripe.com');
@@ -45,7 +38,7 @@ function harness(t,options={}){
     calls.push({path,method,body,key:init.headers?.['Idempotency-Key']});
     const failure=(status,code)=>Response.json({error:{code,message:'sensitive-test-marker'}},{status});
     if(options.stripeFailure)return failure(options.stripeFailure,'api_error');
-    if(path.startsWith('/prices/'))return Response.json({id:path.split('/').at(-1),product:'prod_circle_plus',...(path.endsWith('price_no_existing')?{active:true,currency:'nok',unit_amount:6900,recurring:{interval:'month',interval_count:1},...options.nokPrice}:{})});
+    if(path.startsWith('/prices/'))return Response.json({id:path.split('/').at(-1),product:'prod_circle_plus',active:true,currency:path.endsWith('price_no_existing')?'nok':path.endsWith('price_se_existing')?'sek':'dkk',unit_amount:path.endsWith('price_no_existing')?4100:path.endsWith('price_se_existing')?4300:2900,recurring:{interval:'month',interval_count:1},...(path.endsWith('price_no_existing')?options.nokPrice:{})});
     if(path.startsWith('/customers/') && method==='GET'){
       if(options.customerFailure)return failure(options.customerFailure,options.customerFailure===404?'resource_missing':'permission_denied');
       const customer=customers.find(c=>c.id===path.split('/').at(-1));return customer?Response.json(customer):failure(404,'resource_missing');
@@ -76,7 +69,7 @@ function harness(t,options={}){
     throw Error(`Unexpected test request ${path}`);
   };
   const checkout=load('@/app/api/stripe/checkout/route');const webhook=load('@/app/api/stripe/webhook/route');
-  const request=(offer={})=>new Request('https://circle.example.invalid/api/stripe/checkout',{method:'POST',body:JSON.stringify({country:'SE',trial_period_days:999,expectedTrialEligible:true,expectedCountry:profile.country,lang:profile.country==='NO'?'nb':profile.country==='SE'?'sv':'da',...offer})});
+  const request=(offer={})=>new Request('https://circle.example.invalid/api/stripe/checkout',{method:'POST',body:JSON.stringify({country:'SE',trial_period_days:999,expectedTrialEligible:false,expectedCountry:profile.country,lang:profile.country==='NO'?'nb':profile.country==='SE'?'sv':'da',...offer})});
   const event=async(type,object,extra={})=>{
     const payload=JSON.stringify({id:'evt_test',livemode:false,type,data:{object},...extra});
     const time=String(Math.floor(Date.now()/1000));
@@ -88,38 +81,26 @@ function harness(t,options={}){
 const created=h=>h.calls.filter(c=>c.path==='/checkout/sessions'&&c.method==='POST');
 const subscription=(status='trialing',extra={})=>({id:'sub_one',customer:'cus_one',status,metadata:{uid:'user-one'},items:{data:[{price:{id:'price_dk_existing',product:'prod_circle_plus'}}]},trial_end:1800000000,cancel_at_period_end:false,...extra});
 
-for(const country of ['DK','SE','NO'])test(`new ${country} member receives 180 days, stored country price and mandatory payment collection`,async t=>{
-  const h=harness(t,{profile:{country}});const r=await h.checkout.POST(h.request());assert.equal(r.status,200);
-  const body=created(h)[0].body;assert.equal(body.get('subscription_data[trial_period_days]'),'180');assert.equal(body.get('payment_method_collection'),'always');assert.equal(body.get('payment_method_types[0]'),'card');
-  assert.equal(body.get('line_items[0][price]'),country==='NO'?'price_no_existing':country==='SE'?'price_se_existing':'price_dk_existing');
-  assert.equal(body.get('subscription_data[trial_settings][end_behavior][missing_payment_method]'),'cancel');
-  assert.equal(body.get('locale'),country==='NO'?'nb':country==='SE'?'sv':'da');
-  const terms=body.get('custom_text[submit][message]');assert.match(terms,/180/);assert.match(terms,country==='NO'?/69 NOK/:country==='SE'?/69 SEK/:/49 DKK/);assert.match(terms,/automatisk/);assert.doesNotMatch(terms,country==='SE'?/49 DKK/:/69 SEK/);
-});
-test('eligibility inspection is read-only and returns the server-selected country',async t=>{const h=harness(t);const r=await h.checkout.GET(h.request());assert.deepEqual(await r.json(),{trialEligible:true,hasSubscription:false,country:'DK'});assert.equal(h.customers.length,0);assert.equal(h.documents.size,0);});
+for(const country of ['DK','SE','NO'])test(`expired ${country} member explicitly chooses the correct paid price without a second trial`,async t=>{const h=harness(t,{profile:{country}});assert.equal((await h.checkout.POST(h.request())).status,200);const b=created(h)[0].body;assert.equal(b.has('subscription_data[trial_period_days]'),false);assert.equal(b.get('payment_method_collection'),'always');assert.equal(b.has('payment_method_types[0]'),false);assert.equal(b.get('line_items[0][price]'),country==='NO'?'price_no_existing':country==='SE'?'price_se_existing':'price_dk_existing');assert.match(b.get('custom_text[submit][message]'),country==='NO'?/41 NOK/:country==='SE'?/43 SEK/:/29 DKK/);assert.match(b.get('custom_text[submit][message]'),/aktivt/);});
+
+test('access inspection never creates Stripe resources or requires Stripe during free signup',async t=>{const h=harness(t,{profile:{createdAt:new Date().toISOString()},stripeFailure:500});const data=await (await h.checkout.GET(h.request())).json();assert.equal(data.trialEligible,false);assert.equal(data.country,'DK');assert.equal(data.access.plan,'free');assert.equal(data.access.listingLimit,5);assert.equal(h.calls.length,0);assert.equal(h.documents.size,0);assert.equal((await h.checkout.POST(h.request())).status,403);assert.equal(h.calls.length,0);});
 for(const field of ['stripeSubscriptionId','circlePlusStartedAt','circlePlusTrialStartedAt'])test(`permanent ${field} history prevents another trial`,async t=>{
   const h=harness(t,{profile:{[field]:'previous-history'}});assert.equal((await h.checkout.POST(h.request({expectedTrialEligible:false}))).status,200);assert.equal(created(h)[0].body.has('subscription_data[trial_period_days]'),false);
-  assert.match(created(h)[0].body.get('custom_text[submit][message]'),/ikke berettiget/);
+  assert.equal((await h.load('@/lib/circle-billing').billingContext('user-one','member@example.invalid',h.profile)).eligible,false);
 });
 test('canceled history across paginated legacy email customers prevents another trial',async t=>{
   const h=harness(t,{customers:[{id:'cus_empty'},{id:'cus_old'}],paginateCustomers:true,subscriptions:[subscription('canceled',{customer:'cus_old'})]});
   assert.equal((await h.checkout.POST(h.request({expectedTrialEligible:false}))).status,200);assert.equal(created(h)[0].body.has('subscription_data[trial_period_days]'),false);
   assert.ok(h.calls.filter(c=>c.path==='/customers'&&c.method==='GET').length>=2);
 });
-test('a subscription to another Veyro product does not consume the Circle Plus trial',async t=>{
-  const h=harness(t,{customers:[{id:'cus_one'}],subscriptions:[subscription('active',{metadata:{app:'another-veyro-product'},items:{data:[{price:{id:'price_other',product:'prod_other'}}]}})]});
-  assert.equal((await h.checkout.POST(h.request())).status,200);assert.equal(created(h)[0].body.get('subscription_data[trial_period_days]'),'180');
-});
+test('another Veyro subscription cannot block Circle membership and never creates a second free period',async t=>{const h=harness(t,{customers:[{id:'cus_one'}],subscriptions:[subscription('active',{metadata:{app:'another'},items:{data:[{price:{id:'price_other',product:'prod_other'}}]}})]});assert.equal((await h.checkout.POST(h.request())).status,200);assert.equal(created(h)[0].body.has('subscription_data[trial_period_days]'),false);});
 test('a retired Circle Plus price still consumes the trial even without UID metadata',async t=>{
   const h=harness(t,{customers:[{id:'cus_one'}],subscriptions:[subscription('canceled',{metadata:{},items:{data:[{price:{id:'price_retired',product:'prod_circle_plus'}}]}})]});
   assert.equal((await h.checkout.POST(h.request({expectedTrialEligible:false}))).status,200);assert.equal(created(h)[0].body.has('subscription_data[trial_period_days]'),false);
 });
-test('an advertised trial never falls back to a paid checkout when server history has changed',async t=>{
-  const h=harness(t,{customers:[{id:'cus_one'}],subscriptions:[subscription('canceled')]});
-  const response=await h.checkout.POST(h.request());assert.equal(response.status,409);assert.equal((await response.json()).code,'BILLING_OFFER_CHANGED');assert.equal(created(h).length,0);assert.equal(h.calls.filter(c=>c.method==='POST').length,0);
-});
+test('an older client cannot silently accept a changed paid offer or request another Stripe trial',async t=>{const h=harness(t);const r=await h.checkout.POST(h.request({expectedTrialEligible:true}));assert.equal(r.status,409);assert.equal((await r.json()).code,'BILLING_OFFER_CHANGED');assert.equal(created(h).length,0);assert.equal(h.calls.filter(c=>c.method==='POST').length,0);});
 test('missing acceptance or a different displayed country blocks checkout without creating Stripe resources',async t=>{
-  const h=harness(t);for(const offer of [{expectedTrialEligible:undefined},{expectedCountry:'SE'},{expectedTrialEligible:false}]){
+  const h=harness(t);for(const offer of [{expectedTrialEligible:undefined},{expectedCountry:'SE'},{expectedTrialEligible:true}]){
     const response=await h.checkout.POST(h.request(offer));assert.equal(response.status,409);assert.equal((await response.json()).code,'BILLING_OFFER_CHANGED');
   }assert.equal(h.customers.length,0);assert.equal(created(h).length,0);
 });
@@ -128,10 +109,7 @@ test('a session containing older offer terms is expired instead of reused',async
   assert.equal(h.sessions.get('cs_1').status,'expired');assert.equal(created(h).length,2);
 });
 test('existing active profile creates no Stripe resources',async t=>{const h=harness(t,{profile:{subscriptionPlan:'plus'}});assert.equal((await h.checkout.POST(h.request())).status,400);assert.equal(h.calls.length,0);});
-test('an open session offering non-card methods is expired before a new card signup',async t=>{
-  const h=harness(t);await h.checkout.POST(h.request());h.sessions.get('cs_1').payment_method_types=['card','klarna'];await h.checkout.POST(h.request());
-  assert.equal(h.sessions.get('cs_1').status,'expired');assert.equal(created(h).length,2);assert.equal(created(h)[1].body.get('payment_method_types[0]'),'card');
-});
+test('paid Checkout uses dynamic payment methods and safely reuses its current offer',async t=>{const h=harness(t);await h.checkout.POST(h.request());h.sessions.get('cs_1').payment_method_types=['card','link'];await h.checkout.POST(h.request());assert.equal(h.sessions.get('cs_1').status,'open');assert.equal(created(h).length,1);assert.equal(created(h)[0].body.has('payment_method_types[0]'),false);});
 for(const status of ['active','trialing','past_due','incomplete','unpaid','paused'])test(`Stripe ${status} history blocks a duplicate despite a stale free profile`,async t=>{
   const h=harness(t,{customers:[{id:'cus_one'}],subscriptions:[subscription(status)]});assert.equal((await h.checkout.POST(h.request())).status,400);assert.equal(created(h).length,0);
 });
@@ -208,8 +186,6 @@ test('persisting trial and canceled states preserves profile fields and permanen
   assert.deepEqual(patches[1].subscriptionPlan,{stringValue:'free'});assert.deepEqual(patches[1].subscriptionStatus,{stringValue:'canceled'});
 });
 
-test('Norwegian price configuration fails closed before offering or creating a subscription',async t=>{
- for(const nokPrice of [{currency:'sek'},{unit_amount:7900},{active:false},{recurring:{interval:'year',interval_count:1}},{product:'prod_other'}]){const h=harness(t,{profile:{country:'NO'},nokPrice});assert.equal((await h.checkout.GET(h.request())).status,503);assert.equal((await h.checkout.POST(h.request())).status,400);assert.equal(created(h).length,0);}
-});
-test('Norwegian account keeps NOK price when interface is Danish',async t=>{const h=harness(t,{profile:{country:'NO'}});assert.equal((await h.checkout.POST(h.request({lang:'da'}))).status,200);const b=created(h)[0].body;assert.equal(b.get('line_items[0][price]'),'price_no_existing');assert.equal(b.get('locale'),'da');assert.match(b.get('custom_text[submit][message]'),/69 NOK/);});
+test('wrong Norwegian price blocks payment while access inspection stays independent of Stripe',async t=>{for(const nokPrice of [{currency:'sek'},{unit_amount:6900},{active:false},{recurring:{interval:'year',interval_count:1}},{product:'prod_other'}]){const h=harness(t,{profile:{country:'NO'},nokPrice});assert.equal((await h.checkout.GET(h.request())).status,200);assert.equal((await h.checkout.POST(h.request())).status,400);assert.equal(created(h).length,0);}});
+test('Norwegian account keeps NOK price when interface is Danish',async t=>{const h=harness(t,{profile:{country:'NO'}});assert.equal((await h.checkout.POST(h.request({lang:'da'}))).status,200);const b=created(h)[0].body;assert.equal(b.get('line_items[0][price]'),'price_no_existing');assert.equal(b.get('locale'),'da');assert.match(b.get('custom_text[submit][message]'),/41 NOK/);});
 test('moving a returning Plus member to Norway never resets trial eligibility',async t=>{const h=harness(t,{profile:{country:'NO',circlePlusStartedAt:'2026-01-01'}});assert.equal((await h.checkout.POST(h.request({expectedTrialEligible:false}))).status,200);assert.equal(created(h)[0].body.has('subscription_data[trial_period_days]'),false);});
