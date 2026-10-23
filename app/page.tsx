@@ -886,7 +886,9 @@ export default function HomePage() {
       </nav>
 
       <Dialog open={!!selected && !showRequest && !ownerProfileUid} onOpenChange={(open) => !open && setSelected(null)}>
-        {selected && <DialogContent className="listing-dialog max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-xl border-0 p-0 sm:max-w-[600px]">
+        {selected && <DialogContent className="listing-dialog max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-xl border-0 p-0">
+          <div className="listing-dialog-layout">
+          <div className="listing-dialog-main">
           {selected.photos?.length ? <div className={`listing-detail-gallery ${selected.photos.length === 1 ? "single" : ""}`}>
             {selected.photos.map((photo, index) => <img key={`${photo.name}-${index}`} src={photo.src} alt={`${selected.name} · billede ${index + 1}`} />)}
             <span className="absolute left-5 top-5 rounded-md bg-white px-3 py-1.5 text-sm font-bold shadow-sm">{priceLabel(selected, lang)}</span>
@@ -894,17 +896,21 @@ export default function HomePage() {
           <div className="listing-dialog-body">
             <DialogHeader className="text-left"><DialogTitle className="text-2xl font-bold tracking-tight">{selected.name}</DialogTitle><DialogDescription className="flex flex-wrap items-center gap-3"><span className="flex items-center gap-1"><MapPin size={15} />{selected.city} · {Number.isFinite(selected.distance) ? `ca. ${selected.distance.toLocaleString((lang === "nb" ? nbText["da-DK"] : (lang === "da" ? "da-DK" : "sv-SE")), {maximumFractionDigits: 1})} km` : ""}</span></DialogDescription></DialogHeader>
             <p className="mt-5 leading-7 text-[#575b6e]">{selected.description}</p>
-            <ListingCalendar key={selected.id} id={selected.id} lang={lang} from={searchFrom} to={searchTo} onRange={(f,t)=>{setSearchFrom(f);setSearchTo(t);}} />
-            {searchDays && <p className="period-price">{(lang === "nb" ? nbText["Pris for perioden"] : (lang === "da" ? "Pris for perioden" : "Pris för perioden"))}: <strong>{money(selected.dailyPrice*searchDays,selected.country,lang)}</strong> · {searchDays} {(lang === "nb" ? nbText["kalenderdage"] : (lang === "da" ? "kalenderdage" : "kalenderdagar"))}</p>}
             <dl className="listing-specs">{(detailFields[selected.category]??[]).filter(f=>selected.details?.[f.key]).map(f=><div key={f.key}><dt>{f[lang]}</dt><dd>{selected.details![f.key]}</dd></div>)}</dl>
             <DepositSummary amount={selected.deposit ?? 0} country={selected.country} lang={lang} />
+          </div>
+          </div>
+          <aside className="listing-dialog-sidebar">
             <button type="button" className="owner-profile-link" disabled={!selected.ownerUid} onClick={()=>selected.ownerUid&&setOwnerProfileUid(selected.ownerUid)}><span className="owner-profile-avatar" aria-hidden="true">{selected.owner[0]}</span><span><b>{selected.owner}</b><span>{ownerProfileCopy[lang].open}</span></span><CircleUserRound size={22}/></button>
+            <ListingReviews key={selected.id+"reviews"} id={selected.id} lang={lang} />
+            <ListingCalendar key={selected.id} id={selected.id} lang={lang} from={searchFrom} to={searchTo} onRange={(f,t)=>{setSearchFrom(f);setSearchTo(t);}} />
+            {searchDays && <p className="period-price">{(lang === "nb" ? nbText["Pris for perioden"] : (lang === "da" ? "Pris for perioden" : "Pris för perioden"))}: <strong>{money(selected.dailyPrice*searchDays,selected.country,lang)}</strong> · {searchDays} {(lang === "nb" ? nbText["kalenderdage"] : (lang === "da" ? "kalenderdage" : "kalenderdagar"))}</p>}
             <div className="mt-4 flex items-center gap-2 text-sm font-bold text-[#31744c]"><Check size={17} />{selected.availability}</div>
             {selected.owned ? <div className="mt-7 grid grid-cols-2 gap-3">
               <Button variant="outline" className="h-13 rounded-xl" onClick={() => openEdit(selected)}><Pencil size={17} />{(lang === "nb" ? nbText["Rediger"] : (lang === "da" ? "Rediger" : "Redigera"))}</Button>
               <Button variant="outline" className="h-13 rounded-xl border-[#d9aaaa] text-[#9c3030] hover:bg-[#fff1f1] hover:text-[#842424]" onClick={() => setPendingDelete(selected)}><Trash2 size={17} />{(lang === "nb" ? nbText["Slet"] : (lang === "da" ? "Slet" : "Ta bort"))}</Button>
             </div> : <div className="listing-dialog-action"><Button className="mt-7 h-13 w-full rounded-xl bg-[#008EAC] text-base font-semibold text-white hover:bg-[#006F88]" onClick={openRequest}>{selected.dailyPrice > 0 ? ((lang === "nb" ? nbText["Spørg om at leje"] : (lang === "da" ? "Spørg om at leje" : "Fråga om att hyra"))) : t.borrow}</Button></div>}
-            <ListingReviews key={selected.id+"reviews"} id={selected.id} lang={lang} />
+          </aside>
           </div>
         </DialogContent>}
       </Dialog>
