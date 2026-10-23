@@ -38,13 +38,33 @@ after(async () => {
 
 test('public owner profile groups reviews and active listings in Danish Swedish and Norwegian',async()=>{
   const {OwnerProfileContent,ownerProfileCopy}=await vite.ssrLoadModule('/components/circle-owner-profile.tsx');
-  const data={owner:{uid:'owner',name:'Anna',city:'Jystrup',country:'DK'},listings:[{id:'item1',name:'Trailer',city:'Jystrup',country:'DK',dailyPrice:2900,photos:[]},{id:'item2',name:'Boremaskine',city:'Jystrup',country:'DK',dailyPrice:0,photos:[]}]};
+  const data={owner:{uid:'owner',name:'Anna',city:'Jystrup',country:'DK',area:{country:'DK',postcode:'4174',city:'Jystrup',lat:55.52,lon:11.86}},listings:[{id:'item1',name:'Trailer',city:'Jystrup',country:'DK',dailyPrice:2900,photos:[]},{id:'item2',name:'Boremaskine',city:'Jystrup',country:'DK',dailyPrice:0,photos:[]}]};
   for(const lang of ['da','sv','nb']){
     const html=renderToStaticMarkup(React.createElement(OwnerProfileContent,{data,lang,onListing(){}}));
     assert.ok(html.includes(ownerProfileCopy[lang].items));assert.ok(html.includes(ownerProfileCopy[lang].free));
     assert.match(html,/Anna/);assert.match(html,/Trailer/);assert.match(html,/Boremaskine/);assert.match(html,/\(2\)/);
+    assert.match(html,/owner-profile-sidebar/);assert.match(html,/owner-profile-items/);assert.match(html,/owner-area-map-viewport/);assert.match(html,/openstreetmap.org\/copyright/);
     assert.doesNotMatch(html,/MitID|forsikret|svarprocent|svartid|@/);
   }
+});
+
+test('listing maps expose translated controls and explain approximate locations without account counts',async()=>{
+ const {ListingResultsMap,resultsMapCopy}=await vite.ssrLoadModule('/components/listing-results-map.tsx');
+ const items=[{id:'bag',name:'Cykeltransporttaske',owner:'Anna',city:'Jystrup',country:'DK',place:{country:'DK',postcode:'4174',city:'Jystrup'},dailyPrice:5000,photos:[]}];
+ for(const lang of ['da','sv','nb']){
+  const html=renderToStaticMarkup(React.createElement(ListingResultsMap,{items,lang,onOpen(){}}));
+  assert.ok(html.includes(resultsMapCopy[lang].title));assert.ok(html.includes(resultsMapCopy[lang].fit));assert.ok(html.includes(resultsMapCopy[lang].privacy));
+  assert.match(html,/openstreetmap.org\/copyright/);assert.doesNotMatch(html,/community-map|registrerede|registered/);
+ }
+});
+
+test('favorite controls distinguish selected and unselected state in every language',async()=>{
+ const {FavoriteButton}=await vite.ssrLoadModule('/components/favorite-button.tsx');
+ for(const lang of ['da','sv','nb'])for(const active of [false,true]){
+  const html=renderToStaticMarkup(React.createElement(FavoriteButton,{lang,active}));
+  assert.ok(html.includes(`aria-pressed="${active}"`));assert.ok(html.includes(`fill="${active?'currentColor':'none'}"`));
+  assert.match(html,/type="button"/);
+ }
 });
 
 test('root opens the login landing page for visitors and preserves signed-in access',async()=>{

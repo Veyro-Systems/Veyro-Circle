@@ -237,7 +237,7 @@ function setup() {
 
 test("public owner profile lists only published owned items and never exposes private fields",async()=>{
   const s=setup(),now=new Date().toISOString();
-  s.put("users/owner",{...s.profile,subscriptionPlan:"free",createdAt:now,freeAccessStartedAt:now});
+  s.put("users/owner",{...s.profile,place:{...s.profile.place,lat:55.123456789,lon:11.123456789},subscriptionPlan:"free",createdAt:now,freeAccessStartedAt:now});
   for(let i=0;i<7;i++)s.put(`listings/item_${i}`,{...base.item,id:`item_${i}`,name:`Item ${i}`,ownerUid:"owner",active:true,createdAt:`2020-01-0${i+1}`,email:"private@example.test",phone:"private-phone",street:"Private street",place:{city:"Jystrup",country:"DK",street:"Private street",email:"private@example.test"},photos:[{src:"https://example.test/item.jpg",width:40,height:30,secret:"private-photo-field"}]});
   s.put("listings/hidden",{ownerUid:"owner",active:false,name:"Hidden"});
   s.put("listings/other",{ownerUid:"stranger",active:true,name:"Other"});
@@ -245,7 +245,11 @@ test("public owner profile lists only published owned items and never exposes pr
   const response=await s.communityCall("owner-profile","GET",null,null,"?ownerUid=owner");
   assert.equal(response.status,200);assert.equal(response.headers.get("cache-control"),"no-store");
   const data=await response.json();
-  assert.deepEqual(data.owner,{uid:"owner",name:"Real",city:"Jystrup",country:"DK"});
+  const {area,...publicOwner}=data.owner;
+  assert.deepEqual(publicOwner,{uid:"owner",name:"Real",city:"Jystrup",country:"DK"});
+  assert.equal(area.postcode,'4174');assert.equal(area.country,'DK');
+  assert.ok(market.places.some(p=>p.country===area.country&&p.postcode===area.postcode&&p.lat===area.lat&&p.lon===area.lon));
+  assert.doesNotMatch(JSON.stringify(data),/55\.123456789|11\.123456789/);
   assert.equal(data.listings.length,5);
   assert.ok(data.listings.every(l=>l.ownerUid==="owner"&&l.publishable&&l.active));
   assert.doesNotMatch(JSON.stringify(data),/must-not-leak|private@example|private-phone|Private street|private-photo-field|Real person|Other|Hidden/);
