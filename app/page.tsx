@@ -802,7 +802,7 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
                 <span className="hero-kicker"><Sparkles size={15} />{t.heroKicker}</span>
                 <h1>{t.heroTitle}</h1><p>{t.heroText}</p>
                 <div className="mt-6 flex flex-wrap gap-3">
-                  <Button onClick={openAdd} variant="outline" className="h-12 rounded-lg border-white/35 bg-white/12 px-6 font-bold text-white backdrop-blur hover:bg-white/20 hover:text-white"><PackagePlus className="mr-2" size={18} />{t.addItem}</Button>
+                  <Button onClick={openAdd} variant="outline" className="h-12 rounded-lg border-[#16C8D5]/65 bg-[#16C8D5]/20 px-6 font-bold text-white backdrop-blur hover:border-[#69E4EB]/80 hover:bg-[#16C8D5]/30 hover:text-white"><PackagePlus className="mr-2" size={18} />{t.addItem}</Button>
                 </div>
               </div>
             </section>
