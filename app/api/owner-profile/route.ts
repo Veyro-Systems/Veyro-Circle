@@ -26,7 +26,7 @@ export async function GET(request:Request) {
       freeAccessStartedAt:typeof profile.freeAccessStartedAt==="string"?profile.freeAccessStartedAt:undefined,
     });
     // Explicit public allowlist: contact, billing and agreement data stay private.
-    const fields=["description","category","country","city","dailyPrice","deposit","active","details","createdAt"];
+    const fields=["description","category","subcategory","country","city","dailyPrice","deposit","active","details","createdAt"];
     const listings=owned.filter(l=>published.has(String(l.id))).map(l=>{
       const itemPlace=l.place&&typeof l.place==="object"&&!Array.isArray(l.place)?l.place:{};
       const photos=Array.isArray(l.photos)?l.photos.filter((p):p is {[key:string]:Json}=>p!==null&&typeof p==="object"&&!Array.isArray(p)).slice(0,2).map(p=>Object.fromEntries(["src","name","bytes","width","height","storagePath"].filter(k=>p[k]!==undefined).map(k=>[k,p[k]]))):[];

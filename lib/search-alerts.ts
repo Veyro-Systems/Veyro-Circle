@@ -4,7 +4,7 @@ import {decodeFields,type Value} from "@/lib/firestore-values";
 import {matchesSearch,type SavedSearch} from "@/lib/discovery";
 import {sendCirclePush} from "@/lib/push-server";
 import type {Place} from "@/lib/marketplace";
-export async function notifyListingMatches(id:string,ownerUid:string,item:{name:string;description:string;country:string;category:string;dailyPrice:number;place:Place;city:string}) {
+export async function notifyListingMatches(id:string,ownerUid:string,item:{name:string;description:string;country:string;category:string;subcategory?:string;dailyPrice:number;place:Place;city:string}) {
   if(process.env.CIRCLE_PUSH_ENABLED!=="true")return;
   try {
     let pageToken="";

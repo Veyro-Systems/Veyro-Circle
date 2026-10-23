@@ -22,6 +22,9 @@ import { WantedBoard } from "@/components/wanted-board";
 import { AgreementExtension } from "@/components/agreement-extension";
 import { validTime,type AgreementSchedule } from "@/lib/agreement-schedule";
 import { SavedSearches } from "@/components/saved-searches";
+import {CompactListingSearch} from "@/components/compact-listing-search";
+import {CategoryNavigation} from "@/components/category-navigation";
+import {childCategory,listingCategories,matchesCategory} from "@/lib/listing-categories";
 import { communityFetch } from "@/lib/community-client";
 import { matchesSearch,type Preferences,type SearchFilter } from "@/lib/discovery";
 import { detailFields } from "@/lib/listing-details";
@@ -44,7 +47,7 @@ import { agreementSigning, displayedAgreementNote, type NoteEdit } from "@/lib/a
 import { parseDeposit } from "@/lib/marketplace";
 import { AgreementPhotos as AgreementPhotoPanel } from "@/components/agreement-photos";
 import { phasePhotos, photoVersion, type AgreementPhotos, type AgreementPhoto } from "@/lib/agreement-photos";
-import { SEARCH_RADII, defaultSearchRadius, type Place, type Profile, type Country, type ListingPlan, distanceKm, places,parseDailyPrice, money, dayCount, todayLocal, canCreateListing, listingLimit, PLUS_LISTING_LIMIT } from "@/lib/marketplace";
+import { defaultSearchRadius, type Place, type Profile, type Country, type ListingPlan, distanceKm, places,parseDailyPrice, money, dayCount, todayLocal, canCreateListing, listingLimit, PLUS_LISTING_LIMIT } from "@/lib/marketplace";
 import { compressListingImage, formatImageSize, MAX_LISTING_IMAGES, type CompressedListingImage } from "@/lib/image-compression";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -74,7 +77,7 @@ type Listing = {
   id: string; name: string; owner: string; city: string; country: "DK" | "SE" | "NO";
   ownerStreet: string; ownerPhone: string; ownerUid?: string; ownerPhotoUrl?:string;
   distance: number; category: string; icon: typeof Drill; color: string;
-  publishable?:boolean;description: string; details?:Record<string,string>;createdAt?:string; rating: number; availability: string;
+  subcategory?:string;publishable?:boolean;description: string; details?:Record<string,string>;createdAt?:string; rating: number; availability: string;
   reviewRating?:CircleListingRecord["reviewRating"];
   place: Place; dailyPrice: number; deposit?:number; photos?: CompressedListingImage[]; owned?: boolean;
 };
@@ -225,6 +228,7 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
     void import("@/lib/firebase-push").then(m=>m.maintainPush(user.uid,lang)).catch(()=>undefined);
   },[user?.uid,user?.emailVerified,lang]);
   const [category, setCategory] = useState("all");
+  const [subcategory,setSubcategory]=useState("");
   const [query, setQuery] = useState("");
   const [listings, setListings] = useState<Listing[]>([]);
   const [selected, setSelected] = useState<Listing | null>(null);
@@ -240,6 +244,7 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
   const [newPlace, setNewPlace] = useState<Place | null>(null);
   const [newDetails,setNewDetails]=useState<Record<string,string>>({});
   const [newCategory, setNewCategory] = useState("tools");
+  const [newSubcategory,setNewSubcategory]=useState("");
   const [pricing, setPricing] = useState("free");
   const [priceInput, setPriceInput] = useState("");
   const [pickupTime,setPickupTime]=useState("10:00");
@@ -450,13 +455,13 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
     const q = query.trim().toLowerCase();
     return listings.map(item => ({ ...item, distance: origin ? distanceKm(origin, item.place) : NaN })).filter(item =>
       item.publishable!==false && 
-      (category === "all" || item.category === category) &&
+      matchesCategory(item,category,subcategory) &&
       (radius === "all" || item.distance <= Number(radius)) &&
       (priceFilter === "all" || (priceFilter === "free" ? item.dailyPrice === 0 : item.dailyPrice > 0)) &&
       (!onlyFavorites || prefs.favorites.includes(item.id)) &&
       (!q || `${item.name} ${item.city} ${item.description}`.toLowerCase().includes(q))
     ).sort((a,b) => origin ? a.distance - b.distance : a.id.localeCompare(b.id));
-  }, [category, listings, query, origin, radius, priceFilter,onlyFavorites,prefs.favorites]);
+  }, [category, subcategory, listings, query, origin, radius, priceFilter,onlyFavorites,prefs.favorites]);
 
   const datesEntered=Boolean(searchFrom || searchTo);
   const searchDatesValid=validPeriod(searchFrom,searchTo,today);
@@ -483,21 +488,22 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
     communityFetch("/api/preferences").then(p=>{if(active)setPrefs(p);}).catch(()=>undefined);
     return()=>{active=false;};
   },[user?.uid,user?.emailVerified]);
-  const savedFilter:SearchFilter={query,country:"ALL",category,price:priceFilter,radius,placeId:origin?.id??""};
+  const savedFilter:SearchFilter={query,country:"ALL",category,...(subcategory?{subcategory}:{}),price:priceFilter,radius,placeId:origin?.id??""};
+  function chooseCategory(next:string,child=""){setCategory(next);setSubcategory(child);setOnlyFavorites(false);}
   const savedMatches=prefs.searches.filter(s=>s.alerts).reduce((sum,s)=>sum+listings.filter(i=>!i.owned&&i.createdAt&&i.createdAt>s.seenThrough&&matchesSearch(s,i)).length,0);
   function openFavorites() {
     if (!user) { setAuthOpen(true); return; }
-    setQuery(""); setCategory("all"); setPriceFilter("all");
+    setQuery(""); setCategory("all");setSubcategory(""); setPriceFilter("all");
     setRadius("all"); setSearchFrom(""); setSearchTo("");
     setOnlyFavorites(true); setTab("home");
   }
   function openHome() { setOnlyFavorites(false); setTab("home"); }
-  function applySearch(filter:SearchFilter){setQuery(filter.query);setCategory(filter.category);setPriceFilter(filter.price);setRadius(filter.radius);setOrigin(places.find(p=>p.id===filter.placeId)??null);setSearchFrom("");setSearchTo("");setOnlyFavorites(false);setTab("home");setNotificationsOpen(false);}
+  function applySearch(filter:SearchFilter){setQuery(filter.query);setCategory(filter.category);setSubcategory(filter.subcategory??"");setPriceFilter(filter.price);setRadius(filter.radius);setOrigin(places.find(p=>p.id===filter.placeId)??null);setSearchFrom("");setSearchTo("");setOnlyFavorites(false);setTab("home");setNotificationsOpen(false);}
   async function favorite(item:Listing){if(!user){setAuthOpen(true);return;}setFavoriteBusy(item.id);try{setPrefs(await communityFetch("/api/preferences",{action:"favorite",id:item.id,enabled:!prefs.favorites.includes(item.id)}));}catch{toast.error((lang === "nb" ? nbText["Favoritten kunne ikke gemmes. Prøv igen."] : (lang==="da"?"Favoritten kunne ikke gemmes. Prøv igen.":"Favoriten kunde inte sparas. Försök igen.")));}finally{setFavoriteBusy(null);}}
   function navigate(next:Tab) {if(next==="map"&&!canViewOwnerMap)return;if(!user && next!=="home" && next!=="wanted"){setAuthOpen(true);return;}setTab(next);}
 
   function resetItemForm() {
-    setEditingId(null); setNewName(""); setNewDescription(""); setNewCategory("tools");setNewDetails({});
+    setEditingId(null); setNewName(""); setNewDescription(""); setNewCategory("tools");setNewSubcategory("");setNewDetails({});
     setPricing("free"); setPriceInput(""); setNewDepositInput(""); setNewPhotos([]); setFormError("");
   }
 
@@ -518,7 +524,7 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
     if (!item.owned) return;
     if(listingPlan==="expired"){setSelected(null);setShowUpgrade(true);return;}
     setSelected(null); setEditingId(item.id); setNewName(item.name); setNewDescription(item.description);
-    setNewCategory(item.category);setNewDetails(item.details??{}); setNewCountry(item.country); setNewPlace(item.place);
+    setNewCategory(item.category);setNewSubcategory(childCategory(item.category,item.subcategory)?item.subcategory!:"");setNewDetails(item.details??{}); setNewCountry(item.country); setNewPlace(item.place);
     setPricing(item.dailyPrice > 0 ? "paid" : "free");
     setPriceInput(item.dailyPrice > 0 ? String(item.dailyPrice / 100).replace(".", (lang === "nb" ? "," : (lang === "da" ? "," : "."))) : "");
     setNewDepositInput(item.deposit ? String(item.deposit/100).replace(".",",") : "");
@@ -586,7 +592,7 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
     const id = editingId ?? crypto.randomUUID();
     const update = {
       id, city: newPlace.city,
-      country: newCountry, place: newPlace, dailyPrice: amount, deposit, category: newCategory,
+      country: newCountry, place: newPlace, dailyPrice: amount, deposit, category: newCategory,subcategory:newSubcategory,
       details:newDetails,description: newDescription || ((lang === "nb" ? nbText["Til udlån efter aftale."] : (lang === "da" ? "Til udlån efter aftale." : "För utlåning enligt överenskommelse."))),
       photos: newPhotos, name:newName.trim(),
     };
@@ -594,7 +600,7 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
     try {
       const previous = editingId ? listings.find(item => item.id === editingId)?.photos ?? [] : [];
       await saveCircleListing(update, previous);
-      setOrigin(newPlace); setCategory("all"); setPriceFilter("all"); setQuery("");
+      setOrigin(newPlace); setCategory("all");setSubcategory(""); setPriceFilter("all"); setQuery("");
       setShowAdd(false); resetItemForm(); setTab("items");
       toast.success(editingId !== null
         ? ((lang === "nb" ? nbText["Dine ændringer er gemt."] : (lang === "da" ? "Dine ændringer er gemt." : "Dina ändringar har sparats.")))
@@ -807,56 +813,12 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
               </div>
             </section>
 
-            <section className="search-filters compact-search" aria-label={(lang === "nb" ? nbText["Søgeområde og pris"] : (lang === "da" ? "Søgeområde og pris" : "Sökområde och pris"))}>
-              <div className="specific-search">
-                <label htmlFor="specific-listing-search">{(lang === "nb" ? nbText["Hvad søger du efter?"] : (lang === "da" ? "Hvad søger du efter?" : "Vad söker du efter?"))}</label>
-                <div>
-                  <Search size={20} aria-hidden="true" />
-                  <input id="specific-listing-search" type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={(lang === "nb" ? nbText["Søg fx efter boremaskine, trailer eller tæpperenser"] : (lang === "da" ? "Søg fx efter boremaskine, trailer eller tæpperenser" : "Sök t.ex. efter borrmaskin, släp eller mattvätt"))} />
-                  {query && <button type="button" onClick={() => setQuery("")} aria-label={(lang === "nb" ? nbText["Ryd søgning"] : (lang === "da" ? "Ryd søgning" : "Rensa sökning"))}><X size={18} /></button>}
-                </div>
-                <small>{(lang === "nb" ? nbText["Søger i annoncens navn, beskrivelse og by."] : (lang === "da" ? "Søger i annoncens navn, beskrivelse og by." : "Söker i annonsens namn, beskrivning och ort."))}</small>
-              </div>
-            <div className="category-strip scrollbar-none" role="list" aria-label="Kategorier">
-              {categories.map((cat) => {
-                const Icon = cat.icon;
-                return <button key={cat.id} data-category={cat.id} role="listitem" className={`category-chip ${category === cat.id ? "active" : ""}`} onClick={() => setCategory(cat.id)}>
-                  <Icon size={19} /><span>{cat[lang]}</span>
-                </button>;
-              })}
-            </div>
-              <div className="filter-grid">
-                <PlacePicker value={origin} onChange={setOrigin} lang={lang} label={(lang === "nb" ? nbText["Søg fra postnummer eller by"] : (lang === "da" ? "Søg fra postnummer eller by" : "Sök från postnummer eller ort"))} />
-                <div className="place-field"><label id="radius-label">Radius</label>
-                  <Select value={radius} onValueChange={setRadius}>
-                    <SelectTrigger aria-labelledby="radius-label" className="!h-12 w-full rounded-xl bg-white"><SelectValue /></SelectTrigger>
-                    <SelectContent>{SEARCH_RADII.map(k=><SelectItem key={k} value={String(k)}>{k} km</SelectItem>)}<SelectItem value="all">{(lang === "nb" ? nbText["Ingen afstandsgrænse"] : (lang === "da" ? "Ingen afstandsgrænse" : "Ingen avståndsgräns"))}</SelectItem></SelectContent>
-                  </Select>
-                </div>
-                <div className="place-field"><label id="price-filter-label">{(lang === "nb" ? nbText["Pris"] : (lang === "da" ? "Pris" : "Pris"))}</label>
-                  <Select value={priceFilter} onValueChange={setPriceFilter}>
-                    <SelectTrigger aria-labelledby="price-filter-label" className="!h-12 w-full rounded-xl bg-white"><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="all">{(lang === "nb" ? nbText["Gratis og betalt"] : (lang === "da" ? "Gratis og betalt" : "Gratis och betalt"))}</SelectItem><SelectItem value="free">{(lang === "nb" ? nbText["Kun gratis"] : (lang === "da" ? "Kun gratis" : "Bara gratis"))}</SelectItem><SelectItem value="paid">{(lang === "nb" ? nbText["Kun betalt"] : (lang === "da" ? "Kun betalt" : "Bara betalt"))}</SelectItem></SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <details className="search-dates"><summary>{(lang === "nb" ? nbText["Vælg datoer (valgfrit)"] : (lang === "da" ? "Vælg datoer (valgfrit)" : "Välj datum (valfritt)"))}{datesEntered ? ` · ${searchFrom} – ${searchTo}` : ""}</summary>
-              <div className="date-search-row">
-                <label>{(lang === "nb" ? nbText["Fra dato"] : (lang === "da" ? "Fra dato" : "Från datum"))}<input type="date" min={today} value={searchFrom} onChange={e=>setSearchFrom(e.target.value)} /></label>
-                <label>{(lang === "nb" ? nbText["Til dato"] : (lang === "da" ? "Til dato" : "Till datum"))}<input type="date" min={searchFrom||today} value={searchTo} onChange={e=>setSearchTo(e.target.value)} /></label>
-                {datesEntered && <button onClick={()=>{setSearchFrom("");setSearchTo("");}}>{(lang === "nb" ? nbText["Ryd datoer"] : (lang === "da" ? "Ryd datoer" : "Rensa datum"))}</button>}
-              </div>
-              <p className="search-date-help">{(lang === "nb" ? nbText["Vælg datoer for at se ting uden kendte reservationer eller blokeringer. Ejeren skal godkende. Begge datoer tæller med i prisen."] : (lang === "da" ? "Vælg datoer for at se ting uden kendte reservationer eller blokeringer. Ejeren skal godkende. Begge datoer tæller med i prisen." : "Välj datum för att se saker utan kända bokningar eller blockeringar. Ägaren måste godkänna. Båda datumen räknas i priset."))}</p>
+            <CompactListingSearch lang={lang} query={query} onQuery={setQuery} origin={origin} onOrigin={setOrigin} radius={radius} onRadius={setRadius} from={searchFrom} to={searchTo} onFrom={setSearchFrom} onTo={setSearchTo} today={today} price={priceFilter} onPrice={setPriceFilter} category={category} subcategory={subcategory} onCategory={chooseCategory} profilePlace={profile?.place} saveControls={<SavedSearches mode="save" lang={lang} prefs={prefs} filter={savedFilter} onChange={setPrefs} onApply={applySearch} items={listings} onLogin={user ? undefined : ()=>setAuthOpen(true)}/>}/>
+            {datesEntered&&<div className="search-results-status">
               {datesEntered && !searchDatesValid && <p role="status">{(lang === "nb" ? nbText["Vælg begge datoer fra i dag, højst 366 dage og inden for de næste to år."] : (lang === "da" ? "Vælg begge datoer fra i dag, højst 366 dage og inden for de næste to år." : "Välj båda datumen från i dag, högst 366 dagar och inom de kommande två åren."))}</p>}
               {datePending && <p role="status">{(lang === "nb" ? nbText["Kontrollerer ledige datoer…"] : (lang === "da" ? "Kontrollerer ledige datoer…" : "Kontrollerar lediga datum…"))}</p>}
               {dateFailed && <p role="alert">{(lang === "nb" ? nbText["Ledighed kunne ikke kontrolleres. Prøv igen eller ryd datoerne."] : (lang === "da" ? "Ledighed kunne ikke kontrolleres. Prøv igen eller ryd datoerne." : "Tillgängligheten kunde inte kontrolleras. Försök igen eller rensa datumen."))} <button onClick={()=>setCalendarRevision(v=>v+1)}>{(lang === "nb" ? nbText["Prøv igen"] : (lang === "da" ? "Prøv igen" : "Försök igen"))}</button></p>}
-              </details>
-              <div className="filter-explanation">
-                <span>{origin ? ((lang === "nb" ? `Utgangspunkt: ${origin.postcode} ${origin.city}. Avstand i luftlinje mellom postområder.` : (lang === "da" ? `Udgangspunkt: ${origin.postcode} ${origin.city}. Afstand i luftlinje mellem postområder.` : `Utgångspunkt: ${origin.postcode} ${origin.city}. Fågelväg mellan postområden.`))) : ((lang === "nb" ? nbText["Vælg et postnummer/by fra listen for at bruge radius."] : (lang === "da" ? "Vælg et postnummer/by fra listen for at bruge radius." : "Välj ett postnummer/ort från listan för att använda radie.")))}</span>
-                {profile && <button onClick={()=>setOrigin(profile.place)}>{(lang === "nb" ? nbText["Brug min by"] : (lang === "da" ? "Brug min by" : "Använd min ort"))}</button>}
-              </div>
-              <SavedSearches mode="save" lang={lang} prefs={prefs} filter={savedFilter} onChange={setPrefs} onApply={applySearch} items={listings} onLogin={user ? undefined : ()=>setAuthOpen(true)} />
-            </section>
+            </div>}
             </>}
             <div className="mb-4 mt-7 flex items-end justify-between">
               <div><p className="text-sm font-bold uppercase tracking-[0.14em] text-[#777b90]">{`${filtered.length} ${t.results}`}{radius !== "all" ? ` · ${radius} km` : ""}</p><h2 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{onlyFavorites ? ((lang === "nb" ? nbText["Mine favoritter"] : (lang === "da" ? "Mine favoritter" : "Mina favoriter"))) : t.popular}</h2></div>
@@ -878,11 +840,13 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
 
         {tab !== "map" && <aside className="hidden xl:block">
           <div className="sticky top-24 space-y-4">
+            {tab==="home"?<CategoryNavigation lang={lang} category={category} subcategory={subcategory} onSelect={chooseCategory}/>:<>
             <CirclePricingInfo lang={lang} trialEligible={currentOffer.trialEligible} hasSubscription={currentOffer.hasSubscription} portalUnavailable={portalUnavailableFor===user?.uid} onOffer={()=>user?setShowUpgrade(true):setAuthOpen(true)}/>
             <div className="rounded-xl border border-[#dde1ec] bg-white p-5">
               <div className="mb-4 flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-xl bg-[#edf2f6] text-[#008EAC]"><MessageCircle size={20} /></span><div><p className="font-bold">Veyro Circle</p><p className="text-xs text-[#74788b]">Danmark · Sverige · Norge</p></div></div>
               <p className="text-sm leading-6 text-[#5f6376]">{(lang === "nb" ? nbText["Del kun ting, du føler dig tryg ved. Aftal altid stand og aflevering i chatten."] : (lang === "da" ? "Del kun ting, du føler dig tryg ved. Aftal altid stand og aflevering i chatten." : "Dela bara saker du känner dig trygg med. Kom alltid överens om skick och återlämning i chatten."))}</p>
             </div>
+            </>}
           </div>
         </aside>}
       </div>
@@ -1031,7 +995,8 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
           <label className="field-label">{t.itemName}<input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={(lang === "nb" ? nbText["Fx tæpperenser"] : (lang === "da" ? "Fx tæpperenser" : "T.ex. mattvätt"))} /></label>
           <div className="field-label">{t.country}<CountrySelect value={newCountry} onChange={c=>{setNewCountry(c);setNewPlace(null);}} lang={lang} /></div>
           <PlacePicker key={newCountry} country={newCountry} value={newPlace} onChange={setNewPlace} lang={lang} label={(lang === "nb" ? nbText["Afhentning · postnummer og by *"] : (lang === "da" ? "Afhentning · postnummer og by *" : "Hämtning · postnummer och ort *"))} />
-          <div className="field-label">{(lang === "nb" ? nbText["Kategori"] : (lang === "da" ? "Kategori" : "Kategori"))}<Select value={newCategory} onValueChange={setNewCategory}><SelectTrigger className="!h-12 w-full bg-white"><SelectValue /></SelectTrigger><SelectContent>{categories.filter(c=>c.id !== "all").map(c=><SelectItem key={c.id} value={c.id}>{c[lang]}</SelectItem>)}</SelectContent></Select></div>
+          <div className="field-label">{(lang === "nb" ? nbText["Kategori"] : (lang === "da" ? "Kategori" : "Kategori"))}<Select value={newCategory} onValueChange={value=>{setNewCategory(value);setNewSubcategory("");}}><SelectTrigger className="!h-12 w-full bg-white"><SelectValue /></SelectTrigger><SelectContent>{categories.filter(c=>c.id !== "all").map(c=><SelectItem key={c.id} value={c.id}>{c[lang]}</SelectItem>)}</SelectContent></Select></div>
+          <label className="field-label">{lang==="sv"?"Underkategori (valfritt)":lang==="nb"?"Underkategori (valgfritt)":"Underkategori (valgfrit)"}<select value={newSubcategory} onChange={event=>setNewSubcategory(event.target.value)}><option value="">{lang==="sv"?"Välj underkategori":lang==="nb"?"Velg underkategori":"Vælg underkategori"}</option>{listingCategories.find(c=>c.id===newCategory)?.children.map(child=><option key={child.id} value={child.id}>{child[lang]}</option>)}</select></label>
           <div className="listing-spec-inputs">{(detailFields[newCategory]??[]).map(field=><label className="field-label" key={field.key}>{field[lang]}<input maxLength={200} value={newDetails[field.key]??""} onChange={e=>setNewDetails(old=>({...old,[field.key]:e.target.value}))} /></label>)}</div>
           <fieldset className="pricing-choice">
             <legend>{(lang === "nb" ? nbText["Hvordan vil du dele tingen?"] : (lang === "da" ? "Hvordan vil du dele tingen?" : "Hur vill du dela saken?"))}</legend>

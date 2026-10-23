@@ -91,7 +91,17 @@ test('invitation and public profile-photo controls are translated and accessible
 test('browsing home omits the large offer and search CTA while preserving Add an item',async()=>{
  const {default:HomePage,setEntryTestUser,setEntryTestView}=await vite.ssrLoadModule('/app/page.tsx');
  setEntryTestUser(null);setEntryTestView('home',false);
- try{const html=renderToStaticMarkup(React.createElement(HomePage));assert.doesNotMatch(html,/hero-trial|Find noget at låne/);assert.match(html,/Tilføj en ting/);assert.match(html,/specific-listing-search/);}finally{setEntryTestView();}
+ try{const html=renderToStaticMarkup(React.createElement(HomePage));assert.doesNotMatch(html,/hero-trial|Find noget at låne|class="sharing-info"|category-strip|search-filters/);assert.match(html,/Tilføj en ting/);assert.match(html,/specific-listing-search/);assert.match(html,/category-navigation/);assert.match(html,/listing-search-line/);}finally{setEntryTestView();}
+});
+
+test('compact search keeps text, area, period and mobile categories in one translated row',async()=>{
+ const {CompactListingSearch,compactSearchCopy}=await vite.ssrLoadModule('/components/compact-listing-search.tsx');
+ for(const lang of ['da','sv','nb']){const c=compactSearchCopy[lang],html=renderToStaticMarkup(React.createElement(CompactListingSearch,{lang,query:'',origin:null,radius:'all',from:'',to:'',today:'2026-10-23',price:'all',category:'all',subcategory:'',onQuery(){},onOrigin(){},onRadius(){},onFrom(){},onTo(){},onPrice(){},onCategory(){},saveControls:null}));assert.match(html,/role="search"/);assert.match(html,/specific-listing-search/);assert.ok(html.includes(c.area));assert.ok(html.includes(c.period));assert.ok(html.includes(c.filters));assert.ok(html.includes(c.categories));assert.doesNotMatch(html,/type="date"|class="filter-grid"|sharing-info/);}
+});
+
+test('category navigation exposes translated parent and child choices with the selected path',async()=>{
+ const {CategoryNavigation}=await vite.ssrLoadModule('/components/category-navigation.tsx');
+ for(const lang of ['da','sv','nb']){const html=renderToStaticMarkup(React.createElement(CategoryNavigation,{lang,category:'tools',subcategory:'drills',onSelect(){}}));assert.match(html,/aria-label="Kategorier"/);assert.match(html,/<details open="">/);assert.match(html,/aria-pressed="true"/);assert.match(html,/category-children/);assert.doesNotMatch(html,/180 dage|Stripe|49 DKK/);}
 });
 
 test('listing badges show only server-rated top items in all languages without overlapping favorite controls',async()=>{
@@ -351,7 +361,7 @@ test("new loan and notification controls have mobile sizing and focus styling",a
 
 test("map and loans omit visible page titles but retain accessible headings",async()=>{
   const page=await readFile(path.join(root,"app/page.tsx"),"utf8");
-  const map=page.slice(page.indexOf('{tab === "map" &&'),page.indexOf('{tab === "map" &&')+1000);
+  const map=page.slice(page.indexOf('<div className="map-page">'),page.indexOf('<div className="map-page">')+1000);
   assert.match(map,/<h1 className="sr-only">[\s\S]*?<\/h1>/);
   assert.doesNotMatch(map,/<header>|className="page-title"|className="eyebrow"/);
   const {RequestsView}=await vite.ssrLoadModule("/app/page.tsx");

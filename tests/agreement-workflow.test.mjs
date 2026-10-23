@@ -306,6 +306,17 @@ test("agreement uses owner deposit; stale or forged terms fail and saved terms s
   assert.equal(retry.status,200);assert.equal((await retry.json()).agreement.deposit,25000);
   assert.equal(s.value("agreements/"+base.id).deposit,25000);
 });
+
+test('listing subcategories are server-validated and old clients preserve existing classifications',async()=>{
+ const s=setup(),draft={...base.item,description:'Trailer',place:{id:'1',country:'DK',city:'Jystrup',postcode:'4174'},photos:[],subcategory:'trailers'};
+ assert.equal((await s.listingCall('owner',draft)).status,200);assert.equal(s.value('listings/'+base.item.id).subcategory,'trailers');
+ assert.equal((await s.listingCall('owner',{...draft,subcategory:undefined})).status,200);assert.equal(s.value('listings/'+base.item.id).subcategory,'trailers');
+ for(const subcategory of ['drills','unknown',{},42])assert.equal((await s.listingCall('owner',{...draft,subcategory})).status,400);
+ assert.equal((await s.listingCall('borrower',draft)).status,403);
+ assert.equal((await s.listingCall('owner',{...draft,subcategory:''})).status,200);assert.equal(s.value('listings/'+base.item.id).subcategory,undefined);
+ assert.equal((await s.listingCall('owner',{...draft,category:'tools',subcategory:'drills'})).status,200);assert.equal(s.value('listings/'+base.item.id).subcategory,'drills');
+ assert.equal((await s.listingCall('owner',{...draft,category:'garden',subcategory:undefined})).status,200);assert.equal(s.value('listings/'+base.item.id).subcategory,undefined);
+});
 test("owner-first signatures support the second account at both handover and return",async()=>{
   const s=setup();s.put("agreements/"+base.id,{...base,requestStatus:"accepted"});
   for(const phase of ["handover","return"]) {

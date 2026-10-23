@@ -13,6 +13,7 @@ export type CircleListingRecord = {
   name: string;
   description: string;
   category: string;
+  subcategory?:string;
   country: Country;
   city: string;
   place: Place;
@@ -40,10 +41,11 @@ function cleanRecord(id: string, value: Record<string, unknown>): CircleListingR
     id,
     ownerUid:value.ownerUid,
     owner:typeof value.owner === "string" ? value.owner : "",
-    name:value.name,
     ownerPhotoUrl:typeof value.ownerPhotoUrl === "string" ? value.ownerPhotoUrl : undefined,
+    name:value.name,
     description:typeof value.description === "string" ? value.description : "",
     category:typeof value.category === "string" ? value.category : "tools",
+    subcategory:typeof value.subcategory === "string" ? value.subcategory : undefined,
     country:place.country,
     city:place.city,
     place,

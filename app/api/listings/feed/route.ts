@@ -24,7 +24,7 @@ export async function GET(request:Request) {
       const ids=publishableIds(listings.filter(l=>l.data.ownerUid===owner).map(l=>({...l.data,id:l.id})),{subscriptionPlan:String(profile.subscriptionPlan??"free"),createdAt:typeof profile.createdAt==="string"?profile.createdAt:doc.createTime,freeAccessStartedAt:typeof profile.freeAccessStartedAt==="string"?profile.freeAccessStartedAt:undefined});
       for(const id of ids)published.add(id);
     }));
-    const fields=["ownerUid","owner","name","description","category","country","city","place","dailyPrice","deposit","photos","active","details","createdAt"];
+    const fields=["ownerUid","owner","name","description","category","subcategory","country","city","place","dailyPrice","deposit","photos","active","details","createdAt"];
     const ratings=await listingPopularity(listings.filter(l=>published.has(l.id)).map(l=>({id:l.id,ownerUid:String(l.data.ownerUid)})));
     return Response.json({listings:listings.filter(l=>published.has(l.id)||l.data.ownerUid===uid).map(l=>({id:l.id,...Object.fromEntries(fields.filter(k=>l.data[k]!==undefined).map(k=>[k,l.data[k]])),publishable:published.has(l.id),...(ownerPhotos.has(String(l.data.ownerUid))?{ownerPhotoUrl:ownerPhotos.get(String(l.data.ownerUid))}:{}),...(ratings[l.id]?{reviewRating:ratings[l.id]}:{})}))},{headers});
   }catch{return Response.json({error:"LISTINGS_UNAVAILABLE"},{status:503,headers});}
