@@ -56,7 +56,7 @@ import {
   SprayCan, Heart, Home, ImagePlus, MapPin, Map as MapIcon, MessageCircle,
   PackagePlus, PartyPopper, Pencil, Search, ShieldCheck, Sparkles, TentTree,
   Trash2, Truck, Utensils, Wrench, X, Crown, FileSignature, Printer, LockKeyhole,
-  LogOut, LoaderCircle, Send, Save, RefreshCw, List, LayoutGrid,
+  LogOut, LoaderCircle, Send, Save, RefreshCw,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -212,7 +212,7 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
   },[]);
   const [prefs,setPrefs]=useState<Preferences>({favorites:[],searches:[]});
   const [onlyFavorites,setOnlyFavorites]=useState(false);
-  const [listingView,setListingView]=useState<"list"|"kanban"|"map">("kanban");
+  const [searchMapOpen,setSearchMapOpen]=useState(false);
   const [favoriteBusy,setFavoriteBusy]=useState<string|null>(null);
   const [authOpen,setAuthOpen]=useState(true);
   const [calendarItem,setCalendarItem]=useState<Listing|null>(null);
@@ -778,7 +778,7 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
       <div data-owner-map={tab === "map" && canViewOwnerMap ? "true" : undefined} className="app-main-grid mx-auto grid max-w-[1440px] gap-7 px-4 pb-28 pt-6 sm:px-6 md:pb-10 lg:grid-cols-[220px_minmax(0,1fr)] lg:px-10 xl:grid-cols-[220px_minmax(0,1fr)_260px]">
         <aside className="hidden lg:block">
           <div className="sticky top-24 space-y-6">
-            <nav className="space-y-1" aria-label="Hovedmenu">
+            <nav className="side-navigation space-y-1" aria-label="Hovedmenu">
               <SideNav icon={Home} label={t.navHome} active={tab === "home" && !onlyFavorites} onClick={openHome} />
               {canViewOwnerMap&&<SideNav icon={MapIcon} label={(lang === "nb" ? nbText["Kort"] : (lang === "da" ? "Kort" : "Karta"))} active={tab === "map"} onClick={() => navigate("map")} />}
               <SideNav icon={Search} label={(lang === "nb" ? nbText["Gemte søgninger"] : (lang === "da" ? "Gemte søgninger" : "Sparade sökningar"))} active={tab === "saved"} onClick={() => navigate("saved")} />
@@ -813,18 +813,15 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
               </div>
             </section>
 
-            <CompactListingSearch lang={lang} query={query} onQuery={setQuery} origin={origin} onOrigin={setOrigin} radius={radius} onRadius={setRadius} from={searchFrom} to={searchTo} onFrom={setSearchFrom} onTo={setSearchTo} today={today} price={priceFilter} onPrice={setPriceFilter} category={category} subcategory={subcategory} onCategory={chooseCategory} profilePlace={profile?.place} saveControls={<SavedSearches mode="save" lang={lang} prefs={prefs} filter={savedFilter} onChange={setPrefs} onApply={applySearch} items={listings} onLogin={user ? undefined : ()=>setAuthOpen(true)}/>}/>
+            <CompactListingSearch onMap={()=>setSearchMapOpen(true)} lang={lang} query={query} onQuery={setQuery} origin={origin} onOrigin={setOrigin} radius={radius} onRadius={setRadius} from={searchFrom} to={searchTo} onFrom={setSearchFrom} onTo={setSearchTo} today={today} price={priceFilter} onPrice={setPriceFilter} category={category} subcategory={subcategory} onCategory={chooseCategory} profilePlace={profile?.place} saveControls={<SavedSearches mode="save" lang={lang} prefs={prefs} filter={savedFilter} onChange={setPrefs} onApply={applySearch} items={listings} onLogin={user ? undefined : ()=>setAuthOpen(true)}/>}/>
             {datesEntered&&<div className="search-results-status">
               {datesEntered && !searchDatesValid && <p role="status">{(lang === "nb" ? nbText["Vælg begge datoer fra i dag, højst 366 dage og inden for de næste to år."] : (lang === "da" ? "Vælg begge datoer fra i dag, højst 366 dage og inden for de næste to år." : "Välj båda datumen från i dag, högst 366 dagar och inom de kommande två åren."))}</p>}
               {datePending && <p role="status">{(lang === "nb" ? nbText["Kontrollerer ledige datoer…"] : (lang === "da" ? "Kontrollerer ledige datoer…" : "Kontrollerar lediga datum…"))}</p>}
               {dateFailed && <p role="alert">{(lang === "nb" ? nbText["Ledighed kunne ikke kontrolleres. Prøv igen eller ryd datoerne."] : (lang === "da" ? "Ledighed kunne ikke kontrolleres. Prøv igen eller ryd datoerne." : "Tillgängligheten kunde inte kontrolleras. Försök igen eller rensa datumen."))} <button onClick={()=>setCalendarRevision(v=>v+1)}>{(lang === "nb" ? nbText["Prøv igen"] : (lang === "da" ? "Prøv igen" : "Försök igen"))}</button></p>}
             </div>}
             </>}
-            <div className="mb-4 mt-7 flex items-end justify-between">
-              <div><p className="text-sm font-bold uppercase tracking-[0.14em] text-[#777b90]">{`${filtered.length} ${t.results}`}{radius !== "all" ? ` · ${radius} km` : ""}</p><h2 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{onlyFavorites ? ((lang === "nb" ? nbText["Mine favoritter"] : (lang === "da" ? "Mine favoritter" : "Mina favoriter"))) : t.popular}</h2></div>
-            </div>
-            <div className="listing-view-toggle" role="group" aria-label={(lang === "nb" ? nbText["Visning af annoncer"] : (lang === "da" ? "Visning af annoncer" : "Annonsvisning"))}><button aria-pressed={listingView === "list"} onClick={()=>setListingView("list")}><List size={18}/>{(lang === "nb" ? nbText["Listevisning"] : (lang === "da" ? "Listevisning" : "Listvy"))}</button><button aria-pressed={listingView === "kanban"} onClick={()=>setListingView("kanban")}><LayoutGrid size={18}/>Kanban</button><button aria-pressed={listingView==="map"} onClick={()=>setListingView("map")}><MapIcon size={18}/>{lang==="sv"?"Karta":"Kort"}</button></div>
-            {listingsLoading ? <p role="status">{(lang === "nb" ? nbText["Henter annoncer…"] : (lang === "da" ? "Henter annoncer…" : "Hämtar annonser…"))}</p> : listingsError ? <p role="alert">{(lang === "nb" ? nbText["Annoncerne kunne ikke hentes. Genindlæs siden."] : (lang === "da" ? "Annoncerne kunne ikke hentes. Genindlæs siden." : "Annonserna kunde inte hämtas. Ladda om sidan."))}</p> : datePending || dateFailed || (datesEntered && !searchDatesValid) ? null : filtered.length ? listingView==="map"?<ListingResultsMap key={filtered.map(item=>`${item.id}:${item.place.id}`).join("|")} items={filtered} lang={lang} onOpen={id=>{const item=filtered.find(candidate=>candidate.id===id);if(item)setSelected(item);}}/>:<div className={`listing-grid ${listingView === "list" ? "listing-list" : ""}`}>{filtered.map((item) => <ListingCard key={item.id} item={item} lang={lang} freeLabel={priceLabel(item, lang)} periodDays={searchDays} favorite={prefs.favorites.includes(item.id)} busy={favoriteBusy===item.id} onFavorite={()=>void favorite(item)} onOpen={() => setSelected(item)} />)}</div> :
+            {onlyFavorites&&<h2 className="mt-5 mb-3 text-2xl font-bold">{lang==="sv"?"Mina favoriter":lang==="nb"?"Mine favoritter":"Mine favoritter"}</h2>}
+            {listingsLoading ? <p role="status">{(lang === "nb" ? nbText["Henter annoncer…"] : (lang === "da" ? "Henter annoncer…" : "Hämtar annonser…"))}</p> : listingsError ? <p role="alert">{(lang === "nb" ? nbText["Annoncerne kunne ikke hentes. Genindlæs siden."] : (lang === "da" ? "Annoncerne kunne ikke hentes. Genindlæs siden." : "Annonserna kunde inte hämtas. Ladda om sidan."))}</p> : datePending || dateFailed || (datesEntered && !searchDatesValid) ? null : filtered.length ? <div className="listing-grid search-result-cards">{filtered.map((item) => <ListingCard key={item.id} item={item} lang={lang} freeLabel={priceLabel(item, lang)} periodDays={searchDays} favorite={prefs.favorites.includes(item.id)} busy={favoriteBusy===item.id} onFavorite={()=>void favorite(item)} onOpen={() => setSelected(item)} />)}</div> :
               <div className="rounded-xl border border-dashed border-[#cbd0dd] bg-white px-6 py-16 text-center"><Search className="mx-auto mb-4 text-[#85899b]" size={34} /><p className="font-bold">{onlyFavorites ? ((lang === "nb" ? nbText["Du har ingen favoritter endnu. Tryk på hjertet på en annonce for at gemme den."] : (lang === "da" ? "Du har ingen favoritter endnu. Tryk på hjertet på en annonce for at gemme den." : "Du har inga favoriter ännu. Tryck på hjärtat på en annons för att spara den."))) : t.noResults}</p></div>}
           </>}
 
@@ -899,6 +896,7 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
         </DialogContent>}
       </Dialog>
 
+      <Dialog open={searchMapOpen} onOpenChange={setSearchMapOpen}><DialogContent className="search-map-dialog"><DialogHeader><DialogTitle>{lang==="sv"?"Sökresultat på karta":lang==="nb"?"Søkeresultater på kart":"Søgeresultater på kort"}</DialogTitle><DialogDescription>{lang==="sv"?"Samma sökning, område, period och filter som på förstasidan.":lang==="nb"?"Samme søk, område, periode og filtre som på forsiden.":"Samme søgning, område, periode og filtre som på forsiden."}</DialogDescription></DialogHeader>{listingsLoading||datePending?<p role="status">{lang==="sv"?"Hämtar resultat…":lang==="nb"?"Henter resultater…":"Henter resultater…"}</p>:listingsError||dateFailed?<p role="alert">{lang==="sv"?"Resultaten kunde inte hämtas. Försök igen.":lang==="nb"?"Resultatene kunne ikke hentes. Prøv igjen.":"Resultaterne kunne ikke hentes. Prøv igen."}</p>:filtered.length?<ListingResultsMap key={filtered.map(item=>item.id).join("|")} items={filtered} lang={lang} onOpen={id=>{const item=filtered.find(candidate=>candidate.id===id);if(item){setSearchMapOpen(false);setSelected(item);}}}/>:<p>{t.noResults}</p>}</DialogContent></Dialog>
       <Dialog open={!!ownerProfileUid} onOpenChange={open=>!open&&setOwnerProfileUid(null)}><DialogContent className="owner-profile-dialog"><DialogHeader><DialogTitle>{ownerProfileCopy[lang].title}</DialogTitle><DialogDescription>{ownerProfileCopy[lang].description}</DialogDescription></DialogHeader>{ownerProfileUid&&<CircleOwnerProfile key={ownerProfileUid} uid={ownerProfileUid} lang={lang} onListing={record=>{setOwnerProfileUid(null);setSelected(listingFromCloud(record,user?.uid??""));}}/>}</DialogContent></Dialog>
 
       <Dialog open={!!calendarItem} onOpenChange={open=>!open && setCalendarItem(null)}><DialogContent className="calendar-dialog"><DialogHeader><DialogTitle>{calendarItem?.name}</DialogTitle><DialogDescription>{(lang === "nb" ? nbText["Administrér ledige og blokerede dage"] : (lang === "da" ? "Administrér ledige og blokerede dage" : "Hantera lediga och blockerade dagar"))}</DialogDescription></DialogHeader>{calendarItem && <ListingCalendar key={calendarItem.id} id={calendarItem.id} lang={lang} owner />}</DialogContent></Dialog>
