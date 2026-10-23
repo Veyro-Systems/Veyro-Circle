@@ -759,11 +759,11 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
           <button className="brand-lockup" onClick={openHome} aria-label={(lang === "nb" ? nbText["Veyro Circle hjem"] : (lang === "da" ? "Veyro Circle hjem" : "Veyro Circle hem"))}>
             <img src="/branding/veyro-systems-logo.png" alt="Veyro Systems" /><span>Circle</span>
           </button>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="app-header-actions ml-auto flex items-center gap-2">
             <button className="icon-button notification-bell" onClick={()=>user?setNotificationsOpen(true):setAuthOpen(true)} aria-label={`${(lang === "nb" ? nbText["Notifikationer"] : (lang === "da" ? "Notifikationer" : "Aviseringar"))} · ${unreadCount} ${(lang === "nb" ? nbText["ulæste"] : (lang === "da" ? "ulæste" : "olästa"))}`}><Bell size={20} />{unreadCount > 0 && <b>{unreadCount > 99 ? "99+" : unreadCount}</b>}</button>
             <LanguageSwitcher compact lang={lang} disabled={languageSaving} onChange={value=>void changeLanguage(value)}/>
-            <button className="flex min-h-11 items-center gap-2 rounded-full bg-[#172936] px-3 text-sm font-semibold text-white" onClick={() => navigate("profile")}>
-              <CircleUserRound size={18} />{profile ? profile.name.split(" ")[0] : ((lang === "nb" ? nbText["Log ind / opret"] : (lang === "da" ? "Log ind / opret" : "Logga in / skapa")))}
+            <button className="header-account-button flex min-h-11 items-center gap-2 rounded-full bg-[#172936] px-3 text-sm font-semibold text-white" onClick={() => navigate("profile")}>
+              <CircleUserRound size={18} /><span>{profile ? profile.name.split(" ")[0] : ((lang === "nb" ? nbText["Log ind / opret"] : (lang === "da" ? "Log ind / opret" : "Logga in / skapa")))}</span>
             </button>
           </div>
         </div>

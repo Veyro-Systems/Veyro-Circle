@@ -952,3 +952,9 @@ button:focus-visible,a:focus-visible { outline:3px solid #819eb6; outline-offset
 .listing-grid:not(.listing-list) .listing-card-main { display:flex; flex-direction:column; justify-content:flex-start; }
 .listing-grid:not(.listing-list) .listing-image { width:100%; flex-shrink:0; }
 @media(min-width:1200px) { .listing-grid:not(.listing-list) { grid-template-columns:repeat(3,minmax(0,1fr)); gap:.85rem; } .listing-grid:not(.listing-list) .listing-card-main>.p-4 { padding:.85rem; } }
+
+.app-header-actions { min-width:0; }
+.header-account-button { min-width:0; }
+.header-account-button svg { flex-shrink:0; }
+.header-account-button span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+@media(max-width:639px) { .header-account-button { max-width:140px; } .app-header-actions> :not(.header-account-button) { flex-shrink:0; } }
