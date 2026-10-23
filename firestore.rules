@@ -18,6 +18,8 @@ service cloud.firestore {
       // Profiler skrives kun via serveren, som håndhæver én konto pr. abonnent.
       allow create, update, delete: if false;
     }
+    match /inviteCodes/{code} { allow read, write: if false; }
+    match /inviteSignups/{uid} { allow read, write: if false; }
     match /accountIdentityPhones/{fingerprint} {
       allow read, write: if false;
     }

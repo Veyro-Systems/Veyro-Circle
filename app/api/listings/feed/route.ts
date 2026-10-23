@@ -2,6 +2,7 @@ import {verifyFirebaseRequest,getFirestoreDocument,serviceToken} from "@/lib/fir
 import {serverConfig} from "@/lib/server-config";
 import {decodeFields,type Value} from "@/lib/firestore-values";
 import {publishableIds} from "@/lib/listing-access";
+import {listingPopularity} from "@/lib/listing-popularity";
 const headers={"cache-control":"private, no-store"};
 export async function GET(request:Request) {
   let uid="";
@@ -22,6 +23,7 @@ export async function GET(request:Request) {
       for(const id of ids)published.add(id);
     }));
     const fields=["ownerUid","owner","name","description","category","country","city","place","dailyPrice","deposit","photos","active","details","createdAt"];
-    return Response.json({listings:listings.filter(l=>published.has(l.id)||l.data.ownerUid===uid).map(l=>({id:l.id,...Object.fromEntries(fields.filter(k=>l.data[k]!==undefined).map(k=>[k,l.data[k]])),publishable:published.has(l.id)}))},{headers});
+    const ratings=await listingPopularity(listings.filter(l=>published.has(l.id)).map(l=>({id:l.id,ownerUid:String(l.data.ownerUid)})));
+    return Response.json({listings:listings.filter(l=>published.has(l.id)||l.data.ownerUid===uid).map(l=>({id:l.id,...Object.fromEntries(fields.filter(k=>l.data[k]!==undefined).map(k=>[k,l.data[k]])),publishable:published.has(l.id),...(ratings[l.id]?{reviewRating:ratings[l.id]}:{})}))},{headers});
   }catch{return Response.json({error:"LISTINGS_UNAVAILABLE"},{status:503,headers});}
 }

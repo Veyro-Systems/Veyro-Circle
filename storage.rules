@@ -1,6 +1,8 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    // Public profile photos are decoded, stored and removed only by the verified server.
+    match /profile-photos/{allPaths=**} { allow read, write: if false; }
     // Private evidence: only the verified server API may access these objects.
     match /agreement-evidence/{allPaths=**} {
       allow read, write: if false;

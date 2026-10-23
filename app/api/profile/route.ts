@@ -4,11 +4,13 @@ import { commitFirestoreWrites, firestoreDocumentName, getFirestoreDocument, ver
 import { serverConfig } from "@/lib/server-config";
 import { storedLanguage } from "@/lib/region";
 import {notifyOwnersOfSignup} from "@/lib/push-server";
+import {lookupInviter} from "@/lib/invitation-server";
+import {INVITATION_CONSENT_VERSION} from "@/lib/invitation-client";
 
 type Payload = {
   defaultRadiusKm?:number; name?:string; email?:string; phone?:string; street?:string;
   place?:{id?:string; country?:string; postcode?:string; city?:string; lat?:number; lon?:number};
-  taxAcknowledgement?:{version?:string; country?:string; acceptedAt?:string}; preferredLanguage?:string;
+  taxAcknowledgement?:{version?:string; country?:string; acceptedAt?:string}; preferredLanguage?:string; invitationCode?:string; invitationConsentVersion?:string;
 };
 
 const text = (value: string): FirestoreField => ({stringValue:value});
@@ -58,6 +60,7 @@ export async function POST(request: Request) {
       oldPhoneKey && oldPhoneKey !== phoneKey ? getFirestoreDocument(`accountIdentityPhones/${oldPhoneKey}`) : null,
       oldCompositeKey && oldCompositeKey !== compositeKey ? getFirestoreDocument(`accountIdentityProfiles/${oldCompositeKey}`) : null,
     ]);
+    const invitedBy=existing||body.invitationConsentVersion!==INVITATION_CONSENT_VERSION?null:await lookupInviter(body.invitationCode,identity.localId);
     const now = new Date().toISOString();
     const writes: unknown[] = [];
     const reserve = (path:string, current:typeof phoneDoc) => {
@@ -76,8 +79,10 @@ export async function POST(request: Request) {
       userFields.createdAt = timestamp(now); userFields.subscriptionPlan = text("free");
       const accountCreated=Number(identity.createdAt);
       userFields.freeAccessStartedAt=timestamp(Number.isFinite(accountCreated)&&accountCreated>0&&accountCreated<=Date.now()?new Date(accountCreated).toISOString():now);
+      if(invitedBy)userFields.referredByUid=text(invitedBy);
     }
     writes.push({update:{name:firestoreDocumentName(`users/${identity.localId}`),fields:userFields},updateMask:{fieldPaths:Object.keys(userFields)},...(!existing?{currentDocument:{exists:false}}:{})});
+    if(invitedBy)writes.push({update:{name:firestoreDocumentName(`inviteSignups/${identity.localId}`),fields:{inviterUid:text(invitedBy),joinedAt:timestamp(now),consentVersion:text(INVITATION_CONSENT_VERSION)}},currentDocument:{exists:false}});
     if (oldPhoneKey && oldPhoneKey !== phoneKey && oldPhoneDoc?.fields?.uid?.stringValue === identity.localId) writes.push({delete:firestoreDocumentName(`accountIdentityPhones/${oldPhoneKey}`)});
     if (oldCompositeKey && oldCompositeKey !== compositeKey && oldCompositeDoc?.fields?.uid?.stringValue === identity.localId) writes.push({delete:firestoreDocumentName(`accountIdentityProfiles/${oldCompositeKey}`)});
     await commitFirestoreWrites(writes);

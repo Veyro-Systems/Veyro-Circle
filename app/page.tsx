@@ -13,6 +13,8 @@ import { CirclePricingInfo } from "@/components/circle-pricing-info";
 
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import {CircleOwnerProfile,ownerProfileCopy} from "@/components/circle-owner-profile";
+import {CircleInvitePanel} from "@/components/circle-invite-panel";
+import {ProfilePhotoSettings} from "@/components/profile-photo-settings";
 import {FavoriteButton} from "@/components/favorite-button";
 import {ListingResultsMap} from "@/components/listing-results-map";
 import { ListingReviews,ReviewForm } from "@/components/circle-reviews";
@@ -73,6 +75,7 @@ type Listing = {
   ownerStreet: string; ownerPhone: string; ownerUid?: string;
   distance: number; category: string; icon: typeof Drill; color: string;
   publishable?:boolean;description: string; details?:Record<string,string>;createdAt?:string; rating: number; availability: string;
+  reviewRating?:CircleListingRecord["reviewRating"];
   place: Place; dailyPrice: number; deposit?:number; photos?: CompressedListingImage[]; owned?: boolean;
 };
 
@@ -798,9 +801,7 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
               <div className="relative z-10 max-w-[540px] p-6 text-white sm:p-8 lg:p-10">
                 <span className="hero-kicker"><Sparkles size={15} />{t.heroKicker}</span>
                 <h1>{t.heroTitle}</h1><p>{t.heroText}</p>
-                {!currentOffer.hasSubscription&&(!user||currentOffer.access)&&<div className="hero-trial"><strong>{currentOffer.access?.paymentRequired?memberCopy.expired:memberCopy.headline}</strong><p>{currentOffer.access?.paymentRequired?memberCopy.expiredNote:memberCopy.terms}</p></div>}
                 <div className="mt-6 flex flex-wrap gap-3">
-                  <Button onClick={() => document.getElementById("specific-listing-search")?.focus()} className="h-12 rounded-lg bg-[#f5bf42] px-6 font-semibold text-[#172936] hover:bg-[#ffcf62]"><Search className="mr-2" size={18} />{t.heroButton}</Button>
                   <Button onClick={openAdd} variant="outline" className="h-12 rounded-lg border-white/35 bg-white/12 px-6 font-bold text-white backdrop-blur hover:bg-white/20 hover:text-white"><PackagePlus className="mr-2" size={18} />{t.addItem}</Button>
                 </div>
               </div>
@@ -870,8 +871,8 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
           {tab === "map" && canViewOwnerMap && <div className="map-page"><h1 className="sr-only">{(lang === "nb" ? nbText["Kort"] : (lang === "da" ? "Kort" : "Karta"))}</h1>{profile ? <CommunityMap origin={profile.place} radiusKm={defaultSearchRadius(profile.defaultRadiusKm)} lang={lang} /> : <div className="content-panel"><p>{(lang === "nb" ? nbText["Udfyld din profil for at se kortet med udgangspunkt i dit postnummer."] : (lang === "da" ? "Udfyld din profil for at se kortet med udgangspunkt i dit postnummer." : "Fyll i din profil för att se kartan med utgångspunkt i ditt postnummer."))}</p><Button className="mt-4" onClick={()=>setTab("profile")}>{(lang === "nb" ? nbText["Gå til konto"] : (lang === "da" ? "Gå til konto" : "Gå till konto"))}</Button></div>}</div>}
           {tab === "items" && <ItemsView lang={lang} profile={profile} listings={listings.filter(item => item.owned)} plan={listingPlan} onAdd={openAdd} onEdit={openEdit} onDelete={setPendingDelete} onCalendar={setCalendarItem} />}
           {tab === "requests" && <RequestsView t={t} loans={loans} lang={lang} userUid={user?.uid ?? ""} loading={agreementsLoading} loadError={agreementsError} direction={loanDirection} setDirection={setLoanDirection} archive={loanArchive} setArchive={setLoanArchive} onChat={setChatLoan} onAgreement={openAgreement} onDecision={(loan,action)=>setPendingDecision({loan,action})} />}
-          {tab === "profile" && user?.emailVerified && <ProfileView lang={lang} profile={profile} authenticatedEmail={user.email || undefined} onSave={saveProfile}
-            onLogout={logout} onSubscription={() => setTab("subscription")} onPublicProfile={()=>user&&setOwnerProfileUid(user.uid)} />}
+          {tab === "profile" && user?.emailVerified && <><ProfileView lang={lang} profile={profile} photoEditor={profile?<ProfilePhotoSettings user={user} lang={lang}/>:undefined} authenticatedEmail={user.email || undefined} onSave={saveProfile}
+            onLogout={logout} onSubscription={() => setTab("subscription")} onPublicProfile={()=>user&&setOwnerProfileUid(user.uid)} />{profile&&<CircleInvitePanel lang={lang} user={user}/>}</>}
           {tab === "subscription" && <SubscriptionView lang={lang} plan={listingPlan} billingDetails={currentOffer} portalUnavailable={portalUnavailableFor===user?.uid} used={listings.filter(item => item.owned).length} onBack={() => setTab("profile")} onUpgrade={() => setShowUpgrade(true)} onManage={() => billing("portal")} />}
         </section>
 
@@ -1131,7 +1132,9 @@ function DepositSummary({amount,country,lang,explain=false}:{amount:number;count
 
 function ListingCard({ item, lang, freeLabel, onOpen,periodDays,favorite,busy,onFavorite }: { item: Listing; lang:Lang; freeLabel: string; onOpen: () => void; periodDays?:number|null;favorite?:boolean;busy?:boolean;onFavorite?:()=>void }) {
   const Icon = item.icon;
-  return <article className="listing-card text-left"><button onClick={onOpen} className="listing-card-main" aria-label={item.name}><div className={`listing-image bg-gradient-to-br ${item.color}`}>{item.photos?.[0] ? <img src={item.photos[0].src} alt={item.name} /> : <Icon size={57} strokeWidth={1.4} className="text-[#172936]/70" />}<span className={`free-tag ${item.dailyPrice === 0 ? "is-free" : "is-paid"}`}>{freeLabel}</span>{item.photos && item.photos.length > 1 && <span className="photo-count"><Camera size={14} />{item.photos.length}</span>}</div><div className="p-4"><div className="flex items-start justify-between gap-2"><h3>{item.name}</h3></div><p className="mt-2 flex items-center gap-1.5 text-sm text-[#6d7185]"><MapPin size={15} />{item.city} · {Number.isFinite(item.distance) ? `ca. ${item.distance.toLocaleString("da-DK", {maximumFractionDigits: 1})} km` : ""}</p><p className="period-price">{periodDays ? <>{(lang === "nb" ? nbText["Pris for perioden"] : (lang === "da" ? "Pris for perioden" : "Pris för perioden"))}: <strong>{money(item.dailyPrice*periodDays,item.country,lang)}</strong> · {periodDays} {(lang === "nb" ? nbText["dage"] : (lang === "da" ? "dage" : "dagar"))}</> : null}</p><p className="mt-2 text-sm text-[#172936]">{(lang === "nb" ? nbText["Depositum"] : (lang === "da" ? "Depositum" : "Deposition"))}: {item.deposit ? money(item.deposit,item.country,lang) : ((lang === "nb" ? nbText["Intet"] : (lang === "da" ? "Intet" : "Ingen")))}</p><div className="mt-3 flex items-center gap-2"><span className="size-2 rounded-full bg-[#38a66b]" /><span className="text-xs font-bold text-[#397252]">{item.availability}</span></div></div></button><FavoriteButton active={favorite} busy={busy} lang={lang} onClick={onFavorite}/></article>;
+  const score=item.reviewRating;
+  const scoreText=score?`${score.average.toLocaleString(lang==="sv"?"sv-SE":lang==="nb"?"nb-NO":"da-DK",{maximumFractionDigits:1})} / 6 · ${score.count} ${lang==="sv"?(score.count===1?"omdöme":"omdömen"):lang==="nb"?(score.count===1?"vurdering":"vurderinger"):(score.count===1?"anmeldelse":"anmeldelser")}`:"";
+  return <article className="listing-card text-left"><button onClick={onOpen} className="listing-card-main" aria-label={item.name}><div className={`listing-image bg-gradient-to-br ${item.color}`}>{item.photos?.[0] ? <img src={item.photos[0].src} alt={item.name} /> : <Icon size={57} strokeWidth={1.4} className="text-[#172936]/70" />}<span className={`free-tag ${item.dailyPrice === 0 ? "is-free" : "is-paid"}`}>{freeLabel}</span>{score?.popular&&<span className="listing-popular" title={`${lang==="sv"?"Högst genomsnittligt betyg":lang==="nb"?"Høyest gjennomsnittlig vurdering":"Højeste gennemsnitlige bedømmelse"}: ${scoreText}`}>{lang==="sv"?"Populär":lang==="nb"?"Populær":"Populær"}</span>}{item.photos && item.photos.length > 1 && <span className="photo-count"><Camera size={14} />{item.photos.length}</span>}</div><div className="p-4"><div className="flex items-start justify-between gap-2"><h3>{item.name}</h3></div><p className="mt-2 flex items-center gap-1.5 text-sm text-[#6d7185]"><MapPin size={15} />{item.city} · {Number.isFinite(item.distance) ? `ca. ${item.distance.toLocaleString("da-DK", {maximumFractionDigits: 1})} km` : ""}</p>{score&&<p className="listing-review-score"><Heart size={14} fill="currentColor" aria-hidden="true"/>{scoreText}</p>}<p className="period-price">{periodDays ? <>{(lang === "nb" ? nbText["Pris for perioden"] : (lang === "da" ? "Pris for perioden" : "Pris för perioden"))}: <strong>{money(item.dailyPrice*periodDays,item.country,lang)}</strong> · {periodDays} {(lang === "nb" ? nbText["dage"] : (lang === "da" ? "dage" : "dagar"))}</> : null}</p><p className="mt-2 text-sm text-[#172936]">{(lang === "nb" ? nbText["Depositum"] : (lang === "da" ? "Depositum" : "Deposition"))}: {item.deposit ? money(item.deposit,item.country,lang) : ((lang === "nb" ? nbText["Intet"] : (lang === "da" ? "Intet" : "Ingen")))}</p><div className="mt-3 flex items-center gap-2"><span className="size-2 rounded-full bg-[#38a66b]" /><span className="text-xs font-bold text-[#397252]">{item.availability}</span></div></div></button><FavoriteButton active={favorite} busy={busy} lang={lang} onClick={onFavorite}/></article>;
 }
 
 function SideNav({ icon: Icon, label, active, badge, onClick }: { icon: typeof Home; label: string; active?: boolean; badge?: string; onClick: () => void }) {
@@ -1285,9 +1288,9 @@ function LoanRow({ title, owner, ticket, status, statusClass, icon: Icon, onChat
   return <article className="loan-row"><div className="flex size-16 shrink-0 items-center justify-center rounded-xl bg-[#eef0f8]"><Icon size={31} className="text-[#008EAC]" /></div><div className="min-w-0 flex-1"><p className="loan-kind">{(lang === "nb" ? nbText["Udlånt / lejet"] : (lang === "da" ? "Udlånt / lejet" : "Utlånat / hyrt"))}</p><h3 className="truncate font-semibold">{title}</h3><p className="mt-1 text-sm text-[#73778b]">{owner}</p><div className="loan-ticket-meta"><span><b>Ticket:</b> {ticket}</span><span><b>{(lang === "nb" ? nbText["Periode:"] : (lang === "da" ? "Periode:" : "Period:"))}</b> {dates}</span></div><span className={`loan-status ${statusClass}`}>{status}</span></div><button onClick={onChat} className="chat-button"><MessageCircle size={18} /><span className="hidden sm:inline">{chatLabel}</span></button></article>;
 }
 
-function ProfileView({ lang, profile, authenticatedEmail, onSave, onLogout, onSubscription, onPublicProfile }: {
+function ProfileView({ lang, profile, photoEditor, authenticatedEmail, onSave, onLogout, onSubscription, onPublicProfile }: {
   lang: Lang; profile: Profile | null; onSave: (p: Profile)=>Promise<void>;
-  authenticatedEmail?: string; onLogout: () => void;
+  photoEditor?:React.ReactNode; authenticatedEmail?: string; onLogout: () => void;
   onSubscription: () => void; onPublicProfile: () => void;
 }) {
   return <div className="content-panel">
@@ -1305,7 +1308,7 @@ function ProfileView({ lang, profile, authenticatedEmail, onSave, onLogout, onSu
         <Button type="button" variant="outline" className="logout-button" onClick={onLogout}><LogOut size={17}/>{lang==="nb"?"Logg ut":lang==="da"?"Log ud":"Logga ut"}</Button>
       </div>
     </div>
-    <ProfileForm profile={profile} lang={lang} authenticatedEmail={authenticatedEmail} onSave={onSave} />
+    {photoEditor}<ProfileForm profile={profile} lang={lang} authenticatedEmail={authenticatedEmail} onSave={onSave} />
   </div>;
 }
 

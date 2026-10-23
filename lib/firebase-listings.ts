@@ -20,11 +20,12 @@ export type CircleListingRecord = {
   photos: CompressedListingImage[];
   active: boolean;
   publishable?:boolean;
+  reviewRating?:{average:number;count:number;popular:boolean};
   details?:Record<string,string>;
   createdAt?:string;
 };
 
-export type CircleListingDraft = Omit<CircleListingRecord, "ownerUid" | "owner" | "active">;
+export type CircleListingDraft = Omit<CircleListingRecord, "ownerUid" | "owner" | "active" | "reviewRating">;
 export type CircleListingContact = { name:string; street:string; phone:string; place:Place };
 
 function cleanRecord(id: string, value: Record<string, unknown>): CircleListingRecord | null {
@@ -48,6 +49,7 @@ function cleanRecord(id: string, value: Record<string, unknown>): CircleListingR
     deposit:typeof value.deposit === "number" ? value.deposit : 0,
     photos:photos.slice(0, 2),
     active:true,publishable:value.publishable===true,
+    reviewRating:value.reviewRating as CircleListingRecord["reviewRating"],
     details:typeof value.details === "object" && value.details ? value.details as Record<string,string> : {},
     createdAt:typeof value.createdAt === "string" ? value.createdAt : value.createdAt && typeof value.createdAt === "object" && "toDate" in value.createdAt ? (value.createdAt as {toDate:()=>Date}).toDate().toISOString() : "",
   };

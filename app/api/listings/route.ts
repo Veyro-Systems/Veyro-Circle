@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { commitFirestoreWrites, firestoreDocumentName, firestoreDocumentUrl, getFirestoreDocument, getServerProfile, serviceToken, verifyFirebaseRequest } from "@/lib/firebase-server";
 import { serverConfig } from "@/lib/server-config";
 import { circleAccess } from "@/lib/circle-access";
+import {markInvitedUserShared} from "@/lib/invitation-server";
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key:string]:JsonValue };
 type FirestoreValue = { nullValue?:null; booleanValue?:boolean; integerValue?:string; doubleValue?:number; stringValue?:string; timestampValue?:string; arrayValue?:{values?:FirestoreValue[]}; mapValue?:{fields?:Record<string,FirestoreValue>} };
@@ -89,6 +90,7 @@ export async function POST(request:Request) {
     const writes:unknown[]=[{update:{name:firestoreDocumentName(`listings/${id}`),fields},currentDocument:existing?{updateTime:existing.updateTime}:{exists:false}}];
     if(activating)writes.push({update:{name:firestoreDocumentName(`listingLocks/${identity.localId}`),fields:{updatedAt:{timestampValue:now}}},currentDocument:listingLock?{updateTime:listingLock.updateTime}:{exists:false}});
     await commitFirestoreWrites(writes);
+    after(()=>markInvitedUserShared(identity.localId));
     if(!existing) after(()=>notifyListingMatches(id,identity.localId,{name,description,country,category:listing!.category!,dailyPrice:listing!.dailyPrice!,place:place as unknown as Place,city:String(place.city)}));
     return NextResponse.json({ok:true,id});
   } catch (cause) {

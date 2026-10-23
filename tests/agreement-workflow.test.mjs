@@ -203,7 +203,7 @@ function setup() {
     return docs.has(path) ? Response.json(structuredClone(docs.get(path))) : Response.json({},{status:404});
   };
   const pushes=[];
-  const dependencies={"@/lib/search-alerts":{notifyListingMatches:async()=>{}},"@/lib/push-server":{sendCirclePush:async(...args)=>pushes.push(args)},"next/server":{after:fn=>fn(),NextResponse:{json:(data,options)=>Response.json(data,options)}},"@/lib/firebase-server":server,"@/lib/server-config":{serverConfig:()=>"test"},"@/lib/agreement-workflow":policy,"@/lib/marketplace":market,"@/lib/agreement-photos":photoPolicy};
+  const dependencies={"@/lib/invitation-server":{markInvitedUserShared:async()=>{},lookupInviter:async()=>null},"@/lib/search-alerts":{notifyListingMatches:async()=>{}},"@/lib/push-server":{sendCirclePush:async(...args)=>pushes.push(args)},"next/server":{after:fn=>fn(),NextResponse:{json:(data,options)=>Response.json(data,options)}},"@/lib/firebase-server":server,"@/lib/server-config":{serverConfig:()=>"test"},"@/lib/agreement-workflow":policy,"@/lib/marketplace":market,"@/lib/agreement-photos":photoPolicy};
   const calendarPolicy=load("../lib/listing-calendar.ts",{"./marketplace":market});
   dependencies["@/lib/listing-calendar"]=calendarPolicy;
   const calendarServer=load("../lib/listing-calendar-server.ts",dependencies);

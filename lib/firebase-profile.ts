@@ -3,6 +3,7 @@
 import { doc, getDoc } from "firebase/firestore";
 import {updateProfile,type User} from "firebase/auth";
 import { db } from "@/lib/firebase-client";
+import {INVITE_STORAGE_KEY,INVITATION_CONSENT_VERSION,pendingInvite} from "@/lib/invitation-client";
 import { storedLanguage } from "@/lib/region";
 import {circleAccess,type CircleAccess} from "@/lib/circle-access";
 import { defaultSearchRadius, type Lang, type ListingPlan, type Profile } from "@/lib/marketplace";
@@ -46,9 +47,11 @@ export async function loadCircleProfile(uid: string): Promise<CircleCloudProfile
 }
 
 export async function saveCircleProfile(user: User, profile: Profile, preferredLanguage: Lang) {
-  const response = await fetch("/api/profile", {method:"POST",headers:{"content-type":"application/json",authorization:`Bearer ${await user.getIdToken()}`},body:JSON.stringify({...profile,preferredLanguage})});
+  let invitationCode:string|undefined;try{invitationCode=pendingInvite(window.localStorage);}catch{}
+  const response = await fetch("/api/profile", {method:"POST",headers:{"content-type":"application/json",authorization:`Bearer ${await user.getIdToken()}`},body:JSON.stringify({...profile,preferredLanguage,invitationCode,...(invitationCode?{invitationConsentVersion:INVITATION_CONSENT_VERSION}:{})})});
   const data = await response.json() as {error?:string};
   if (!response.ok) throw new Error(data.error || "Profilen kunne ikke gemmes.");
+  if(invitationCode)try{window.localStorage.removeItem(INVITE_STORAGE_KEY);}catch{}
   if(user.displayName===profile.name.trim())return true;
   try { await updateProfile(user,{displayName:profile.name.trim()}); return true; }
   catch { return false; } // The server has already saved the profile successfully.

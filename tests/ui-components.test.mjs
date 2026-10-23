@@ -16,12 +16,13 @@ const vite = await createServer({
   resolve: { alias: { "@": root } },
   plugins:[{name:"test-only-page-boundaries",transform(code,id){
     const normalized=id.replaceAll("\\","/");
+    if(normalized.endsWith('/components/profile-photo-settings.tsx')||normalized.endsWith('/components/circle-owner-profile.tsx'))return code.replace('import Image from "next/image";','import {createElement as imageElement} from "react"; const Image=({unoptimized,...props})=>imageElement("img",props);');
     if(normalized===path.join(root,"app/page.tsx").replaceAll("\\","/")){
       const instrumented=code
         .replace(/const \[tab,\s*setTab\]\s*=\s*useState(?:<Tab>)?\("home"\);/,'const [tab, setTab] = useState(entryTestTab);')
         .replace(/const \[authOpen,\s*setAuthOpen\]\s*=\s*useState\(true\);/,'const [authOpen,setAuthOpen]=useState(entryTestAuthOpen);');
       assert.ok(instrumented.includes('useState(entryTestTab)'));assert.ok(instrumented.includes('useState(entryTestAuthOpen)'));
-      return instrumented+"\nlet entryTestTab='home',entryTestAuthOpen=true; export function setEntryTestView(tab='home',open=true){entryTestTab=tab;entryTestAuthOpen=open;} export { RequestsView, DepositSummary, SignatureBox, SubscriptionView, ProfileView }; export { setEntryTestUser } from '@/components/circle-auth';";
+      return instrumented+"\nlet entryTestTab='home',entryTestAuthOpen=true; export function setEntryTestView(tab='home',open=true){entryTestTab=tab;entryTestAuthOpen=open;} export { ListingCard, RequestsView, DepositSummary, SignatureBox, SubscriptionView, ProfileView }; export { setEntryTestUser } from '@/components/circle-auth';";
     }
     if(normalized===path.join(root,"components/circle-auth.tsx").replaceAll("\\","/")){
       const start=code.indexOf('export function useCircleAuth()');
@@ -73,6 +74,33 @@ test('signup push explanation is visible only to owners in every language',async
   const html=renderToStaticMarkup(React.createElement(PushSettings,{uid:'test-owner',lang,owner}));
   assert.equal(html.includes(ownerSignupPushCopy[lang]),owner);
  }
+});
+
+test('invitation and public profile-photo controls are translated and accessible',async()=>{
+ const {CircleInvitePanel,invitationWords}=await vite.ssrLoadModule('/components/circle-invite-panel.tsx');
+ const {ProfilePhotoSettings,profilePhotoWords}=await vite.ssrLoadModule('/components/profile-photo-settings.tsx');
+ const user={uid:'test-user',getIdToken:async()=> 'local-test'};
+ for(const lang of ['da','sv','nb']){
+  const invite=renderToStaticMarkup(React.createElement(CircleInvitePanel,{lang,user}));assert.ok(invite.includes(invitationWords[lang].title));assert.match(invite,/role="status"/);
+  const photo=renderToStaticMarkup(React.createElement(ProfilePhotoSettings,{lang,user}));assert.ok(photo.includes(profilePhotoWords[lang].choose));assert.ok(photo.includes(profilePhotoWords[lang].notice));assert.match(photo,/accept="image\/jpeg,image\/png,image\/webp"/);
+ }
+ const {OwnerProfileContent}=await vite.ssrLoadModule('/components/circle-owner-profile.tsx');
+ const owner=renderToStaticMarkup(React.createElement(OwnerProfileContent,{data:{owner:{uid:'owner',name:'Anna',city:'Jystrup',country:'DK',photoUrl:'https://example.test/portrait.jpg'},listings:[]},lang:'da',onListing(){}}));assert.match(owner,/alt="Profilbillede af Anna"/);assert.match(owner,/portrait.jpg/);
+});
+
+test('browsing home omits the large offer and search CTA while preserving Add an item',async()=>{
+ const {default:HomePage,setEntryTestUser,setEntryTestView}=await vite.ssrLoadModule('/app/page.tsx');
+ setEntryTestUser(null);setEntryTestView('home',false);
+ try{const html=renderToStaticMarkup(React.createElement(HomePage));assert.doesNotMatch(html,/hero-trial|Find noget at låne/);assert.match(html,/Tilføj en ting/);assert.match(html,/specific-listing-search/);}finally{setEntryTestView();}
+});
+
+test('listing badges show only server-rated top items in all languages without overlapping favorite controls',async()=>{
+ const {ListingCard}=await vite.ssrLoadModule('/app/page.tsx');
+ for(const lang of ['da','sv','nb'])for(const popular of [true,false]){
+  const html=renderToStaticMarkup(React.createElement(ListingCard,{item:{id:'test',name:'Trailer',city:'Jystrup',country:'DK',dailyPrice:2900,icon:()=>null,color:'',distance:0,reviewRating:{average:5.5,count:2,popular}},lang,freeLabel:'29',onOpen(){}}));
+  assert.equal(html.includes('listing-popular'),popular);assert.match(html,/5,5 \/ 6/);assert.match(html,/listing-review-score/);if(popular)assert.ok(html.includes(lang==='sv'?'Populär':'Populær'));
+ }
+ const css=await readFile(path.join(root,'app/globals.css'),'utf8');assert.match(css,/@media\(min-width:1200px\)[\s\S]*\.listing-grid:not\(\.listing-list\)[^}]*repeat\(3,minmax\(0,1fr\)\)/);assert.match(css,/\.listing-popular[^}]*bottom:/);
 });
 
 test('root opens the login landing page for visitors and preserves signed-in access',async()=>{

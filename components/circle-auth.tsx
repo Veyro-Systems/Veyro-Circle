@@ -1,5 +1,6 @@
 "use client";
 import {membershipCopy} from "@/lib/membership-copy";
+import {INVITE_STORAGE_KEY,pendingInvite,rememberInviteFromUrl,validInviteCode} from "@/lib/invitation-client";
 import { nbText } from "@/lib/norwegian-copy";
 import { LanguageSwitcher } from "@/components/language-switcher";
 
@@ -65,6 +66,18 @@ export function FirebaseSetupNotice({ lang }: { lang: Lang }) {
 
 export function CircleAuthScreen({ lang, setLang,onBrowse }: { lang: Lang; setLang: (lang: Lang) => void; onBrowse?:()=>void }) {
   const [mode, setMode] = useState<Mode>("login");
+  const [invitationCode,setInvitationCode]=useState<string|null>(null);
+  const [invitationAccepted,setInvitationAccepted]=useState(false);
+  useEffect(()=>{
+    const url=new URL(window.location.href),code=url.searchParams.get("invite"),fromLink=validInviteCode(code);
+    let pending:string|undefined;
+    try {
+      pending=pendingInvite(window.localStorage);
+      if(fromLink&&pending!==code){window.localStorage.removeItem(INVITE_STORAGE_KEY);pending=undefined;}
+    }catch{/* Invitations remain optional when browser storage is unavailable. */}
+    queueMicrotask(()=>{setInvitationCode(fromLink?code:pending??null);setInvitationAccepted(Boolean(pending));if(fromLink)setMode("register");});
+    if(fromLink){url.searchParams.delete("invite");window.history.replaceState(null,"",url);}
+  },[]);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -106,6 +119,7 @@ export function CircleAuthScreen({ lang, setLang,onBrowse }: { lang: Lang; setLa
       <div><p className="eyebrow">Veyro Circle</p><h1>{mode === "login" ? ((lang === "nb" ? nbText["Log ind"] : (da ? "Log ind" : "Logga in"))) : mode === "register" ? ((lang === "nb" ? nbText["Opret konto"] : (da ? "Opret konto" : "Skapa konto"))) : ((lang === "nb" ? nbText["Glemt adgangskode"] : (da ? "Glemt adgangskode" : "Glömt lösenord")))}</h1><p>{mode === "reset" ? ((lang === "nb" ? nbText["Indtast din e-mail, så sender vi et sikkert nulstillingslink."] : (da ? "Indtast din e-mail, så sender vi et sikkert nulstillingslink." : "Ange din e-postadress så skickar vi en säker återställningslänk."))) : ((lang === "nb" ? nbText["Del, lån og lej ting i dit lokalområde."] : (da ? "Del, lån og lej ting i dit lokalområde." : "Dela, låna och hyr saker i ditt närområde.")))}</p></div>
       {mode!=="reset" && <aside className="auth-trial-banner"><span>{membershipCopy[lang].kicker}</span><strong>{membershipCopy[lang].headline}</strong><p>{membershipCopy[lang].terms}</p></aside>}
       <form onSubmit={submit}>
+        {mode==="register"&&invitationCode&&<aside className="invite-signup-note"><label><input type="checkbox" checked={invitationAccepted} onChange={event=>{const accepted=event.target.checked;try{if(accepted)rememberInviteFromUrl(`${window.location.origin}/?invite=${invitationCode}`,window.localStorage);else window.localStorage.removeItem(INVITE_STORAGE_KEY);setInvitationAccepted(accepted);}catch{setInvitationAccepted(false);}}}/><span>{lang==="sv"?"Räkna min registrering i min grannes inbjudningar (valfritt).":lang==="nb"?"Tell registreringen min i naboens invitasjoner (valgfritt).":"Tæl min tilmelding med i min nabos invitationer (valgfrit)."}</span></label><p>{lang==="sv"?"Din granne ser bara sammanlagda antal, inte ditt namn eller dina kontaktuppgifter.":lang==="nb"?"Naboen din ser bare samlede antall, ikke navnet eller kontaktopplysningene dine.":"Din nabo ser kun samlede antal, ikke dit navn eller dine kontaktoplysninger."}</p></aside>}
         {mode === "register" && <aside className="signup-trial"><strong>{membershipCopy[lang].five}</strong><p>{membershipCopy[lang].freeNote}</p></aside>}
         {mode === "register" && <label className="field-label">{(lang === "nb" ? nbText["Fulde navn"] : (da ? "Fulde navn" : "Fullständigt namn"))}<input autoComplete="name" required value={name} onChange={e=>setName(e.target.value)} /></label>}
         <label className="field-label">{lang === "nb" ? "E-post" : "E-mail"}<input type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)} /></label>
