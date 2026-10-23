@@ -35,13 +35,22 @@ test("guidance and official links follow profile country, independently of langu
   }
 });
 
-test("new profile requires an explicit country before signup can continue", async () => {
+test("signed-in profile setup requires a country and has no duplicate login form", async () => {
   const { ProfileForm } = await vite.ssrLoadModule("/components/marketplace-fields.tsx");
-  const html = renderToStaticMarkup(React.createElement(ProfileForm, { lang: "da", profile: null, onSave() {} }));
+  const html = renderToStaticMarkup(React.createElement(ProfileForm, { lang: "da", profile: null, authenticatedEmail:"member@example.test", onSave() {} }));
   assert.match(html, /Vælg ét land/);
   assert.match(html, /type="email"/);
-  assert.match(html, /type="password"[^>]*minLength="8"/);
+  assert.match(html, /readOnly=""/);
+  assert.doesNotMatch(html, /type="password"|simuleret|Glemt adgangskode|Opret konto og profil/);
   assert.match(html, /e-mail er dit login/);
   assert.match(html, /disabled[^>]*>Gem profil/);
   assert.doesNotMatch(html, /id="tax-heading"/);
+});
+
+test("profile form reveals no personal fields without an authenticated email",async()=>{
+  const {ProfileForm}=await vite.ssrLoadModule('/components/marketplace-fields.tsx');
+  for(const lang of ['da','sv','nb']){
+    const html=renderToStaticMarkup(React.createElement(ProfileForm,{lang,profile:null,onSave(){}}));
+    assert.equal(html,'');
+  }
 });

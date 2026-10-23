@@ -16,7 +16,13 @@ const vite = await createServer({
   resolve: { alias: { "@": root } },
   plugins:[{name:"test-only-page-boundaries",transform(code,id){
     const normalized=id.replaceAll("\\","/");
-    if(normalized===path.join(root,"app/page.tsx").replaceAll("\\","/"))return code+"\nexport { RequestsView, DepositSummary, SignatureBox, SubscriptionView }; export { setEntryTestUser } from '@/components/circle-auth';";
+    if(normalized===path.join(root,"app/page.tsx").replaceAll("\\","/")){
+      const instrumented=code
+        .replace(/const \[tab,\s*setTab\]\s*=\s*useState(?:<Tab>)?\("home"\);/,'const [tab, setTab] = useState(entryTestTab);')
+        .replace(/const \[authOpen,\s*setAuthOpen\]\s*=\s*useState\(true\);/,'const [authOpen,setAuthOpen]=useState(entryTestAuthOpen);');
+      assert.ok(instrumented.includes('useState(entryTestTab)'));assert.ok(instrumented.includes('useState(entryTestAuthOpen)'));
+      return instrumented+"\nlet entryTestTab='home',entryTestAuthOpen=true; export function setEntryTestView(tab='home',open=true){entryTestTab=tab;entryTestAuthOpen=open;} export { RequestsView, DepositSummary, SignatureBox, SubscriptionView, ProfileView }; export { setEntryTestUser } from '@/components/circle-auth';";
+    }
     if(normalized===path.join(root,"components/circle-auth.tsx").replaceAll("\\","/")){
       const start=code.indexOf('export function useCircleAuth()');
       const end=code.indexOf('export async function circleSignOut()',start);
@@ -51,6 +57,42 @@ test('root opens the login landing page for visitors and preserves signed-in acc
     const member=renderToStaticMarkup(React.createElement(HomePage));
     assert.doesNotMatch(member,/auth-entry-page/);assert.match(member,/specific-listing-search/);
   }finally{setEntryTestUser(null);}
+});
+
+test('a lost session cannot leave a visitor on a private tab after browsing',async()=>{
+ const {default:HomePage,setEntryTestUser,setEntryTestView}=await vite.ssrLoadModule('/app/page.tsx');
+ setEntryTestUser(null);
+ try {
+  for(const tab of ['profile','subscription','items','requests','saved','map']){
+   setEntryTestView(tab,false);
+   const html=renderToStaticMarkup(React.createElement(HomePage));
+   assert.match(html,/auth-entry-page/);assert.match(html,/type="password"/);
+   assert.doesNotMatch(html,/profile-form|Log ind eller opret konto/);
+  }
+  setEntryTestView('home',false);
+  const publicHome=renderToStaticMarkup(React.createElement(HomePage));
+  assert.match(publicHome,/specific-listing-search/);assert.doesNotMatch(publicHome,/profile-form|auth-entry-page/);
+ }finally{setEntryTestView();}
+});
+
+test('sign-out and account switches give account-specific state a fresh React key',async()=>{
+ const {default:HomePage,setEntryTestUser}=await vite.ssrLoadModule('/app/page.tsx');
+ try {
+  setEntryTestUser({uid:'first',emailVerified:true});const first=HomePage();
+  setEntryTestUser(null);const guest=HomePage();
+  setEntryTestUser({uid:'second',emailVerified:true});const second=HomePage();
+  assert.notEqual(first.key,guest.key);assert.notEqual(first.key,second.key);assert.notEqual(guest.key,second.key);
+  assert.equal(guest.props.authState.user,null);
+ }finally{setEntryTestUser(null);}
+});
+
+test('signed-in profile completion is clearly separate from login and always offers sign-out',async()=>{
+ const {ProfileView}=await vite.ssrLoadModule('/app/page.tsx');
+ for(const [lang,title,logout] of [['da','Udfyld dine oplysninger','Log ud'],['sv','Fyll i dina uppgifter','Logga ut'],['nb','Fullfør profilen din','Logg ut']]){
+  const html=renderToStaticMarkup(React.createElement(ProfileView,{lang,profile:null,authenticatedEmail:'member@example.test',onSave:async()=>{},onLogout(){},onSubscription(){},onPublicProfile(){}}));
+  assert.ok(html.includes(title));assert.ok(html.includes(logout));assert.match(html,/member@example.test/);
+  assert.doesNotMatch(html,/type="password"|simuleret|Opret konto og profil|Log ind eller opret konto/);
+ }
 });
 
 test('tour and signup explain five items without card and a voluntary subscription after 180 days',async()=>{const {CircleTourSlide}=await vite.ssrLoadModule('/components/circle-tour.tsx');const {CircleAuthScreen}=await vite.ssrLoadModule('/components/circle-auth.tsx');for(const lang of ['da','sv','nb']){for(let step=0;step<4;step++){const html=renderToStaticMarkup(React.createElement(CircleTourSlide,{lang,step}));assert.equal((html.match(/<li>/g)||[]).length,3);if(step===3){assert.match(html,/180/);assert.match(html,/5/);assert.match(html,/29 DKK/);assert.match(html,/43 SEK/);assert.match(html,/41 NOK/);assert.match(html,/Ingen automatisk/);}}const entry=renderToStaticMarkup(React.createElement(CircleAuthScreen,{lang,setLang(){},onBrowse(){}}));assert.match(entry,/180/);assert.match(entry,/uden kort|utan kort|uten kort/);assert.match(entry,/5/);assert.match(entry,/Ingen automatisk/);assert.doesNotMatch(entry,/49 DKK|69 SEK|69 NOK|Kort registreres ved tilmelding/);}});

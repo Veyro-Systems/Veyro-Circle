@@ -169,7 +169,13 @@ const copy = {
   } };
 
 export default function HomePage() {
-  const { user, loading: authLoading, configured } = useCircleAuth();
+  const authState=useCircleAuth();
+  // Remount account-specific state after sign-out or an account switch.
+  return <CircleHome key={authState.user?`user:${authState.user.uid}`:"guest"} authState={authState}/>;
+}
+
+function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
+  const {user,loading:authLoading,configured}=authState;
   const [ownerMapAccess,setOwnerMapAccess]=useState<{uid:string;allowed:boolean}|null>(null);
   const canViewOwnerMap=Boolean(user?.emailVerified&&ownerMapAccess?.uid===user.uid&&ownerMapAccess.allowed);
   useEffect(()=>{
@@ -516,10 +522,12 @@ export default function HomePage() {
 
   async function saveProfile(next: Profile) {
     if (!configured || !user) throw new Error((lang === "nb" ? nbText["Firebase er ikke konfigureret."] : (lang === "da" ? "Firebase er ikke konfigureret." : "Firebase är inte konfigurerat.")));
-    try { await saveCircleProfile(user, next, lang); }
+    let loginNameUpdated=false;
+    try { loginNameUpdated=await saveCircleProfile(user, next, lang); }
     catch (cause) { const message = cause instanceof Error ? cause.message : ((lang === "nb" ? nbText["Profilen kunne ikke gemmes. Prøv igen."] : (lang === "da" ? "Profilen kunne ikke gemmes. Prøv igen." : "Profilen kunde inte sparas. Försök igen."))); toast.error(message); throw cause; }
     setProfile(next); setRadius(String(defaultSearchRadius(next.defaultRadiusKm))); setOrigin(next.place); setNewPlace(next.place); setNewCountry(next.place.country);
     toast.success((lang === "nb" ? nbText["Profilen er gemt sikkert."] : (lang === "da" ? "Profilen er gemt sikkert." : "Profilen har sparats säkert.")));
+    if(!loginNameUpdated)toast.warning(lang==="nb"?"Profilen er lagret, men navnet i kontomeldinger kunne ikke oppdateres. Prøv å lagre igjen.":lang==="da"?"Profilen er gemt, men navnet i kontomails kunne ikke opdateres. Prøv at gemme igen.":"Profilen har sparats, men namnet i kontomejl kunde inte uppdateras. Försök spara igen.");
   }
 
   async function logout() {
@@ -735,7 +743,7 @@ export default function HomePage() {
 
   if (!configured) return <main className="auth-page"><FirebaseSetupNotice lang={lang} /></main>;
   if (authLoading || (configured && user?.emailVerified && profileLoading)) return <main className="auth-page"><img className="auth-brand-logo" src="/branding/veyro-systems-logo.png" alt="Veyro Systems" /><p>{(lang === "nb" ? nbText["Indlæser Veyro Circle…"] : (lang === "da" ? "Indlæser Veyro Circle…" : "Laddar Veyro Circle…"))}</p></main>;
-  if (configured && !user && authOpen) return <CircleAuthScreen lang={lang} setLang={value=>void changeLanguage(value)} onBrowse={()=>setAuthOpen(false)} />;
+  if (configured && !user && (authOpen || (tab!=="home" && tab!=="wanted"))) return <CircleAuthScreen lang={lang} setLang={value=>void changeLanguage(value)} onBrowse={()=>{setTab("home");setAuthOpen(false);}} />;
   if (configured && user && !user.emailVerified) return <EmailVerificationScreen user={user} lang={lang} />;
 
   return (
@@ -860,7 +868,7 @@ export default function HomePage() {
           {tab === "map" && canViewOwnerMap && <div className="map-page"><h1 className="sr-only">{(lang === "nb" ? nbText["Kort"] : (lang === "da" ? "Kort" : "Karta"))}</h1>{profile ? <CommunityMap origin={profile.place} radiusKm={defaultSearchRadius(profile.defaultRadiusKm)} lang={lang} /> : <div className="content-panel"><p>{(lang === "nb" ? nbText["Udfyld din profil for at se kortet med udgangspunkt i dit postnummer."] : (lang === "da" ? "Udfyld din profil for at se kortet med udgangspunkt i dit postnummer." : "Fyll i din profil för att se kartan med utgångspunkt i ditt postnummer."))}</p><Button className="mt-4" onClick={()=>setTab("profile")}>{(lang === "nb" ? nbText["Gå til konto"] : (lang === "da" ? "Gå til konto" : "Gå till konto"))}</Button></div>}</div>}
           {tab === "items" && <ItemsView lang={lang} profile={profile} listings={listings.filter(item => item.owned)} plan={listingPlan} onAdd={openAdd} onEdit={openEdit} onDelete={setPendingDelete} onCalendar={setCalendarItem} />}
           {tab === "requests" && <RequestsView t={t} loans={loans} lang={lang} userUid={user?.uid ?? ""} loading={agreementsLoading} loadError={agreementsError} direction={loanDirection} setDirection={setLoanDirection} archive={loanArchive} setArchive={setLoanArchive} onChat={setChatLoan} onAgreement={openAgreement} onDecision={(loan,action)=>setPendingDecision({loan,action})} />}
-          {tab === "profile" && <ProfileView lang={lang} profile={profile} authenticatedEmail={user?.email || undefined} onSave={saveProfile}
+          {tab === "profile" && user?.emailVerified && <ProfileView lang={lang} profile={profile} authenticatedEmail={user.email || undefined} onSave={saveProfile}
             onLogout={logout} onSubscription={() => setTab("subscription")} onPublicProfile={()=>user&&setOwnerProfileUid(user.uid)} />}
           {tab === "subscription" && <SubscriptionView lang={lang} plan={listingPlan} billingDetails={currentOffer} portalUnavailable={portalUnavailableFor===user?.uid} used={listings.filter(item => item.owned).length} onBack={() => setTab("profile")} onUpgrade={() => setShowUpgrade(true)} onManage={() => billing("portal")} />}
         </section>
@@ -1281,7 +1289,20 @@ function ProfileView({ lang, profile, authenticatedEmail, onSave, onLogout, onSu
   onSubscription: () => void; onPublicProfile: () => void;
 }) {
   return <div className="content-panel">
-    <div className="profile-head"><div className="profile-identity"><span className="profile-avatar"><CircleUserRound size={32} /></span><div className="min-w-0 flex-1"><p className="eyebrow">{(lang === "nb" ? nbText["Din konto"] : (lang === "da" ? "Din konto" : "Ditt konto"))}</p><h1 className="page-title">{profile?.name || ((lang === "nb" ? nbText["Log ind eller opret konto"] : (lang === "da" ? "Log ind eller opret konto" : "Logga in eller skapa konto")))}</h1>{profile && <><p className="mt-2 text-sm">{profile.email}</p><p className="mt-1 text-sm">{profile.place.postcode} {profile.place.city} · {profile.place.country}</p></>}</div></div>{profile && <div className="profile-head-actions"><Button type="button" variant="outline" onClick={onPublicProfile}><CircleUserRound size={17}/>{ownerProfileCopy[lang].own}</Button><Button type="button" variant="outline" onClick={onSubscription}><Crown size={17} />{(lang === "nb" ? nbText["Mit abonnement"] : (lang === "da" ? "Mit abonnement" : "Min prenumeration"))}</Button><Button type="button" variant="outline" className="logout-button" onClick={onLogout}><LogOut size={17} />{(lang === "nb" ? nbText["Log ud"] : (lang === "da" ? "Log ud" : "Logga ut"))}</Button></div>}</div>
+    <div className="profile-head">
+      <div className="profile-identity"><span className="profile-avatar"><CircleUserRound size={32}/></span>
+        <div className="min-w-0 flex-1">
+          <p className="eyebrow">{lang==="sv"?"Ditt konto":"Din konto"}</p>
+          <h1 className="page-title">{profile?.name || (lang==="nb"?"Dine opplysninger":lang==="da"?"Dine oplysninger":"Dina uppgifter")}</h1>
+          <p className="mt-2 text-sm">{authenticatedEmail}</p>
+          {profile&&<p className="mt-1 text-sm">{profile.place.postcode} {profile.place.city} · {profile.place.country}</p>}
+        </div>
+      </div>
+      <div className="profile-head-actions">
+        {profile&&<><Button type="button" variant="outline" onClick={onPublicProfile}><CircleUserRound size={17}/>{ownerProfileCopy[lang].own}</Button><Button type="button" variant="outline" onClick={onSubscription}><Crown size={17}/>{lang==="nb"?nbText["Mit abonnement"]:lang==="da"?"Mit abonnement":"Min prenumeration"}</Button></>}
+        <Button type="button" variant="outline" className="logout-button" onClick={onLogout}><LogOut size={17}/>{lang==="nb"?"Logg ut":lang==="da"?"Log ud":"Logga ut"}</Button>
+      </div>
+    </div>
     <ProfileForm profile={profile} lang={lang} authenticatedEmail={authenticatedEmail} onSave={onSave} />
   </div>;
 }

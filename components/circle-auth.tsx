@@ -5,6 +5,7 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 
 import { COMPANY_IDENTITY } from "@/lib/company";
 import { CircleTour } from "@/components/circle-tour";
+import {signOutWithCleanup} from "@/lib/sign-out";
 
 import { useEffect, useState } from "react";
 import {
@@ -51,9 +52,10 @@ export function useCircleAuth() {
 }
 
 export async function circleSignOut() {
-  const { disablePush } = await import("@/lib/firebase-push");
-  await disablePush();
-  if (auth) await signOut(auth);
+  await signOutWithCleanup(async()=>{
+    const {disablePush}=await import("@/lib/firebase-push");
+    await disablePush();
+  },async()=>{if(auth)await signOut(auth);});
 }
 
 export function FirebaseSetupNotice({ lang }: { lang: Lang }) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { doc, getDoc } from "firebase/firestore";
-import type { User } from "firebase/auth";
+import {updateProfile,type User} from "firebase/auth";
 import { db } from "@/lib/firebase-client";
 import { storedLanguage } from "@/lib/region";
 import {circleAccess,type CircleAccess} from "@/lib/circle-access";
@@ -49,6 +49,9 @@ export async function saveCircleProfile(user: User, profile: Profile, preferredL
   const response = await fetch("/api/profile", {method:"POST",headers:{"content-type":"application/json",authorization:`Bearer ${await user.getIdToken()}`},body:JSON.stringify({...profile,preferredLanguage})});
   const data = await response.json() as {error?:string};
   if (!response.ok) throw new Error(data.error || "Profilen kunne ikke gemmes.");
+  if(user.displayName===profile.name.trim())return true;
+  try { await updateProfile(user,{displayName:profile.name.trim()}); return true; }
+  catch { return false; } // The server has already saved the profile successfully.
 }
 
 export async function saveCircleLanguage(user:User,preferredLanguage:Lang) {
