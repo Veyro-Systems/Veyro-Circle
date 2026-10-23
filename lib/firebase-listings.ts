@@ -9,6 +9,7 @@ export type CircleListingRecord = {
   id: string;
   ownerUid: string;
   owner: string;
+  ownerPhotoUrl?:string;
   name: string;
   description: string;
   category: string;
@@ -25,7 +26,7 @@ export type CircleListingRecord = {
   createdAt?:string;
 };
 
-export type CircleListingDraft = Omit<CircleListingRecord, "ownerUid" | "owner" | "active" | "reviewRating">;
+export type CircleListingDraft = Omit<CircleListingRecord, "ownerUid" | "owner" | "active" | "reviewRating" | "ownerPhotoUrl">;
 export type CircleListingContact = { name:string; street:string; phone:string; place:Place };
 
 function cleanRecord(id: string, value: Record<string, unknown>): CircleListingRecord | null {
@@ -40,6 +41,7 @@ function cleanRecord(id: string, value: Record<string, unknown>): CircleListingR
     ownerUid:value.ownerUid,
     owner:typeof value.owner === "string" ? value.owner : "",
     name:value.name,
+    ownerPhotoUrl:typeof value.ownerPhotoUrl === "string" ? value.ownerPhotoUrl : undefined,
     description:typeof value.description === "string" ? value.description : "",
     category:typeof value.category === "string" ? value.category : "tools",
     country:place.country,

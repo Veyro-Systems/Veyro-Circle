@@ -958,3 +958,7 @@ button:focus-visible,a:focus-visible { outline:3px solid #819eb6; outline-offset
 .header-account-button svg { flex-shrink:0; }
 .header-account-button span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 @media(max-width:639px) { .header-account-button { max-width:140px; } .app-header-actions> :not(.header-account-button) { flex-shrink:0; } }
+
+.listing-card-bottom { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:12px; min-height:36px; }
+.listing-card-bottom>div { min-width:0; }
+.listing-card-bottom .listing-owner-photo { width:36px; height:36px; flex-shrink:0; border-radius:50%; object-fit:cover; border:1px solid #cbe2e8; }
