@@ -34,6 +34,7 @@ import { deleteCircleListing, saveCircleListing, subscribeToCircleListings, type
 import { openBilling, BillingOfferChangedError, BillingPortalUnavailableError } from "@/lib/billing-client";
 import { PlacePicker, CountrySelect, ProfileForm } from "@/components/marketplace-fields";
 import { CommunityMap } from "@/components/community-map";
+import {loadOwnerMapAccess} from "@/lib/firebase-community";
 import { AgreementJourney } from "@/components/agreement-journey";
 import { agreementSigning, displayedAgreementNote, type NoteEdit } from "@/lib/agreement-signing";
 import { parseDeposit } from "@/lib/marketplace";
@@ -169,6 +170,14 @@ const copy = {
 
 export default function HomePage() {
   const { user, loading: authLoading, configured } = useCircleAuth();
+  const [ownerMapAccess,setOwnerMapAccess]=useState<{uid:string;allowed:boolean}|null>(null);
+  const canViewOwnerMap=Boolean(user?.emailVerified&&ownerMapAccess?.uid===user.uid&&ownerMapAccess.allowed);
+  useEffect(()=>{
+    if(!user?.emailVerified)return;
+    const uid=user.uid;let active=true;
+    loadOwnerMapAccess().then(allowed=>{if(active)setOwnerMapAccess({uid,allowed});}).catch(()=>{if(active)setOwnerMapAccess({uid,allowed:false});});
+    return()=>{active=false;};
+  },[user]);
   const [lang, setLang] = useState<Lang>("da");
   const [languageSaving,setLanguageSaving]=useState(false);
   const reportProfileError=useEffectEvent(()=>toast.error((lang === "nb" ? nbText["Profilen kunne ikke hentes fra Firebase."] : (lang === "da" ? "Profilen kunne ikke hentes fra Firebase." : "Profilen kunde inte hämtas från Firebase."))));
@@ -474,7 +483,7 @@ export default function HomePage() {
   function openHome() { setOnlyFavorites(false); setTab("home"); }
   function applySearch(filter:SearchFilter){setQuery(filter.query);setCategory(filter.category);setPriceFilter(filter.price);setRadius(filter.radius);setOrigin(places.find(p=>p.id===filter.placeId)??null);setSearchFrom("");setSearchTo("");setOnlyFavorites(false);setTab("home");setNotificationsOpen(false);}
   async function favorite(item:Listing){if(!user){setAuthOpen(true);return;}setFavoriteBusy(item.id);try{setPrefs(await communityFetch("/api/preferences",{action:"favorite",id:item.id,enabled:!prefs.favorites.includes(item.id)}));}catch{toast.error((lang === "nb" ? nbText["Favoritten kunne ikke gemmes. Prøv igen."] : (lang==="da"?"Favoritten kunne ikke gemmes. Prøv igen.":"Favoriten kunde inte sparas. Försök igen.")));}finally{setFavoriteBusy(null);}}
-  function navigate(next:Tab) {if(!user && next!=="home" && next!=="wanted"){setAuthOpen(true);return;}setTab(next);}
+  function navigate(next:Tab) {if(next==="map"&&!canViewOwnerMap)return;if(!user && next!=="home" && next!=="wanted"){setAuthOpen(true);return;}setTab(next);}
 
   function resetItemForm() {
     setEditingId(null); setNewName(""); setNewDescription(""); setNewCategory("tools");setNewDetails({});
@@ -752,7 +761,7 @@ export default function HomePage() {
           <div className="sticky top-24 space-y-6">
             <nav className="space-y-1" aria-label="Hovedmenu">
               <SideNav icon={Home} label={t.navHome} active={tab === "home" && !onlyFavorites} onClick={openHome} />
-              <SideNav icon={MapIcon} label={(lang === "nb" ? nbText["Kort"] : (lang === "da" ? "Kort" : "Karta"))} active={tab === "map"} onClick={() => navigate("map")} />
+              {canViewOwnerMap&&<SideNav icon={MapIcon} label={(lang === "nb" ? nbText["Kort"] : (lang === "da" ? "Kort" : "Karta"))} active={tab === "map"} onClick={() => navigate("map")} />}
               <SideNav icon={Search} label={(lang === "nb" ? nbText["Gemte søgninger"] : (lang === "da" ? "Gemte søgninger" : "Sparade sökningar"))} active={tab === "saved"} onClick={() => navigate("saved")} />
               <SideNav icon={Search} label={(lang === "nb" ? nbText["Efterlysning"] : (lang === "da" ? "Efterlysning" : "Efterlysning"))} active={tab === "wanted"} onClick={() => navigate("wanted")} />
               <SideNav icon={ImagePlus} label={t.navItems} active={tab === "items"} onClick={() => navigate("items")} />
@@ -848,7 +857,7 @@ export default function HomePage() {
 
           {tab === "saved" && <div className="content-panel">{user && <SavedSearches lang={lang} prefs={prefs} filter={savedFilter} onChange={setPrefs} onApply={applySearch} items={listings} />}</div>}
           {tab === "wanted" && <div className="content-panel"><h1 className="sr-only">Efterlysning</h1><WantedBoard lang={lang} uid={user?.uid} origin={origin} radius={radius} items={listings} onLogin={()=>setAuthOpen(true)} onOpen={id=>{const item=listings.find(i=>i.id===id);if(item)setSelected(item);else toast.info((lang === "nb" ? nbText["Annoncen er ikke længere tilgængelig."] : (lang==="da"?"Annoncen er ikke længere tilgængelig.":"Annonsen är inte längre tillgänglig.")));}} /></div>}
-          {tab === "map" && <div className="map-page"><h1 className="sr-only">{(lang === "nb" ? nbText["Kort"] : (lang === "da" ? "Kort" : "Karta"))}</h1>{profile ? <CommunityMap origin={profile.place} radiusKm={defaultSearchRadius(profile.defaultRadiusKm)} lang={lang} /> : <div className="content-panel"><p>{(lang === "nb" ? nbText["Udfyld din profil for at se kortet med udgangspunkt i dit postnummer."] : (lang === "da" ? "Udfyld din profil for at se kortet med udgangspunkt i dit postnummer." : "Fyll i din profil för att se kartan med utgångspunkt i ditt postnummer."))}</p><Button className="mt-4" onClick={()=>setTab("profile")}>{(lang === "nb" ? nbText["Gå til konto"] : (lang === "da" ? "Gå til konto" : "Gå till konto"))}</Button></div>}</div>}
+          {tab === "map" && canViewOwnerMap && <div className="map-page"><h1 className="sr-only">{(lang === "nb" ? nbText["Kort"] : (lang === "da" ? "Kort" : "Karta"))}</h1>{profile ? <CommunityMap origin={profile.place} radiusKm={defaultSearchRadius(profile.defaultRadiusKm)} lang={lang} /> : <div className="content-panel"><p>{(lang === "nb" ? nbText["Udfyld din profil for at se kortet med udgangspunkt i dit postnummer."] : (lang === "da" ? "Udfyld din profil for at se kortet med udgangspunkt i dit postnummer." : "Fyll i din profil för att se kartan med utgångspunkt i ditt postnummer."))}</p><Button className="mt-4" onClick={()=>setTab("profile")}>{(lang === "nb" ? nbText["Gå til konto"] : (lang === "da" ? "Gå til konto" : "Gå till konto"))}</Button></div>}</div>}
           {tab === "items" && <ItemsView lang={lang} profile={profile} listings={listings.filter(item => item.owned)} plan={listingPlan} onAdd={openAdd} onEdit={openEdit} onDelete={setPendingDelete} onCalendar={setCalendarItem} />}
           {tab === "requests" && <RequestsView t={t} loans={loans} lang={lang} userUid={user?.uid ?? ""} loading={agreementsLoading} loadError={agreementsError} direction={loanDirection} setDirection={setLoanDirection} archive={loanArchive} setArchive={setLoanArchive} onChat={setChatLoan} onAgreement={openAgreement} onDecision={(loan,action)=>setPendingDecision({loan,action})} />}
           {tab === "profile" && <ProfileView lang={lang} profile={profile} authenticatedEmail={user?.email || undefined} onSave={saveProfile}
@@ -876,7 +885,7 @@ export default function HomePage() {
       </footer>
       <nav className="mobile-nav" aria-label="Mobilmenu">
         <MobileNav icon={Home} label={t.navHome} active={tab === "home" && !onlyFavorites} onClick={openHome} />
-        <MobileNav icon={MapIcon} label={(lang === "nb" ? nbText["Kort"] : (lang === "da" ? "Kort" : "Karta"))} active={tab === "map"} onClick={() => navigate("map")} />
+        {canViewOwnerMap&&<MobileNav icon={MapIcon} label={(lang === "nb" ? nbText["Kort"] : (lang === "da" ? "Kort" : "Karta"))} active={tab === "map"} onClick={() => navigate("map")} />}
         <MobileNav icon={Search} label={(lang === "nb" ? nbText["Gemte søgninger"] : (lang === "da" ? "Gemte søgninger" : "Sparade sökningar"))} active={tab === "saved"} onClick={() => navigate("saved")} />
         <MobileNav icon={Search} label={(lang === "nb" ? nbText["Efterlysning"] : (lang === "da" ? "Efterlysning" : "Efterlysning"))} active={tab === "wanted"} onClick={() => navigate("wanted")} />
         <MobileNav icon={ImagePlus} label={t.navItems} active={tab === "items"} onClick={() => navigate("items")} />

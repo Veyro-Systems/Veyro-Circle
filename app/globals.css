@@ -818,6 +818,11 @@ button:focus-visible,a:focus-visible { outline:3px solid #819eb6; outline-offset
 .owner-profile-item-copy small,.owner-profile-notice { color:#64748b; }
 .owner-profile-notice { margin-top:20px; font-size:13px; line-height:1.6; }
 @media(max-width:480px) { .owner-profile-grid { grid-template-columns:1fr; }.owner-profile-item { flex-direction:row; align-items:center; }.owner-profile-item>img,.owner-profile-placeholder { width:105px; height:110px; flex-shrink:0; }.owner-profile-item-copy { padding:10px; } }
+.legal-subsection { scroll-margin-top:1.5rem; }
+.legal-section p+p,.legal-section li+li { margin-top:.65rem; }
+.legal-section a { color:#007c96; text-decoration:underline; text-underline-offset:3px; overflow-wrap:anywhere; }
+.legal-contact { display:grid; gap:.4rem; margin-top:.8rem; font-style:normal; line-height:1.6; }
+.legal-links { display:flex; flex-wrap:wrap; gap:.5rem 1.2rem; }
 
 @media (min-width:1024px) {
   .app-header-inner { height:68px; }

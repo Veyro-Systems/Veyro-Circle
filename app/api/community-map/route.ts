@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { serviceToken, verifyFirebaseRequest, type FirestoreField } from "@/lib/firebase-server";
 import { serverConfig } from "@/lib/server-config";
+import {canAccessOwnerMap} from "@/lib/owner-map-access";
 
 type NumberField = FirestoreField & { integerValue?:string };
 type UserDocument = { document?:{ fields?:Record<string, NumberField> } };
@@ -10,8 +11,12 @@ function error(message:string, status=400) {
 }
 
 export async function GET(request:Request) {
+  let identity;
+  try{identity=await verifyFirebaseRequest(request);}catch{return error("AUTH_REQUIRED",401);}
   try {
-    await verifyFirebaseRequest(request);
+    const allowed=canAccessOwnerMap(identity);
+    if(new URL(request.url).searchParams.get("access")==="1")return NextResponse.json({allowed},{headers:{"cache-control":"private, no-store"}});
+    if(!allowed)return error("OWNER_ACCESS_REQUIRED",403);
     const project = encodeURIComponent(serverConfig("NEXT_PUBLIC_FIREBASE_PROJECT_ID"));
     const response = await fetch(`https://firestore.googleapis.com/v1/projects/${project}/databases/(default)/documents:runQuery`, {
       method:"POST",
@@ -34,7 +39,7 @@ export async function GET(request:Request) {
       if (current) current.count += 1;
       else groups.set(key,{country,postcode,city,lat,lon,count:1});
     }
-    return NextResponse.json({points:[...groups.values()]},{headers:{"cache-control":"private, max-age=300"}});
+    return NextResponse.json({points:[...groups.values()]},{headers:{"cache-control":"private, no-store"}});
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : "Circle-kortet kunne ikke hentes.";
     return error(message, message.includes("logget") || message.includes("session") ? 401 : 500);

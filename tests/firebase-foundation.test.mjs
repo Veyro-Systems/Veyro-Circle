@@ -84,13 +84,13 @@ test("agreement condition notes are shared, bounded and locked by the first sign
   assert.match(client, /action:"note"/);
 });
 
-test("community map returns only aggregated postcode data to verified users", async () => {
+test("owner community map returns aggregated postcode data without caching", async () => {
   const api = await readFile(new URL("../app/api/community-map/route.ts", import.meta.url), "utf8");
   assert.match(api, /verifyFirebaseRequest/);
   assert.match(api, /fieldPath:"place"/);
   assert.match(api, /groups\.get\(key\)/);
   assert.match(api, /current\.count \+= 1/);
-  assert.match(api, /private, max-age=300/);
+  assert.match(api, /private, no-store/);
   assert.doesNotMatch(api, /fieldPath:"street"|fieldPath:"phone"|fieldPath:"name"/);
 });
 

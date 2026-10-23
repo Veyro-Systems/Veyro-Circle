@@ -12,6 +12,13 @@ export type CommunityMapPoint = {
   count: number;
 };
 
+export async function loadOwnerMapAccess():Promise<boolean> {
+  if(!auth?.currentUser)return false;
+  const response=await fetch("/api/community-map?access=1",{cache:"no-store",headers:{authorization:`Bearer ${await auth.currentUser.getIdToken()}`}});
+  if(!response.ok)return false;
+  return (await response.json()).allowed===true;
+}
+
 export async function loadCommunityMap(): Promise<CommunityMapPoint[]> {
   if (!auth?.currentUser) throw new Error("Du skal være logget ind.");
   const response = await fetch("/api/community-map", {

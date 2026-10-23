@@ -15,6 +15,7 @@ export function CirclePlusOffer({lang,country,trialEligible,hasSubscription,acce
   </>}
   <ul className="upgrade-benefits">{[free?c.five:c.twenty,c.sharing,c.commission].map(item=><li key={item}><Check size={18}/>{item}</li>)}</ul>
   {ready&&!hasSubscription&&<p className="plus-offer-terms">{free?c.terms:`${offer.payment} ${offer.renewal}`}</p>}
+  {ready&&!hasSubscription&&!free&&<p className="plus-offer-terms"><a href={`${lang==="da"?"/legal":`/legal/${lang}`}#terms-cancellation`} target="_blank" rel="noopener noreferrer">{lang==="da"?"Læs abonnementsvilkår og din 14 dages fortrydelsesret":lang==="sv"?"Läs abonnemangsvillkor och din 14 dagars ångerrätt":"Les abonnementsvilkår og din 14 dagers angrerett"}</a></p>}
   <Button disabled={busy||(!hasSubscription&&!ready)} className="plus-offer-cta" onClick={onContinue}>{busy?<LoaderCircle className="animate-spin" size={20}/>:hasSubscription?c.manage:!ready?c.unknown:free?c.continueFree:c.pay}</Button>
   <button type="button" className="plus-offer-dismiss" disabled={busy} onClick={onClose}>{c.later}</button>
  </div>;
