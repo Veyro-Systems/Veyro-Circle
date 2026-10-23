@@ -1,5 +1,7 @@
 # Permanent gratisordning og frivillig Circle Plus
 
+Historisk dokument for udgivelsen 22. oktober 2026. Ordningen er erstattet af [180 dage uden kort](CARD_FREE_180_RESTORATION.md); teksten nedenfor beskriver den tidligere udgivelse.
+
 22. oktober 2026.
 
 ## Ordning

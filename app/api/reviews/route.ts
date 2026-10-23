@@ -15,9 +15,17 @@ export async function GET(request:Request) {
       const rows=await queryRecords("reviews","agreementId",agreementId);
       return Response.json({reviews:rows.map(r=>({author:r.author,stars:r.stars,maxStars:r.maxStars??5,text:r.text,createdAt:r.createdAt,own:r.authorUid===uid})),reviewed:rows.some(r=>r.authorUid===uid)},{headers});
     }
-    const id=params.get("listingId");if(!validListingId(id))return Response.json({error:"INVALID_ID"},{status:400});
-    const listing=await getFirestoreDocument(`listings/${id}`);if(!listing)return Response.json({reviews:[]},{headers});
-    const owner=listing.fields?.ownerUid?.stringValue;
+    const ownerUid=params.get("ownerUid");
+    let owner:string|undefined;
+    if(ownerUid!==null){
+      if(!/^[A-Za-z0-9_-]{1,128}$/.test(ownerUid))return Response.json({error:"INVALID_ID"},{status:400,headers});
+      if(!await getFirestoreDocument(`users/${ownerUid}`))return Response.json({error:"OWNER_NOT_FOUND"},{status:404,headers});
+      owner=ownerUid;
+    }else{
+      const id=params.get("listingId");if(!validListingId(id))return Response.json({error:"INVALID_ID"},{status:400});
+      const listing=await getFirestoreDocument(`listings/${id}`);if(!listing)return Response.json({reviews:[]},{headers});
+      owner=listing.fields?.ownerUid?.stringValue;
+    }
     if(!owner)return Response.json({reviews:[],count:0,average:null},{headers});
     const candidates=await queryRecords("reviews","subjectUid",owner);
     const rows=(await Promise.all(candidates.map(async r=>{

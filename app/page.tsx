@@ -12,6 +12,7 @@ import { CirclePlusOffer } from "@/components/circle-plus-offer";
 import { CirclePricingInfo } from "@/components/circle-pricing-info";
 
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import {CircleOwnerProfile,ownerProfileCopy} from "@/components/circle-owner-profile";
 import { ListingReviews,ReviewForm } from "@/components/circle-reviews";
 import { WantedBoard } from "@/components/wanted-board";
 import { AgreementExtension } from "@/components/agreement-extension";
@@ -255,6 +256,7 @@ export default function HomePage() {
   const [offerRevision,setOfferRevision]=useState(0);
   const currentOffer:BillingDetails=billingDetails.offerUid===user?.uid ? billingDetails : {...billingDetails,trialEligible:null,hasSubscription:false,country:undefined};
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [ownerProfileUid,setOwnerProfileUid]=useState<string|null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [billingBusy, setBillingBusy] = useState(false);
   const [portalUnavailableFor,setPortalUnavailableFor]=useState<string|null>(null);
@@ -297,7 +299,7 @@ export default function HomePage() {
       toast.error((lang === "nb" ? nbText["Betaling er ikke konfigureret endnu."] : (lang === "da" ? "Betaling er ikke konfigureret endnu." : "Betalning är inte konfigurerad ännu.")));
       return;
     }
-    if(action==="checkout" && (currentOffer.trialEligible===null || !currentOffer.country || currentOffer.access?.plan!=="free" || currentOffer.hasSubscription))return;
+    if(action==="checkout" && (currentOffer.trialEligible===null || !currentOffer.country || !currentOffer.access?.paymentRequired))return;
     setBillingBusy(true);
     try { await openBilling(user, action,action==="checkout"?{expectedTrialEligible:currentOffer.trialEligible!,expectedCountry:currentOffer.country!,expectedOfferVersion:PLUS_OFFER_VERSION,lang}:undefined); }
     catch (error) {
@@ -340,8 +342,9 @@ export default function HomePage() {
         const response=await fetch("/api/stripe/checkout",{headers:{authorization:`Bearer ${await user.getIdToken()}`},cache:"no-store"});
         if(!response.ok)throw Error();
         const data=await response.json() as {trialEligible:boolean;hasSubscription:boolean;country:Country;access:CircleAccess};
-        if(typeof data.trialEligible!=="boolean" || typeof data.hasSubscription!=="boolean" || !["DK","SE","NO"].includes(data.country)||!["free","plus"].includes(data.access?.plan))throw Error();
+        if(typeof data.trialEligible!=="boolean" || typeof data.hasSubscription!=="boolean" || !["DK","SE","NO"].includes(data.country)||!["free","plus","expired"].includes(data.access?.plan))throw Error();
         if(active){setBillingDetails(previous=>({...previous,...data}));setListingPlan(data.access.plan);
+          if(data.access.paymentRequired){try{const key=`circle:payment-prompt:${user.uid}:${data.access.freeUntil??"legacy"}`;if(!localStorage.getItem(key)){localStorage.setItem(key,"shown");setShowUpgrade(true);}}catch{/* Voluntary payment remains available from the account page. */}}
         }
       }catch{if(active)setBillingDetails(previous=>({...previous,trialEligible:null,offerError:true}));}
     };
@@ -483,7 +486,8 @@ export default function HomePage() {
     if (!profile) { setTab("profile"); toast.info((lang === "nb" ? nbText["Opret først din profil med adresse og by."] : (lang === "da" ? "Opret først din profil med adresse og by." : "Skapa först din profil med adress och ort."))); return; }
     const activeCount = listings.filter(item => item.owned).length;
     if (!canCreateListing(activeCount, listingPlan)) {
-      if(listingPlan === "free") {toast.info(memberCopy.limit);setShowUpgrade(true);}
+      if (listingPlan === "expired") setShowUpgrade(true);
+      else if(listingPlan === "free") toast.info(memberCopy.limit);
       else toast.info((lang === "nb" ? nbText["Du har nået grænsen på 20 aktive ting. Slet en ting, før du opretter en ny."] : (lang === "da" ? "Du har nået grænsen på 20 aktive ting. Slet en ting, før du opretter en ny." : "Du har nått gränsen på 20 aktiva saker. Ta bort en sak innan du skapar en ny.")));
       return;
     }
@@ -492,6 +496,7 @@ export default function HomePage() {
 
   function openEdit(item: Listing) {
     if (!item.owned) return;
+    if(listingPlan==="expired"){setSelected(null);setShowUpgrade(true);return;}
     setSelected(null); setEditingId(item.id); setNewName(item.name); setNewDescription(item.description);
     setNewCategory(item.category);setNewDetails(item.details??{}); setNewCountry(item.country); setNewPlace(item.place);
     setPricing(item.dailyPrice > 0 ? "paid" : "free");
@@ -550,7 +555,8 @@ export default function HomePage() {
     const activeCount = listings.filter(item => item.owned).length;
     if (editingId === null && !canCreateListing(activeCount, listingPlan)) {
       setShowAdd(false);
-      if(listingPlan === "free") {toast.info(memberCopy.limit);setShowUpgrade(true);}
+      if (listingPlan === "expired") setShowUpgrade(true);
+      else if(listingPlan === "free") toast.info(memberCopy.limit);
       else toast.info((lang === "nb" ? nbText["Du kan højst have 20 aktive ting."] : (lang === "da" ? "Du kan højst have 20 aktive ting." : "Du kan ha högst 20 aktiva saker.")));
       return;
     }
@@ -591,6 +597,7 @@ export default function HomePage() {
   function openRequest() {
     if(!user){setAuthOpen(true);return;}
     if (!profile) { setSelected(null); setTab("profile"); toast.info((lang === "nb" ? nbText["Opret først din profil med adresse og by."] : (lang === "da" ? "Opret først din profil med adresse og by." : "Skapa först din profil med adress och ort."))); return; }
+    if(listingPlan==="expired"){setSelected(null);setShowUpgrade(true);return;}
     const today = todayLocal();
     requestTicket.current = null;
     setBookedPeriods([]);setAvailabilityError(false);
@@ -772,7 +779,7 @@ export default function HomePage() {
               <div className="relative z-10 max-w-[540px] p-6 text-white sm:p-8 lg:p-10">
                 <span className="hero-kicker"><Sparkles size={15} />{t.heroKicker}</span>
                 <h1>{t.heroTitle}</h1><p>{t.heroText}</p>
-                {!currentOffer.hasSubscription && <div className="hero-trial"><strong>{memberCopy.headline}</strong><p>{memberCopy.freeNote}</p></div>}
+                {!currentOffer.hasSubscription&&(!user||currentOffer.access)&&<div className="hero-trial"><strong>{currentOffer.access?.paymentRequired?memberCopy.expired:memberCopy.headline}</strong><p>{currentOffer.access?.paymentRequired?memberCopy.expiredNote:memberCopy.terms}</p></div>}
                 <div className="mt-6 flex flex-wrap gap-3">
                   <Button onClick={() => document.getElementById("specific-listing-search")?.focus()} className="h-12 rounded-lg bg-[#f5bf42] px-6 font-semibold text-[#172936] hover:bg-[#ffcf62]"><Search className="mr-2" size={18} />{t.heroButton}</Button>
                   <Button onClick={openAdd} variant="outline" className="h-12 rounded-lg border-white/35 bg-white/12 px-6 font-bold text-white backdrop-blur hover:bg-white/20 hover:text-white"><PackagePlus className="mr-2" size={18} />{t.addItem}</Button>
@@ -845,7 +852,7 @@ export default function HomePage() {
           {tab === "items" && <ItemsView lang={lang} profile={profile} listings={listings.filter(item => item.owned)} plan={listingPlan} onAdd={openAdd} onEdit={openEdit} onDelete={setPendingDelete} onCalendar={setCalendarItem} />}
           {tab === "requests" && <RequestsView t={t} loans={loans} lang={lang} userUid={user?.uid ?? ""} loading={agreementsLoading} loadError={agreementsError} direction={loanDirection} setDirection={setLoanDirection} archive={loanArchive} setArchive={setLoanArchive} onChat={setChatLoan} onAgreement={openAgreement} onDecision={(loan,action)=>setPendingDecision({loan,action})} />}
           {tab === "profile" && <ProfileView lang={lang} profile={profile} authenticatedEmail={user?.email || undefined} onSave={saveProfile}
-            onLogout={logout} onSubscription={() => setTab("subscription")} />}
+            onLogout={logout} onSubscription={() => setTab("subscription")} onPublicProfile={()=>user&&setOwnerProfileUid(user.uid)} />}
           {tab === "subscription" && <SubscriptionView lang={lang} plan={listingPlan} billingDetails={currentOffer} portalUnavailable={portalUnavailableFor===user?.uid} used={listings.filter(item => item.owned).length} onBack={() => setTab("profile")} onUpgrade={() => setShowUpgrade(true)} onManage={() => billing("portal")} />}
         </section>
 
@@ -878,7 +885,7 @@ export default function HomePage() {
         <MobileNav icon={CircleUserRound} label={t.navProfile} active={tab === "profile"} onClick={() => navigate("profile")} />
       </nav>
 
-      <Dialog open={!!selected && !showRequest} onOpenChange={(open) => !open && setSelected(null)}>
+      <Dialog open={!!selected && !showRequest && !ownerProfileUid} onOpenChange={(open) => !open && setSelected(null)}>
         {selected && <DialogContent className="listing-dialog max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-xl border-0 p-0 sm:max-w-[600px]">
           {selected.photos?.length ? <div className={`listing-detail-gallery ${selected.photos.length === 1 ? "single" : ""}`}>
             {selected.photos.map((photo, index) => <img key={`${photo.name}-${index}`} src={photo.src} alt={`${selected.name} · billede ${index + 1}`} />)}
@@ -891,7 +898,7 @@ export default function HomePage() {
             {searchDays && <p className="period-price">{(lang === "nb" ? nbText["Pris for perioden"] : (lang === "da" ? "Pris for perioden" : "Pris för perioden"))}: <strong>{money(selected.dailyPrice*searchDays,selected.country,lang)}</strong> · {searchDays} {(lang === "nb" ? nbText["kalenderdage"] : (lang === "da" ? "kalenderdage" : "kalenderdagar"))}</p>}
             <dl className="listing-specs">{(detailFields[selected.category]??[]).filter(f=>selected.details?.[f.key]).map(f=><div key={f.key}><dt>{f[lang]}</dt><dd>{selected.details![f.key]}</dd></div>)}</dl>
             <DepositSummary amount={selected.deposit ?? 0} country={selected.country} lang={lang} />
-            <div className="mt-5 flex items-center justify-between rounded-xl bg-[#f2f4f9] p-4"><div className="flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-full bg-[#008EAC] font-bold text-white">{selected.owner[0]}</span><div><p className="font-bold">{selected.owner}</p><p className="text-xs text-[#777b8e]">{t.verify}</p></div></div><ShieldCheck size={22} className="text-[#587560]" /></div>
+            <button type="button" className="owner-profile-link" disabled={!selected.ownerUid} onClick={()=>selected.ownerUid&&setOwnerProfileUid(selected.ownerUid)}><span className="owner-profile-avatar" aria-hidden="true">{selected.owner[0]}</span><span><b>{selected.owner}</b><span>{ownerProfileCopy[lang].open}</span></span><CircleUserRound size={22}/></button>
             <div className="mt-4 flex items-center gap-2 text-sm font-bold text-[#31744c]"><Check size={17} />{selected.availability}</div>
             {selected.owned ? <div className="mt-7 grid grid-cols-2 gap-3">
               <Button variant="outline" className="h-13 rounded-xl" onClick={() => openEdit(selected)}><Pencil size={17} />{(lang === "nb" ? nbText["Rediger"] : (lang === "da" ? "Rediger" : "Redigera"))}</Button>
@@ -901,6 +908,8 @@ export default function HomePage() {
           </div>
         </DialogContent>}
       </Dialog>
+
+      <Dialog open={!!ownerProfileUid} onOpenChange={open=>!open&&setOwnerProfileUid(null)}><DialogContent className="owner-profile-dialog"><DialogHeader><DialogTitle>{ownerProfileCopy[lang].title}</DialogTitle><DialogDescription>{ownerProfileCopy[lang].description}</DialogDescription></DialogHeader>{ownerProfileUid&&<CircleOwnerProfile key={ownerProfileUid} uid={ownerProfileUid} lang={lang} onListing={record=>{setOwnerProfileUid(null);setSelected(listingFromCloud(record,user?.uid??""));}}/>}</DialogContent></Dialog>
 
       <Dialog open={!!calendarItem} onOpenChange={open=>!open && setCalendarItem(null)}><DialogContent className="calendar-dialog"><DialogHeader><DialogTitle>{calendarItem?.name}</DialogTitle><DialogDescription>{(lang === "nb" ? nbText["Administrér ledige og blokerede dage"] : (lang === "da" ? "Administrér ledige og blokerede dage" : "Hantera lediga och blockerade dagar"))}</DialogDescription></DialogHeader>{calendarItem && <ListingCalendar key={calendarItem.id} id={calendarItem.id} lang={lang} owner />}</DialogContent></Dialog>
 
@@ -1016,7 +1025,7 @@ export default function HomePage() {
       <Dialog open={showUpgrade} onOpenChange={setShowUpgrade}>
         <DialogContent className="form-dialog circle-plus-dialog max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-xl sm:max-w-[520px]">
           <DialogHeader><DialogTitle className="flex items-center gap-3 text-2xl font-bold"><span className="plus-icon"><Crown size={23}/></span>Veyro Circle Plus</DialogTitle><DialogDescription>{(lang === "nb" ? nbText["Del og udlej dine ting i lokalområdet."] : (lang==="da"?"Del og udlej dine ting i lokalområdet.":"Dela och hyr ut dina saker i närområdet."))}</DialogDescription></DialogHeader>
-          <CirclePlusOffer lang={lang} country={currentOffer.country??profile?.place.country??"DK"} trialEligible={currentOffer.trialEligible} hasSubscription={currentOffer.hasSubscription} access={currentOffer.access} busy={billingBusy} error={currentOffer.offerError} onContinue={()=>currentOffer.hasSubscription?void billing("portal"):void billing("checkout")} onRetry={()=>setOfferRevision(value=>value+1)} onClose={()=>setShowUpgrade(false)}/>
+          <CirclePlusOffer lang={lang} country={currentOffer.country??profile?.place.country??"DK"} trialEligible={currentOffer.trialEligible} hasSubscription={currentOffer.hasSubscription} access={currentOffer.access} busy={billingBusy} error={currentOffer.offerError} onContinue={()=>currentOffer.hasSubscription?void billing("portal"):currentOffer.access?.paymentRequired?void billing("checkout"):setShowUpgrade(false)} onRetry={()=>setOfferRevision(value=>value+1)} onClose={()=>setShowUpgrade(false)}/>
         </DialogContent>
       </Dialog>
 
@@ -1251,13 +1260,13 @@ function LoanRow({ title, owner, ticket, status, statusClass, icon: Icon, onChat
   return <article className="loan-row"><div className="flex size-16 shrink-0 items-center justify-center rounded-xl bg-[#eef0f8]"><Icon size={31} className="text-[#008EAC]" /></div><div className="min-w-0 flex-1"><p className="loan-kind">{(lang === "nb" ? nbText["Udlånt / lejet"] : (lang === "da" ? "Udlånt / lejet" : "Utlånat / hyrt"))}</p><h3 className="truncate font-semibold">{title}</h3><p className="mt-1 text-sm text-[#73778b]">{owner}</p><div className="loan-ticket-meta"><span><b>Ticket:</b> {ticket}</span><span><b>{(lang === "nb" ? nbText["Periode:"] : (lang === "da" ? "Periode:" : "Period:"))}</b> {dates}</span></div><span className={`loan-status ${statusClass}`}>{status}</span></div><button onClick={onChat} className="chat-button"><MessageCircle size={18} /><span className="hidden sm:inline">{chatLabel}</span></button></article>;
 }
 
-function ProfileView({ lang, profile, authenticatedEmail, onSave, onLogout, onSubscription }: {
+function ProfileView({ lang, profile, authenticatedEmail, onSave, onLogout, onSubscription, onPublicProfile }: {
   lang: Lang; profile: Profile | null; onSave: (p: Profile)=>Promise<void>;
   authenticatedEmail?: string; onLogout: () => void;
-  onSubscription: () => void;
+  onSubscription: () => void; onPublicProfile: () => void;
 }) {
   return <div className="content-panel">
-    <div className="profile-head"><div className="profile-identity"><span className="profile-avatar"><CircleUserRound size={32} /></span><div className="min-w-0 flex-1"><p className="eyebrow">{(lang === "nb" ? nbText["Din konto"] : (lang === "da" ? "Din konto" : "Ditt konto"))}</p><h1 className="page-title">{profile?.name || ((lang === "nb" ? nbText["Log ind eller opret konto"] : (lang === "da" ? "Log ind eller opret konto" : "Logga in eller skapa konto")))}</h1>{profile && <><p className="mt-2 text-sm">{profile.email}</p><p className="mt-1 text-sm">{profile.place.postcode} {profile.place.city} · {profile.place.country}</p></>}</div></div>{profile && <div className="profile-head-actions"><Button type="button" variant="outline" onClick={onSubscription}><Crown size={17} />{(lang === "nb" ? nbText["Mit abonnement"] : (lang === "da" ? "Mit abonnement" : "Min prenumeration"))}</Button><Button type="button" variant="outline" className="logout-button" onClick={onLogout}><LogOut size={17} />{(lang === "nb" ? nbText["Log ud"] : (lang === "da" ? "Log ud" : "Logga ut"))}</Button></div>}</div>
+    <div className="profile-head"><div className="profile-identity"><span className="profile-avatar"><CircleUserRound size={32} /></span><div className="min-w-0 flex-1"><p className="eyebrow">{(lang === "nb" ? nbText["Din konto"] : (lang === "da" ? "Din konto" : "Ditt konto"))}</p><h1 className="page-title">{profile?.name || ((lang === "nb" ? nbText["Log ind eller opret konto"] : (lang === "da" ? "Log ind eller opret konto" : "Logga in eller skapa konto")))}</h1>{profile && <><p className="mt-2 text-sm">{profile.email}</p><p className="mt-1 text-sm">{profile.place.postcode} {profile.place.city} · {profile.place.country}</p></>}</div></div>{profile && <div className="profile-head-actions"><Button type="button" variant="outline" onClick={onPublicProfile}><CircleUserRound size={17}/>{ownerProfileCopy[lang].own}</Button><Button type="button" variant="outline" onClick={onSubscription}><Crown size={17} />{(lang === "nb" ? nbText["Mit abonnement"] : (lang === "da" ? "Mit abonnement" : "Min prenumeration"))}</Button><Button type="button" variant="outline" className="logout-button" onClick={onLogout}><LogOut size={17} />{(lang === "nb" ? nbText["Log ud"] : (lang === "da" ? "Log ud" : "Logga ut"))}</Button></div>}</div>
     <ProfileForm profile={profile} lang={lang} authenticatedEmail={authenticatedEmail} onSave={onSave} />
   </div>;
 }

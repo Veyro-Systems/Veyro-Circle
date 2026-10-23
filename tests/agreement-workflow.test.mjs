@@ -212,7 +212,7 @@ function setup() {
   dependencies["@/lib/firestore-values"]=load("../lib/firestore-values.ts");
   dependencies["@/lib/community-server"]=load("../lib/community-server.ts",dependencies);
   dependencies["@/lib/discovery"]=load("../lib/discovery.ts",{"./marketplace":market});
-  const communityApis=Object.fromEntries(["listings/feed","profile","reviews","preferences","wanted","agreement-changes"].map(name=>[name,load(`../app/api/${name}/route.ts`,dependencies)]));
+  const communityApis=Object.fromEntries(["listings/feed","profile","reviews","owner-profile","preferences","wanted","agreement-changes"].map(name=>[name,load(`../app/api/${name}/route.ts`,dependencies)]));
   const communityCall=(api,method,uid,body,query="")=>communityApis[api][method](new Request("https://circle.test/api/"+api+query,{method,headers:{...(uid?{authorization:uid}:{}),"content-type":"application/json"},...(body?{body:JSON.stringify(body)}:{})}));
   const calendarApi=load("../app/api/availability/route.ts",dependencies);
   const api=load("../app/api/agreements/route.ts",dependencies);
@@ -234,6 +234,51 @@ function setup() {
   const contactCall=uid=>listingApi.GET(new Request("https://circle.test/api/listings?id="+base.item.id,{headers:{authorization:uid}}));
   return {profiles,profile,contactCall,communityCall,docs,put,value,call,photoCall,images,listingCall,pushes,calendarCall,publicCalendar};
 }
+
+test("public owner profile lists only published owned items and never exposes private fields",async()=>{
+  const s=setup(),now=new Date().toISOString();
+  s.put("users/owner",{...s.profile,subscriptionPlan:"free",createdAt:now,freeAccessStartedAt:now});
+  for(let i=0;i<7;i++)s.put(`listings/item_${i}`,{...base.item,id:`item_${i}`,name:`Item ${i}`,ownerUid:"owner",active:true,createdAt:`2020-01-0${i+1}`,email:"private@example.test",phone:"private-phone",street:"Private street",place:{city:"Jystrup",country:"DK",street:"Private street",email:"private@example.test"},photos:[{src:"https://example.test/item.jpg",width:40,height:30,secret:"private-photo-field"}]});
+  s.put("listings/hidden",{ownerUid:"owner",active:false,name:"Hidden"});
+  s.put("listings/other",{ownerUid:"stranger",active:true,name:"Other"});
+  const before=JSON.stringify([...s.docs]);
+  const response=await s.communityCall("owner-profile","GET",null,null,"?ownerUid=owner");
+  assert.equal(response.status,200);assert.equal(response.headers.get("cache-control"),"no-store");
+  const data=await response.json();
+  assert.deepEqual(data.owner,{uid:"owner",name:"Real",city:"Jystrup",country:"DK"});
+  assert.equal(data.listings.length,5);
+  assert.ok(data.listings.every(l=>l.ownerUid==="owner"&&l.publishable&&l.active));
+  assert.doesNotMatch(JSON.stringify(data),/must-not-leak|private@example|private-phone|Private street|private-photo-field|Real person|Other|Hidden/);
+  assert.equal(JSON.stringify([...s.docs]),before);
+});
+
+test("expired owner keeps all data and reviews while their public listings pause",async()=>{
+  const s=setup();s.put("users/owner",{...s.profile,subscriptionPlan:"free",createdAt:"2020-01-01T00:00:00Z"});
+  s.put("reviews/old",{subjectUid:"owner",subjectRole:"lender",author:"Borrower",stars:5,text:"Great",createdAt:"2020-02-01"});
+  const before=JSON.stringify([...s.docs]);
+  const profile=await (await s.communityCall("owner-profile","GET",null,null,"?ownerUid=owner")).json();
+  assert.equal(profile.listings.length,0);
+  const reviews=await (await s.communityCall("reviews","GET",null,null,"?ownerUid=owner")).json();
+  assert.equal(reviews.count,1);assert.equal(reviews.average,6);
+  assert.equal(JSON.stringify([...s.docs]),before);
+});
+
+test("owner reviews aggregate completed rental history across listings without leaking agreement IDs",async()=>{
+  const s=setup();s.put("users/owner",s.profile);
+  s.put("agreements/legacy-agreement",{lenderUid:"owner"});
+  s.put("reviews/legacy",{subjectUid:"owner",agreementId:"legacy-agreement",authorUid:"private-author",author:"Anna",stars:4,text:"Legacy",createdAt:"2026-01-01"});
+  s.put("reviews/current",{subjectUid:"owner",subjectRole:"lender",agreementId:"private-agreement",authorUid:"private-author",author:"Bo",stars:6,maxStars:6,text:"Current",createdAt:"2026-02-01"});
+  s.put("reviews/borrower",{subjectUid:"owner",subjectRole:"borrower",stars:1});
+  s.put("reviews/other",{subjectUid:"stranger",subjectRole:"lender",stars:1});
+  const response=await s.communityCall("reviews","GET",null,null,"?ownerUid=owner");
+  const data=await response.json();assert.equal(response.status,200);assert.equal(data.count,2);assert.equal(data.average,5.4);
+  assert.deepEqual(data.reviews.map(r=>r.author),["Bo","Anna"]);assert.deepEqual(data.reviews.map(r=>r.maxStars),[6,5]);
+  assert.doesNotMatch(JSON.stringify(data),/agreement|private-author|subjectUid/);
+  for(const api of ["owner-profile","reviews"]){
+    assert.equal((await s.communityCall(api,"GET",null,null,"?ownerUid=..%2Fsecret")).status,400);
+    assert.equal((await s.communityCall(api,"GET",null,null,"?ownerUid=missing")).status,404);
+  }
+});
 test("only listing owner sets deposit; old clients preserve it and invalid amounts fail",async()=>{
   const s=setup();
   const draft={...base.item,description:"Trailer",place:{id:"1",country:"DK",city:"Jystrup",postcode:"4174"},photos:[],deposit:25000};
@@ -531,8 +576,7 @@ test("language changes update only the authenticated user's preference",async()=
   assert.doesNotMatch(source,/\[configured, lang, user\?\.email, user\?\.emailVerified, user\?\.uid\]/);
 });
 
-test('new and old free accounts can publish, borrow and finish agreements without payment',async()=>{for(const createdAt of [new Date().toISOString(),'2020-01-01',undefined]){const s=setup();const free={...s.profile,subscriptionPlan:'free',createdAt};s.profiles.set('borrower',free);s.profiles.set('owner',free);s.put('users/owner',free);const draft={...base.item,id:'new_listing_1234567890',description:'Trailer',place:s.profile.place,photos:[]};assert.equal((await s.listingCall('borrower',draft)).status,200);assert.equal((await s.call('POST','borrower',{agreement:base})).status,200);assert.equal((await s.call('PATCH','owner',{id:base.id,action:'accept'})).status,200);assert.equal((await s.call('GET','borrower')).status,200);assert.equal(s.docs.has('agreements/'+base.id),true);}});
-
+test('card-free members can publish and borrow, but expired members cannot create new activity',async()=>{const s=setup();const recent={...s.profile,subscriptionPlan:'free',createdAt:new Date().toISOString()};s.profiles.set('borrower',recent);s.profiles.set('owner',recent);const draft={...base.item,id:'new_listing_1234567890',description:'Trailer',place:s.profile.place,photos:[]};assert.equal((await s.listingCall('borrower',draft)).status,200);assert.equal((await s.call('POST','borrower',{agreement:base})).status,200);assert.equal((await s.call('PATCH','owner',{id:base.id,action:'accept'})).status,200);s.profiles.set('borrower',{...recent,createdAt:'2020-01-01'});assert.equal((await s.listingCall('borrower',{...draft,id:'new_listing_1234567891'})).status,403);assert.equal((await s.call('POST','borrower',{agreement:{...base,id:'VC-2099-NEW123456789'}})).status,403);assert.equal((await s.call('GET','borrower')).status,200);assert.equal(s.docs.has('agreements/'+base.id),true);});
 test("paid listing limit cannot be exceeded by concurrent submissions",async()=>{
   const s=setup();for(let i=0;i<18;i++)s.put("listings/existing_listing_"+i,{...base.item,ownerUid:"owner",active:true});
   const draft={...base.item,description:"Trailer",place:s.profile.place,photos:[]};
@@ -553,27 +597,22 @@ test('five free slots remain atomic and inactive listings cannot bypass the limi
   assert.equal((await s.listingCall('owner',{...draft,id:'inactive_listing_123456789'})).status,409);
 });
 
-test('free listings remain public regardless of signup date, excess listings pause without deletion',async()=>{
+test('free listings are public before individual expiry, then paused without data deletion',async()=>{
   const s=setup();const recent={...s.profile,subscriptionPlan:'free',createdAt:new Date().toISOString()};s.put('users/owner',recent);
   for(let i=0;i<5;i++)s.put('listings/free_public_123456789'+i,{...base.item,ownerUid:'owner',active:true,createdAt:new Date().toISOString()});
   const read=async uid=>(await (await s.communityCall('listings/feed','GET',uid)).json()).listings;
   assert.equal((await read(null)).length,5);const own=await read('owner');assert.equal(own.length,6);assert.equal(own.filter(l=>l.publishable).length,5);assert.ok(own.every(l=>!('street'in l)&&!('phone'in l)));
   s.put('users/owner',{...recent,createdAt:'2020-01-01'});
-  assert.equal((await read(null)).length,5);assert.equal((await read('owner')).length,6);
+  assert.equal((await read(null)).length,0);assert.equal((await read('owner')).length,6);
   assert.equal([...s.docs.keys()].filter(k=>k.startsWith('listings/')).length,6);
 });
-test("Plus downgrade retains five public listings and all private data without exposing contacts",async()=>{
-  const s=setup();s.put("users/owner",{subscriptionPlan:"plus",street:"Private",phone:"123"});
-  for(let i=0;i<19;i++)s.put('listings/plus_listing_'+i,{...base.item,ownerUid:'owner',active:true,photos:['https://example.invalid/preserved.jpg'],createdAt:'2020-01-01'});
-  s.put('agreements/'+base.id,base);s.put('messages/preserved_message',{text:'Keep',ownerUid:'owner'});
-  const before=structuredClone([...s.docs.entries()]);
+test("public feed pauses unpaid listings without deleting owners' items or exposing contacts",async()=>{
+  const s=setup();s.put("users/owner",{subscriptionPlan:"free",street:"Private",phone:"123"});
   const read=async uid=>(await (await s.communityCall("listings/feed","GET",uid)).json()).listings;
-  assert.equal((await read(null)).length,20);
-  s.put("users/owner",{subscriptionPlan:"free",street:"Private",phone:"123"});
-  const publicItems=await read(null);assert.equal(publicItems.length,5);assert.ok(publicItems.every(l=>l.publishable&&!('street'in l)&&!('phone'in l)));
-  const own=await read('owner');assert.equal(own.length,20);assert.equal(own.filter(l=>l.publishable).length,5);
-  assert.deepEqual([...s.docs.entries()].filter(([k])=>!k.startsWith('users/')),before.filter(([k])=>!k.startsWith('users/')));
-  s.put("users/owner",{subscriptionPlan:"plus"});assert.equal((await read(null)).length,20);
+  assert.equal((await read(null)).length,0);const own=await read("owner");assert.equal(own.length,1);assert.equal(own[0].publishable,false);
+  s.put("users/owner",{subscriptionPlan:"plus",street:"Private",phone:"123"});
+  const publicItems=await read(null);assert.equal(publicItems.length,1);assert.equal(publicItems[0].publishable,true);assert.equal(publicItems[0].street,undefined);assert.equal(publicItems[0].phone,undefined);
+  s.put("users/owner",{subscriptionPlan:"free"});assert.equal((await read("borrower")).length,0);assert.equal(s.docs.has("listings/"+base.item.id),true);
 });
 
 test("lender reviews span listings, retain legacy scale and exclude borrower ratings",async()=>{

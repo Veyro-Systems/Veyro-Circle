@@ -784,6 +784,27 @@ button:focus-visible,a:focus-visible { outline:3px solid #819eb6; outline-offset
 @container (max-width:580px) { .category-chip svg { display:none; } }
 
 /* Compact desktop density; retain readable mobile inputs and touch targets. */
+.owner-profile-dialog { width:calc(100% - 2rem); max-width:720px!important; max-height:calc(100dvh - 2rem); overflow-y:auto; }
+.owner-profile-body { min-width:0; }
+.owner-profile-identity { display:flex; gap:14px; align-items:center; padding:16px 0; }
+.owner-profile-identity h3 { font-size:24px; font-weight:700; margin:0 0 5px; }
+.owner-profile-identity p { display:flex; align-items:center; gap:5px; color:#64748b; }
+.owner-profile-avatar { display:flex; width:54px; height:54px; flex-shrink:0; align-items:center; justify-content:center; border-radius:50%; background:#e1f5f7; color:#007f98; font-size:22px; font-weight:700; }
+.owner-profile-link { display:flex; width:100%; min-height:64px; align-items:center; gap:12px; margin-top:20px; padding:12px; text-align:left; border:1px solid #cce2e8; border-radius:12px; background:#f2f8fa; }
+.owner-profile-link>span:nth-child(2) { display:grid; gap:4px; min-width:0; flex:1; }
+.owner-profile-link>span:nth-child(2)>span { font-size:13px; color:#007d94; text-decoration:underline; }
+.owner-profile-link:focus-visible,.owner-profile-item:focus-visible { outline:3px solid #16c8d5; outline-offset:3px; }
+.owner-profile-body section>h3 { margin:16px 0 12px; font-size:18px; font-weight:700; }
+.owner-profile-body .lender-reviews { margin-bottom:20px; }
+.owner-profile-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.owner-profile-item { min-width:0; overflow:hidden; display:flex; flex-direction:column; text-align:left; border:1px solid #d4e2e9; border-radius:12px; background:white; }
+.owner-profile-item>img,.owner-profile-placeholder { display:flex; align-items:center; justify-content:center; width:100%; height:145px; object-fit:cover; background:#e5f1f5; color:#008eac; }
+.owner-profile-item-copy { display:grid; gap:5px; padding:12px; overflow-wrap:anywhere; }
+.owner-profile-item-copy b { font-size:16px; }
+.owner-profile-item-copy small,.owner-profile-notice { color:#64748b; }
+.owner-profile-notice { margin-top:20px; font-size:13px; line-height:1.6; }
+@media(max-width:480px) { .owner-profile-grid { grid-template-columns:1fr; }.owner-profile-item { flex-direction:row; align-items:center; }.owner-profile-item>img,.owner-profile-placeholder { width:105px; height:110px; flex-shrink:0; }.owner-profile-item-copy { padding:10px; } }
+
 @media (min-width:1024px) {
   .app-header-inner { height:68px; }
   .app-main-grid { gap:20px; padding-top:18px; grid-template-columns:200px minmax(0,1fr); }

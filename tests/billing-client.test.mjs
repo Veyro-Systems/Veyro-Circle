@@ -12,7 +12,7 @@ test('Checkout sends the reviewed offer and never redirects when the server chan
   const redirects=[],requests=[];
   globalThis.window={location:{assign:url=>redirects.push(url)}};
   const user={getIdToken:async()=>'unit-test-token'};
-  const offer={expectedTrialEligible:false,expectedOfferVersion:4,expectedCountry:'SE',lang:'sv'};
+  const offer={expectedTrialEligible:false,expectedOfferVersion:5,expectedCountry:'SE',lang:'sv'};
   globalThis.fetch=async(url,options)=>{
     requests.push({url,options});
     return Response.json({code:'BILLING_OFFER_CHANGED',error:'Review the offer'},{status:409});

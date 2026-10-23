@@ -49,6 +49,7 @@ export async function POST(request:Request) {
     const identity = await verifyFirebaseRequest(request);
     const profile = await getServerProfile(identity.localId);
     const access=circleAccess(profile);
+    if(!access.canUseApp)return error("FREE_PERIOD_ENDED",403);
     const body = await request.json() as {listing?:ListingPayload};
     const listing = body.listing;
     const id = listing?.id ?? "";

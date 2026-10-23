@@ -69,7 +69,7 @@ function harness(t,options={}){
     throw Error(`Unexpected test request ${path}`);
   };
   const checkout=load('@/app/api/stripe/checkout/route');const webhook=load('@/app/api/stripe/webhook/route');
-  const request=(offer={})=>new Request('https://circle.example.invalid/api/stripe/checkout',{method:'POST',body:JSON.stringify({country:'SE',trial_period_days:999,expectedTrialEligible:false,expectedOfferVersion:4,expectedCountry:profile.country,lang:profile.country==='NO'?'nb':profile.country==='SE'?'sv':'da',...offer})});
+  const request=(offer={})=>new Request('https://circle.example.invalid/api/stripe/checkout',{method:'POST',body:JSON.stringify({country:'SE',trial_period_days:999,expectedTrialEligible:false,expectedOfferVersion:5,expectedCountry:profile.country,lang:profile.country==='NO'?'nb':profile.country==='SE'?'sv':'da',...offer})});
   const event=async(type,object,extra={})=>{
     const payload=JSON.stringify({id:'evt_test',livemode:false,type,data:{object},...extra});
     const time=String(Math.floor(Date.now()/1000));
@@ -81,9 +81,9 @@ function harness(t,options={}){
 const created=h=>h.calls.filter(c=>c.path==='/checkout/sessions'&&c.method==='POST');
 const subscription=(status='trialing',extra={})=>({id:'sub_one',customer:'cus_one',status,metadata:{uid:'user-one'},items:{data:[{price:{id:'price_dk_existing',product:'prod_circle_plus'}}]},trial_end:1800000000,cancel_at_period_end:false,...extra});
 
-for(const country of ['DK','SE','NO'])test(`free ${country} member voluntarily chooses the correct paid price without a second trial`,async t=>{const h=harness(t,{profile:{country}});assert.equal((await h.checkout.POST(h.request())).status,200);const b=created(h)[0].body;assert.equal(b.has('subscription_data[trial_period_days]'),false);assert.equal(b.get('payment_method_collection'),'always');assert.equal(b.has('payment_method_types[0]'),false);assert.equal(b.get('line_items[0][price]'),country==='NO'?'price_no_existing':country==='SE'?'price_se_existing':'price_dk_existing');assert.match(b.get('custom_text[submit][message]'),country==='NO'?/41 NOK/:country==='SE'?/43 SEK/:/29 DKK/);assert.match(b.get('custom_text[submit][message]'),/aktivt/);assert.match(b.get('integration_identifier'),/^circle-plus-freemium-[a-z]{8}$/);});
+for(const country of ['DK','SE','NO'])test(`expired ${country} member explicitly chooses the correct paid price without a second trial`,async t=>{const h=harness(t,{profile:{country}});assert.equal((await h.checkout.POST(h.request())).status,200);const b=created(h)[0].body;assert.equal(b.has('subscription_data[trial_period_days]'),false);assert.equal(b.get('payment_method_collection'),'always');assert.equal(b.has('payment_method_types[0]'),false);assert.equal(b.get('line_items[0][price]'),country==='NO'?'price_no_existing':country==='SE'?'price_se_existing':'price_dk_existing');assert.match(b.get('custom_text[submit][message]'),country==='NO'?/41 NOK/:country==='SE'?/43 SEK/:/29 DKK/);assert.match(b.get('custom_text[submit][message]'),/aktivt/);assert.match(b.get('integration_identifier'),/^circle-plus-cardfree-[a-z]{8}$/);});
 
-test('access inspection never creates Stripe resources or requires Stripe during free signup',async t=>{const h=harness(t,{profile:{createdAt:new Date().toISOString()},stripeFailure:500});const data=await (await h.checkout.GET(h.request())).json();assert.equal(data.trialEligible,false);assert.equal(data.country,'DK');assert.equal(data.access.plan,'free');assert.equal(data.access.listingLimit,5);assert.equal(h.calls.length,0);assert.equal(h.documents.size,0);assert.equal((await h.checkout.POST(h.request())).status,400);assert.ok(h.calls.length>0);assert.equal(created(h).length,0);});
+test('access inspection never creates Stripe resources or requires Stripe during free signup',async t=>{const h=harness(t,{profile:{createdAt:new Date().toISOString()},stripeFailure:500});const data=await (await h.checkout.GET(h.request())).json();assert.equal(data.trialEligible,false);assert.equal(data.country,'DK');assert.equal(data.access.plan,'free');assert.equal(data.access.listingLimit,5);assert.equal(h.calls.length,0);assert.equal(h.documents.size,0);assert.equal((await h.checkout.POST(h.request())).status,403);assert.equal(h.calls.length,0);assert.equal(h.documents.size,0);});
 for(const field of ['stripeSubscriptionId','circlePlusStartedAt','circlePlusTrialStartedAt'])test(`permanent ${field} history prevents another trial`,async t=>{
   const h=harness(t,{profile:{[field]:'previous-history'}});assert.equal((await h.checkout.POST(h.request({expectedTrialEligible:false}))).status,200);assert.equal(created(h)[0].body.has('subscription_data[trial_period_days]'),false);
   assert.equal((await h.load('@/lib/circle-billing').billingContext('user-one','member@example.invalid',h.profile)).eligible,false);
@@ -100,12 +100,12 @@ test('a retired Circle Plus price still consumes the trial even without UID meta
 });
 test('an older client cannot silently accept a changed paid offer or request another Stripe trial',async t=>{const h=harness(t);const r=await h.checkout.POST(h.request({expectedTrialEligible:true}));assert.equal(r.status,409);assert.equal((await r.json()).code,'BILLING_OFFER_CHANGED');assert.equal(created(h).length,0);assert.equal(h.calls.filter(c=>c.method==='POST').length,0);});
 test('missing acceptance or a different displayed country blocks checkout without creating Stripe resources',async t=>{
-  const h=harness(t);for(const offer of [{expectedTrialEligible:undefined},{expectedCountry:'SE'},{expectedTrialEligible:true},{expectedOfferVersion:undefined},{expectedOfferVersion:3}]){
+  const h=harness(t);for(const offer of [{expectedTrialEligible:undefined},{expectedCountry:'SE'},{expectedTrialEligible:true},{expectedOfferVersion:undefined},{expectedOfferVersion:4}]){
     const response=await h.checkout.POST(h.request(offer));assert.equal(response.status,409);assert.equal((await response.json()).code,'BILLING_OFFER_CHANGED');
   }assert.equal(h.customers.length,0);assert.equal(created(h).length,0);
 });
 test('a session containing older offer terms is expired instead of reused',async t=>{
-  const h=harness(t);await h.checkout.POST(h.request());h.documents.get('billingCheckouts/user-one').fields.offerVersion={stringValue:'3'};await h.checkout.POST(h.request());
+  const h=harness(t);await h.checkout.POST(h.request());h.documents.get('billingCheckouts/user-one').fields.offerVersion={stringValue:'4'};await h.checkout.POST(h.request());
   assert.equal(h.sessions.get('cs_1').status,'expired');assert.equal(created(h).length,2);
 });
 test('existing active profile creates no Stripe resources',async t=>{const h=harness(t,{profile:{subscriptionPlan:'plus'}});assert.equal((await h.checkout.POST(h.request())).status,400);assert.equal(h.calls.length,0);});

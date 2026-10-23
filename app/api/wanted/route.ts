@@ -3,6 +3,7 @@ import {queryRecords} from "@/lib/community-server";
 import {decodeFields,encodeFields,type Json} from "@/lib/firestore-values";
 import {validListingId,validPeriod} from "@/lib/listing-calendar";
 import {circleToday} from "@/lib/agreement-workflow";
+import {circleAccess} from "@/lib/circle-access";
 import {listingIsPublishable} from "@/lib/listing-access";
 const headers={"cache-control":"no-store"};
 export async function GET(request:Request) {
@@ -20,7 +21,7 @@ export async function POST(request:Request) {
       if(typeof b.title!=="string"||b.title.trim().length<3||b.title.length>100||typeof b.description!=="string"||b.description.length>1000||!validPeriod(b.from,b.to,circleToday()))throw Error("INVALID");
       const lock=await getFirestoreDocument(`wantedLocks/${uid}`);
       const current=(await queryRecords("wanted","ownerUid",uid)).filter(r=>r.status==="open"&&Date.parse(String(r.expiresAt))>Date.now());if(current.length>=5)throw Error("LIMIT");
-      const profile=await getServerProfile(uid);if(!profile.place.id||!profile.name)throw Error("PROFILE_REQUIRED");
+      const profile=await getServerProfile(uid);if(!circleAccess(profile).canUseApp)return Response.json({error:"FREE_PERIOD_ENDED"},{status:403});if(!profile.place.id||!profile.name)throw Error("PROFILE_REQUIRED");
       const id=crypto.randomUUID();
       await commitFirestoreWrites([{update:{name:firestoreDocumentName(`wanted/${id}`),fields:encodeFields({ownerUid:uid,title:b.title.trim(),description:b.description.trim(),country:profile.country,place:profile.place,author:profile.name.split(/\s+/)[0],from:b.from,to:b.to,status:"open",offers:[],createdAt:now,expiresAt:new Date(Math.min(Date.now()+30*86400000,Date.parse(b.to+"T23:59:59Z"))).toISOString()})},currentDocument:{exists:false}},{update:{name:firestoreDocumentName(`wantedLocks/${uid}`),fields:{updatedAt:{timestampValue:now}}},currentDocument:lock?{updateTime:lock.updateTime}:{exists:false}}]);
     }else{

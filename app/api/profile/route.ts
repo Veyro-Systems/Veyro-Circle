@@ -73,6 +73,8 @@ export async function POST(request: Request) {
     if (body.taxAcknowledgement?.version && body.taxAcknowledgement.acceptedAt) userFields.taxAcknowledgement = map({version:text(body.taxAcknowledgement.version),country:text(body.taxAcknowledgement.country ?? place.country!),acceptedAt:text(body.taxAcknowledgement.acceptedAt)});
     if (!existing) {
       userFields.createdAt = timestamp(now); userFields.subscriptionPlan = text("free");
+      const accountCreated=Number(identity.createdAt);
+      userFields.freeAccessStartedAt=timestamp(Number.isFinite(accountCreated)&&accountCreated>0&&accountCreated<=Date.now()?new Date(accountCreated).toISOString():now);
     }
     writes.push({update:{name:firestoreDocumentName(`users/${identity.localId}`),fields:userFields},updateMask:{fieldPaths:Object.keys(userFields)}});
     if (oldPhoneKey && oldPhoneKey !== phoneKey && oldPhoneDoc?.fields?.uid?.stringValue === identity.localId) writes.push({delete:firestoreDocumentName(`accountIdentityPhones/${oldPhoneKey}`)});
