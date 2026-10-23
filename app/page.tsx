@@ -769,7 +769,7 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
         </div>
       </header>
 
-      <div className="app-main-grid mx-auto grid max-w-[1440px] gap-7 px-4 pb-28 pt-6 sm:px-6 md:pb-10 lg:grid-cols-[220px_minmax(0,1fr)] lg:px-10 xl:grid-cols-[220px_minmax(0,1fr)_260px]">
+      <div data-owner-map={tab === "map" && canViewOwnerMap ? "true" : undefined} className="app-main-grid mx-auto grid max-w-[1440px] gap-7 px-4 pb-28 pt-6 sm:px-6 md:pb-10 lg:grid-cols-[220px_minmax(0,1fr)] lg:px-10 xl:grid-cols-[220px_minmax(0,1fr)_260px]">
         <aside className="hidden lg:block">
           <div className="sticky top-24 space-y-6">
             <nav className="space-y-1" aria-label="Hovedmenu">
@@ -876,7 +876,7 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
           {tab === "subscription" && <SubscriptionView lang={lang} plan={listingPlan} billingDetails={currentOffer} portalUnavailable={portalUnavailableFor===user?.uid} used={listings.filter(item => item.owned).length} onBack={() => setTab("profile")} onUpgrade={() => setShowUpgrade(true)} onManage={() => billing("portal")} />}
         </section>
 
-        <aside className="hidden xl:block">
+        {tab !== "map" && <aside className="hidden xl:block">
           <div className="sticky top-24 space-y-4">
             <CirclePricingInfo lang={lang} trialEligible={currentOffer.trialEligible} hasSubscription={currentOffer.hasSubscription} portalUnavailable={portalUnavailableFor===user?.uid} onOffer={()=>user?setShowUpgrade(true):setAuthOpen(true)}/>
             <div className="rounded-xl border border-[#dde1ec] bg-white p-5">
@@ -884,7 +884,7 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
               <p className="text-sm leading-6 text-[#5f6376]">{(lang === "nb" ? nbText["Del kun ting, du føler dig tryg ved. Aftal altid stand og aflevering i chatten."] : (lang === "da" ? "Del kun ting, du føler dig tryg ved. Aftal altid stand og aflevering i chatten." : "Dela bara saker du känner dig trygg med. Kom alltid överens om skick och återlämning i chatten."))}</p>
             </div>
           </div>
-        </aside>
+        </aside>}
       </div>
 
       <footer className="site-footer">

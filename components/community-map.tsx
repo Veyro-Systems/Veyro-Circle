@@ -3,13 +3,14 @@ import { nbText } from "@/lib/norwegian-copy";
 
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { LocateFixed, MapPin, Minus, Plus, UsersRound } from "lucide-react";
+import { LocateFixed, Minus, Plus, UsersRound } from "lucide-react";
 import { loadCommunityMap, type CommunityMapPoint } from "@/lib/firebase-community";
 import type { Lang, Place } from "@/lib/marketplace";
+import { fitCommunityView } from "@/lib/community-map-fit";
 import { bindMapWheel } from "@/lib/map-wheel";
 
 const TILE_SIZE = 256;
-const MIN_ZOOM = 5;
+const MIN_ZOOM = 2;
 const MAX_ZOOM = 13;
 
 type MapView = {lat:number;lon:number;zoom:number};
@@ -41,15 +42,6 @@ function screenPosition(lat:number, lon:number, view:MapView, size:MapSize) {
   return {x:point.x-center.x+size.width/2,y:point.y-center.y+size.height/2};
 }
 
-function zoomForRadius(radiusKm:number | null) {
-  if (radiusKm === null || radiusKm >= 200) return 6;
-  if (radiusKm >= 100) return 7;
-  if (radiusKm >= 50) return 8;
-  if (radiusKm >= 25) return 9;
-  if (radiusKm >= 10) return 10;
-  return 11;
-}
-
 type CommunityMapProps = {origin:Place;radiusKm:number|null;lang:Lang};
 
 export function CommunityMap({origin,radiusKm,lang}:CommunityMapProps) {
@@ -66,12 +58,14 @@ export function CommunityMap({origin,radiusKm,lang}:CommunityMapProps) {
   return <CommunityMapCanvas key={`${origin.id}-${radiusKm ?? "all"}`} origin={origin} radiusKm={radiusKm} lang={lang} points={points} loading={loading} loadError={loadError} />;
 }
 
-function CommunityMapCanvas({origin,radiusKm,lang,points,loading,loadError}:CommunityMapProps & {points:CommunityMapPoint[];loading:boolean;loadError:boolean}) {
+function CommunityMapCanvas({lang,points,loading,loadError}:CommunityMapProps & {points:CommunityMapPoint[];loading:boolean;loadError:boolean}) {
   const da = lang === "da";
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{pointerId:number;x:number;y:number;centerX:number;centerY:number;moved:boolean}|null>(null);
   const [size,setSize] = useState<MapSize>({width:720,height:390});
-  const [view,setView] = useState<MapView>({lat:origin.lat,lon:origin.lon,zoom:zoomForRadius(radiusKm)});
+  const fittedView=useMemo(()=>fitCommunityView(points,size),[points,size]);
+  const [lastFitted,setLastFitted]=useState(fittedView);
+  const [view,setView] = useState<MapView>(fittedView);
   const [selected,setSelected] = useState<Cluster|null>(null);
   const [wheelActive,setWheelActive] = useState(false);
 
@@ -91,6 +85,8 @@ function CommunityMapCanvas({origin,radiusKm,lang,points,loading,loadError}:Comm
     observer.observe(node);
     return ()=>observer.disconnect();
   },[]);
+
+  if(lastFitted!==fittedView){setLastFitted(fittedView);setView(fittedView);setSelected(null);}
 
   const centerWorld = useMemo(()=>toWorld(view.lat,view.lon,view.zoom),[view]);
   const tiles = useMemo(()=>{
@@ -124,17 +120,13 @@ function CommunityMapCanvas({origin,radiusKm,lang,points,loading,loadError}:Comm
     });
   },[points,size,view]);
 
-  const originScreen = screenPosition(origin.lat,origin.lon,view,size);
-  const metersPerPixel = 156543.03392*Math.cos(origin.lat*Math.PI/180)/2**view.zoom;
-  const radiusPixels = radiusKm === null ? 0 : radiusKm*1000/metersPerPixel;
-
   function changeZoom(amount:number) {
     setView(current=>({...current,zoom:Math.max(MIN_ZOOM,Math.min(MAX_ZOOM,current.zoom+amount))}));
     setSelected(null);
   }
 
   function resetView() {
-    setView({lat:origin.lat,lon:origin.lon,zoom:zoomForRadius(radiusKm)});
+    setView(fitCommunityView(points,size));
     setSelected(null);
   }
 
@@ -168,18 +160,16 @@ function CommunityMapCanvas({origin,radiusKm,lang,points,loading,loadError}:Comm
   }
 
   return <section className="community-map-card" aria-labelledby="community-map-title">
-    <header><div><p className="eyebrow">Veyro Circle</p><h2 id="community-map-title">{(lang === "nb" ? nbText["Circle-brugere i nærheden"] : (da ? "Circle-brugere i nærheden" : "Circle-användare i närheten"))}</h2><p>{(lang === "nb" ? `Kartet starter ${radiusKm ?? "uten fast avstand"} ${radiusKm===null?"":"km"} fra ${origin.postcode} ${origin.city}. Zoom eller dra kartet for å se andre områder.` : (da ? `Kortet starter ${radiusKm ?? "uden fast afstand"} ${radiusKm===null?"":"km"} fra ${origin.postcode} ${origin.city}. Zoom eller træk kortet for at se andre områder.` : `Kartan startar ${radiusKm ?? "utan fast avstånd"} ${radiusKm===null?"":"km"} från ${origin.postcode} ${origin.city}. Zooma eller dra kartan för att se andra områden.`))}</p></div><span><UsersRound size={18}/>{points.reduce((sum,point)=>sum+point.count,0)} {(lang === "nb" ? nbText["registrerede"] : (da ? "registrerede" : "registrerade"))}</span></header>
-    <p id="map-wheel-help" className="community-map-wheel-help" aria-live="polite">{wheelActive ? ((lang === "nb" ? nbText["Kortet er aktivt: Rul for at zoome. Klik udenfor kortet eller tryk Esc for at rulle siden igen."] : (da ? "Kortet er aktivt: Rul for at zoome. Klik udenfor kortet eller tryk Esc for at rulle siden igen." : "Kartan är aktiv: Rulla för att zooma. Klicka utanför kartan eller tryck Esc för att rulla sidan igen."))) : ((lang === "nb" ? nbText["Klik i kortet for at zoome med musehjulet. Du kan også bruge + og −. Med tastatur: Tryk Enter i kortet."] : (da ? "Klik i kortet for at zoome med musehjulet. Du kan også bruge + og −. Med tastatur: Tryk Enter i kortet." : "Klicka i kartan för att zooma med mushjulet. Du kan också använda + och −. Med tangentbord: Tryck Enter i kartan.")))}</p>
+    <h2 id="community-map-title" className="sr-only">{lang==="sv"?"Registrerade Circle-användare":lang==="nb"?"Registrerte Circle-brukere":"Registrerede Circle-brugere"}</h2>
+    <p id="map-wheel-help" className="sr-only" aria-live="polite">{wheelActive ? ((lang === "nb" ? nbText["Kortet er aktivt: Rul for at zoome. Klik udenfor kortet eller tryk Esc for at rulle siden igen."] : (da ? "Kortet er aktivt: Rul for at zoome. Klik udenfor kortet eller tryk Esc for at rulle siden igen." : "Kartan är aktiv: Rulla för att zooma. Klicka utanför kartan eller tryck Esc för att rulla sidan igen."))) : ((lang === "nb" ? nbText["Klik i kortet for at zoome med musehjulet. Du kan også bruge + og −. Med tastatur: Tryk Enter i kortet."] : (da ? "Klik i kortet for at zoome med musehjulet. Du kan også bruge + og −. Med tastatur: Tryk Enter i kortet." : "Klicka i kartan för att zooma med mushjulet. Du kan också använda + och −. Med tangentbord: Tryck Enter i kartan.")))}</p>
     <div ref={containerRef} className="community-map" role="group" tabIndex={0} aria-describedby="map-wheel-help" aria-label={(lang === "nb" ? nbText["Interaktivt kort over registrerede Circle-brugere"] : (da ? "Interaktivt kort over registrerede Circle-brugere" : "Interaktiv karta över registrerade Circle-användare"))} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp}>
       <div className="community-map-tiles" aria-hidden="true">{tiles.map(tile=><div key={tile.key} className="community-map-tile" style={{left:tile.left,top:tile.top,backgroundImage:`url(${tile.url})`}} />)}</div>
-      {radiusKm!==null && radiusPixels>4 && <div className="community-radius" aria-hidden="true" style={{left:originScreen.x-radiusPixels,top:originScreen.y-radiusPixels,width:radiusPixels*2,height:radiusPixels*2}} />}
-      <div className="community-home-marker" style={{left:originScreen.x,top:originScreen.y}} title={`${origin.postcode} ${origin.city}`}><MapPin size={20}/></div>
       {clusters.map((cluster,index)=>{const diameter=Math.min(66,38+Math.log2(cluster.count+1)*7);return <button key={`${cluster.lat}-${cluster.lon}-${index}`} type="button" className="community-cluster" style={{left:cluster.x,top:cluster.y,width:diameter,height:diameter}} onPointerDown={event=>event.stopPropagation()} onClick={()=>setSelected(cluster)} aria-label={`${cluster.count} ${(lang === "nb" ? nbText["brugere"] : (da?"brugere":"användare"))} · ${clusterLabel(cluster)}`}><b>{cluster.count}</b><small>{(lang === "nb" ? nbText["brugere"] : (da?"brugere":"användare"))}</small></button>;})}
       {selected && <div className="community-map-popup" style={{left:Math.max(12,Math.min(size.width-220,selected.x-100)),top:Math.max(12,selected.y-100)}}><button type="button" onClick={()=>setSelected(null)} aria-label={(lang === "nb" ? nbText["Luk"] : (da?"Luk":"Stäng"))}>×</button><b>{clusterLabel(selected)}</b><span>{selected.count} {(lang === "nb" ? nbText["registrerede Circle-brugere"] : (da ? "registrerede Circle-brugere" : "registrerade Circle-användare"))}</span></div>}
       {loading && <div className="community-map-message">{(lang === "nb" ? nbText["Henter brugerfordelingen…"] : (da?"Henter brugerfordelingen…":"Hämtar användarfördelningen…"))}</div>}
       {loadError && <div className="community-map-message is-error">{(lang === "nb" ? nbText["Brugerfordelingen kunne ikke hentes lige nu."] : (da?"Brugerfordelingen kunne ikke hentes lige nu.":"Användarfördelningen kunde inte hämtas just nu."))}</div>}
-      <div className="community-map-controls"><button type="button" onClick={()=>changeZoom(1)} disabled={view.zoom>=MAX_ZOOM} aria-label={(lang === "nb" ? nbText["Zoom ind"] : (da?"Zoom ind":"Zooma in"))}><Plus size={19}/></button><button type="button" onClick={()=>changeZoom(-1)} disabled={view.zoom<=MIN_ZOOM} aria-label={(lang === "nb" ? nbText["Zoom ud"] : (da?"Zoom ud":"Zooma ut"))}><Minus size={19}/></button><button type="button" onClick={resetView} aria-label={(lang === "nb" ? nbText["Vis min adresse og radius"] : (da?"Vis min adresse og radius":"Visa min adress och radie"))}><LocateFixed size={19}/></button></div>
-      <div className="community-map-legend"><span><i />{radiusKm===null?((lang === "nb" ? nbText["Valgt område"] : (da?"Valgt område":"Valt område"))):`${radiusKm} km`}</span><span><b>12</b>{(lang === "nb" ? nbText["Brugere pr. område"] : (da?"Brugere pr. område":"Användare per område"))}</span></div>
+      <div className="community-map-controls"><button type="button" onClick={()=>changeZoom(1)} disabled={view.zoom>=MAX_ZOOM} aria-label={(lang === "nb" ? nbText["Zoom ind"] : (da?"Zoom ind":"Zooma in"))}><Plus size={19}/></button><button type="button" onClick={()=>changeZoom(-1)} disabled={view.zoom<=MIN_ZOOM} aria-label={(lang === "nb" ? nbText["Zoom ud"] : (da?"Zoom ud":"Zooma ut"))}><Minus size={19}/></button><button type="button" onClick={resetView} aria-label={(lang === "nb" ? "Vis alle registrerte" : (da?"Vis alle tilmeldte":"Visa alla registrerade"))}><LocateFixed size={19}/></button></div>
+      <div className="community-map-legend"><span><UsersRound size={17}/>{points.reduce((sum,point)=>sum+point.count,0)} {lang==="sv"?"registrerade":lang==="nb"?"registrerte":"registrerede"}</span><span><b>12</b>{lang==="sv"?"Användare per område":lang==="nb"?"Brukere per område":"Brugere pr. område"}</span></div>
       <a className="community-map-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a>
     </div>
     <p className="community-map-privacy">{(lang === "nb" ? nbText["Kortet viser kun samlede antal ved postnummerets omtrentlige centrum. Navne, adresser og telefonnumre vises ikke."] : (da ? "Kortet viser kun samlede antal ved postnummerets omtrentlige centrum. Navne, adresser og telefonnumre vises ikke." : "Kartan visar endast sammanlagda antal vid postnumrets ungefärliga centrum. Namn, adresser och telefonnummer visas inte."))}</p>

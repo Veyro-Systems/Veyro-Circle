@@ -962,3 +962,8 @@ button:focus-visible,a:focus-visible { outline:3px solid #819eb6; outline-offset
 .listing-card-bottom { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:12px; min-height:36px; }
 .listing-card-bottom>div { min-width:0; }
 .listing-card-bottom .listing-owner-photo { width:36px; height:36px; flex-shrink:0; border-radius:50%; object-fit:cover; border:1px solid #cbe2e8; }
+
+@media(min-width:1280px) { .app-main-grid[data-owner-map="true"] { grid-template-columns:220px minmax(0,1fr); } }
+.app-main-grid[data-owner-map="true"] .community-map-card { margin-top:0; }
+.app-main-grid[data-owner-map="true"] .community-map { height:calc(100svh - 165px); min-height:420px; max-height:none; border-top:0; }
+@media(max-width:639px) { .app-main-grid[data-owner-map="true"] .community-map { height:calc(100svh - 205px); min-height:330px; } }
