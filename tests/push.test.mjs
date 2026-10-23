@@ -8,7 +8,8 @@ function load(file,deps={}) {
   const code=ts.transpileModule(readFileSync(new URL(file,import.meta.url),"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
   const exports={};new Function("require","exports",code)(name=>deps[name],exports);return exports;
 }
-const server=load("../lib/push-server.ts",{"node:crypto":crypto});
+const ownerAccess=load("../lib/owner-map-access.ts");
+const server=load("../lib/push-server.ts",{"node:crypto":crypto,"@/lib/owner-map-access":ownerAccess});
 test("push payloads contain generic translated text and an encoded ticket, no private content",()=>{
   assert.match(server.pushPayload("message","a/b","da").url,/a%2Fb/);
   assert.match(server.pushPayload("requested","ticket","sv").body,/låneförfrågan/);
@@ -19,7 +20,7 @@ test("push payloads contain generic translated text and an encoded ticket, no pr
 });
 test("registration binds uid to authenticated identity, deletion cannot remove another user's token",async()=>{
   const writes=[];let old=null;
-  const api=load("../app/api/push/route.ts",{"@/lib/push-server":server,"@/lib/firebase-server":{verifyFirebaseRequest:async r=>{if(r.headers.get("authorization")!=="ok")throw Error();return {localId:"actual"};},getFirestoreDocument:async()=>old,firestoreDocumentName:p=>p,commitFirestoreWrites:async w=>writes.push(...w)}});
+  const api=load("../app/api/push/route.ts",{"@/lib/owner-map-access":ownerAccess,"@/lib/push-server":server,"@/lib/firebase-server":{verifyFirebaseRequest:async r=>{if(r.headers.get("authorization")!=="ok")throw Error();return {localId:"actual",email:'actual@example.test',emailVerified:true};},getFirestoreDocument:async()=>old,firestoreDocumentName:p=>p,commitFirestoreWrites:async w=>writes.push(...w)}});
   const call=(method,auth="ok",data={token:"a".repeat(100),uid:"forged",lang:"sv"})=>api[method](new Request("https://circle.test/api/push",{method,headers:{authorization:auth,"content-type":"application/json"},body:JSON.stringify(data)}));
   const previous=process.env.CIRCLE_PUSH_ENABLED;process.env.CIRCLE_PUSH_ENABLED="true";
   try {

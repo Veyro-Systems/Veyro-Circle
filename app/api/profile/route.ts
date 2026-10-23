@@ -1,8 +1,9 @@
 import { createHmac } from "node:crypto";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { commitFirestoreWrites, firestoreDocumentName, getFirestoreDocument, verifyFirebaseRequest, type FirestoreField } from "@/lib/firebase-server";
 import { serverConfig } from "@/lib/server-config";
 import { storedLanguage } from "@/lib/region";
+import {notifyOwnersOfSignup} from "@/lib/push-server";
 
 type Payload = {
   defaultRadiusKm?:number; name?:string; email?:string; phone?:string; street?:string;
@@ -76,10 +77,11 @@ export async function POST(request: Request) {
       const accountCreated=Number(identity.createdAt);
       userFields.freeAccessStartedAt=timestamp(Number.isFinite(accountCreated)&&accountCreated>0&&accountCreated<=Date.now()?new Date(accountCreated).toISOString():now);
     }
-    writes.push({update:{name:firestoreDocumentName(`users/${identity.localId}`),fields:userFields},updateMask:{fieldPaths:Object.keys(userFields)}});
+    writes.push({update:{name:firestoreDocumentName(`users/${identity.localId}`),fields:userFields},updateMask:{fieldPaths:Object.keys(userFields)},...(!existing?{currentDocument:{exists:false}}:{})});
     if (oldPhoneKey && oldPhoneKey !== phoneKey && oldPhoneDoc?.fields?.uid?.stringValue === identity.localId) writes.push({delete:firestoreDocumentName(`accountIdentityPhones/${oldPhoneKey}`)});
     if (oldCompositeKey && oldCompositeKey !== compositeKey && oldCompositeDoc?.fields?.uid?.stringValue === identity.localId) writes.push({delete:firestoreDocumentName(`accountIdentityProfiles/${oldCompositeKey}`)});
     await commitFirestoreWrites(writes);
+    if(!existing)after(()=>notifyOwnersOfSignup(identity.localId));
     return NextResponse.json({ok:true});
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : "Profilen kunne ikke gemmes.";

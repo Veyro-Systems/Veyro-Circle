@@ -28,7 +28,7 @@ test('every country and language communicates 5 free items without card and volu
 
 test('profile creation uses verified Firebase signup time and profile edits cannot reset it',async()=>{
  const signup=Date.now()-30*day;let current=null;const writes=[];
- const route=createTsLoader({'@/lib/firebase-server':{verifyFirebaseRequest:async()=>({localId:'unit-free',email:'unit@example.invalid',createdAt:String(signup)}),getFirestoreDocument:async p=>p==='users/unit-free'?current:null,firestoreDocumentName:p=>p,commitFirestoreWrites:async w=>writes.push(...w)},'@/lib/server-config':{serverConfig:()=> 'unit-identity-key-not-secret'}})('@/app/api/profile/route');
+ const route=createTsLoader({'next/server':{NextResponse:{json:(data,options)=>Response.json(data,options)},after:()=>{}},'@/lib/firebase-server':{verifyFirebaseRequest:async()=>({localId:'unit-free',email:'unit@example.invalid',createdAt:String(signup)}),getFirestoreDocument:async p=>p==='users/unit-free'?current:null,firestoreDocumentName:p=>p,commitFirestoreWrites:async w=>writes.push(...w)},'@/lib/server-config':{serverConfig:()=> 'unit-identity-key-not-secret'}})('@/app/api/profile/route');
  const body={name:'Unit member',email:'unit@example.invalid',phone:'12345678',street:'Unitvej 12',place:{id:'1',country:'DK',postcode:'4174',city:'Jystrup'},createdAt:'2099-01-01',freeAccessStartedAt:'2099-01-01',subscriptionPlan:'plus'};
  const request=()=>new Request('https://unit.example.invalid/api/profile',{method:'POST',body:JSON.stringify(body)});
  assert.equal((await route.POST(request())).status,200);

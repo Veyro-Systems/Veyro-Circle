@@ -67,6 +67,14 @@ test('favorite controls distinguish selected and unselected state in every langu
  }
 });
 
+test('signup push explanation is visible only to owners in every language',async()=>{
+ const {PushSettings,ownerSignupPushCopy}=await vite.ssrLoadModule('/components/push-settings.tsx');
+ for(const lang of ['da','sv','nb'])for(const owner of [false,true]){
+  const html=renderToStaticMarkup(React.createElement(PushSettings,{uid:'test-owner',lang,owner}));
+  assert.equal(html.includes(ownerSignupPushCopy[lang]),owner);
+ }
+});
+
 test('root opens the login landing page for visitors and preserves signed-in access',async()=>{
   const {default:HomePage,setEntryTestUser}=await vite.ssrLoadModule('/app/page.tsx');
   setEntryTestUser(null);
