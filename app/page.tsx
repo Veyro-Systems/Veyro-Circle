@@ -56,7 +56,7 @@ import {
   SprayCan, Heart, Home, ImagePlus, MapPin, Map as MapIcon, MessageCircle,
   PackagePlus, PartyPopper, Pencil, Search, ShieldCheck, Sparkles, TentTree,
   Trash2, Truck, Utensils, Wrench, X, Crown, FileSignature, Printer, LockKeyhole,
-  LogOut, LoaderCircle, Send, Save, RefreshCw,
+  LogOut, LoaderCircle, Send, Save, RefreshCw, Menu,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -213,6 +213,8 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
   const [prefs,setPrefs]=useState<Preferences>({favorites:[],searches:[]});
   const [onlyFavorites,setOnlyFavorites]=useState(false);
   const [searchMapOpen,setSearchMapOpen]=useState(false);
+  const [sidebarOpen,setSidebarOpen]=useState(false);
+  const [countryPickerOpen,setCountryPickerOpen]=useState(false);
   const [favoriteBusy,setFavoriteBusy]=useState<string|null>(null);
   const [authOpen,setAuthOpen]=useState(true);
   const [calendarItem,setCalendarItem]=useState<Listing|null>(null);
@@ -759,25 +761,14 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
 
   return (
     <main className="min-h-screen bg-[#F2F6F8] text-[#172936]">
-      <Toaster position="top-center" richColors />
-      <header className="app-header sticky top-0 z-40 border-b border-[#174354] bg-[#031725] text-white">
-        <div className="app-header-inner mx-auto flex h-20 max-w-[1440px] items-center gap-4 px-4 sm:px-6 lg:px-10">
-          <button className="brand-lockup" onClick={openHome} aria-label={(lang === "nb" ? nbText["Veyro Circle hjem"] : (lang === "da" ? "Veyro Circle hjem" : "Veyro Circle hem"))}>
+      <Toaster position="top-center" richColors /><svg width="0" height="0" aria-hidden="true" className="logo-filter-definitions"><defs><filter id="sidebar-logo-light" colorInterpolationFilters="sRGB"><feColorMatrix in="SourceGraphic" type="saturate" values="0" result="gray"/><feComponentTransfer in="gray" result="inverted"><feFuncR type="table" tableValues="1 1 0 0"/><feFuncG type="table" tableValues="1 1 0 0"/><feFuncB type="table" tableValues="1 1 0 0"/></feComponentTransfer><feColorMatrix in="SourceGraphic" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2 1 1 0 -0.28" result="chroma"/><feComponentTransfer in="chroma" result="mask"><feFuncA type="linear" slope="8" intercept="0"/></feComponentTransfer><feComposite in="SourceGraphic" in2="mask" operator="in" result="turquoise"/><feComposite in="inverted" in2="mask" operator="out" result="neutral"/><feComposite in="turquoise" in2="neutral" operator="over"/></filter></defs></svg>
+      <div data-owner-map={tab === "map" && canViewOwnerMap ? "true" : undefined} className="app-main-grid mx-auto grid max-w-[1440px] gap-7 px-4 pb-28 pt-6 sm:px-6 md:pb-10 lg:grid-cols-[220px_minmax(0,1fr)] lg:px-10 xl:grid-cols-[220px_minmax(0,1fr)_260px]">
+        <aside className={`app-sidebar ${sidebarOpen?"is-open":""}`}>
+          <div className="sidebar-content space-y-6">
+            <div className="sidebar-identity">          <button className="brand-lockup" onClick={openHome} aria-label={(lang === "nb" ? nbText["Veyro Circle hjem"] : (lang === "da" ? "Veyro Circle hjem" : "Veyro Circle hem"))}>
             <img src="/branding/veyro-systems-logo.png" alt="Veyro Systems" /><span>Circle</span>
           </button>
-          <div className="app-header-actions ml-auto flex items-center gap-2">
-            <button className="icon-button notification-bell" onClick={()=>user?setNotificationsOpen(true):setAuthOpen(true)} aria-label={`${(lang === "nb" ? nbText["Notifikationer"] : (lang === "da" ? "Notifikationer" : "Aviseringar"))} · ${unreadCount} ${(lang === "nb" ? nbText["ulæste"] : (lang === "da" ? "ulæste" : "olästa"))}`}><Bell size={20} />{unreadCount > 0 && <b>{unreadCount > 99 ? "99+" : unreadCount}</b>}</button>
-            <LanguageSwitcher compact lang={lang} disabled={languageSaving} onChange={value=>void changeLanguage(value)}/>
-            <button className="header-account-button flex min-h-11 items-center gap-2 rounded-full bg-[#172936] px-3 text-sm font-semibold text-white" onClick={() => navigate("profile")}>
-              <CircleUserRound size={18} /><span>{profile ? profile.name.split(" ")[0] : ((lang === "nb" ? nbText["Log ind / opret"] : (lang === "da" ? "Log ind / opret" : "Logga in / skapa")))}</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <div data-owner-map={tab === "map" && canViewOwnerMap ? "true" : undefined} className="app-main-grid mx-auto grid max-w-[1440px] gap-7 px-4 pb-28 pt-6 sm:px-6 md:pb-10 lg:grid-cols-[220px_minmax(0,1fr)] lg:px-10 xl:grid-cols-[220px_minmax(0,1fr)_260px]">
-        <aside className="hidden lg:block">
-          <div className="sticky top-24 space-y-6">
+<div className="sidebar-tools"><button className="sidebar-menu-toggle" type="button" aria-expanded={sidebarOpen} aria-label={lang==="sv"?"Visa meny":lang==="nb"?"Vis meny":"Vis menu"} onClick={()=>setSidebarOpen(value=>!value)}><Menu size={21}/></button></div></div>
             <nav className="side-navigation space-y-1" aria-label="Hovedmenu">
               <SideNav icon={Home} label={t.navHome} active={tab === "home" && !onlyFavorites} onClick={openHome} />
               {canViewOwnerMap&&<SideNav icon={MapIcon} label={(lang === "nb" ? nbText["Kort"] : (lang === "da" ? "Kort" : "Karta"))} active={tab === "map"} onClick={() => navigate("map")} />}
@@ -787,9 +778,10 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
               <SideNav icon={CalendarDays} label={t.navRequests} active={tab === "requests"} badge={awaitingCount ? String(awaitingCount) : undefined} onClick={() => navigate("requests")} />
               <SideNav icon={Heart} label={(lang === "nb" ? nbText["Mine favoritter"] : (lang === "da" ? "Mine favoritter" : "Mina favoriter"))} active={tab === "home" && onlyFavorites} onClick={openFavorites} />
               <SideNav icon={CircleUserRound} label={t.navProfile} active={tab === "profile"} onClick={() => navigate("profile")} />
+              <SideNav icon={MapIcon} label="Land" active={countryPickerOpen} onClick={()=>setCountryPickerOpen(true)} />
             </nav>
 
-            <div className="rounded-xl bg-[#16866B] p-5 text-white">
+            <div className="sidebar-trust rounded-xl bg-[#16866B] p-5 text-white">
               <ShieldCheck className="mb-4 text-[#f5bf42]" size={28} />
               <h3 className="font-bold">{t.trust}</h3>
               <p className="mt-2 text-sm leading-6 text-white/85">{t.trustText}</p>
@@ -830,7 +822,7 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
           {tab === "map" && canViewOwnerMap && <div className="map-page"><h1 className="sr-only">{(lang === "nb" ? nbText["Kort"] : (lang === "da" ? "Kort" : "Karta"))}</h1>{profile ? <CommunityMap origin={profile.place} radiusKm={defaultSearchRadius(profile.defaultRadiusKm)} lang={lang} /> : <div className="content-panel"><p>{(lang === "nb" ? nbText["Udfyld din profil for at se kortet med udgangspunkt i dit postnummer."] : (lang === "da" ? "Udfyld din profil for at se kortet med udgangspunkt i dit postnummer." : "Fyll i din profil för att se kartan med utgångspunkt i ditt postnummer."))}</p><Button className="mt-4" onClick={()=>setTab("profile")}>{(lang === "nb" ? nbText["Gå til konto"] : (lang === "da" ? "Gå til konto" : "Gå till konto"))}</Button></div>}</div>}
           {tab === "items" && <ItemsView lang={lang} profile={profile} listings={listings.filter(item => item.owned)} plan={listingPlan} onAdd={openAdd} onEdit={openEdit} onDelete={setPendingDelete} onCalendar={setCalendarItem} />}
           {tab === "requests" && <RequestsView t={t} loans={loans} lang={lang} userUid={user?.uid ?? ""} loading={agreementsLoading} loadError={agreementsError} direction={loanDirection} setDirection={setLoanDirection} archive={loanArchive} setArchive={setLoanArchive} onChat={setChatLoan} onAgreement={openAgreement} onDecision={(loan,action)=>setPendingDecision({loan,action})} />}
-          {tab === "profile" && user?.emailVerified && <><ProfileView lang={lang} profile={profile} photoEditor={profile?<ProfilePhotoSettings user={user} lang={lang}/>:undefined} authenticatedEmail={user.email || undefined} onSave={saveProfile}
+          {tab === "profile" && user?.emailVerified && <><button type="button" className="account-notifications" onClick={()=>setNotificationsOpen(true)}><Bell size={20}/>{lang==="sv"?"Aviseringar":lang==="nb"?"Varsler":"Notifikationer"}{unreadCount>0&&<b>{unreadCount}</b>}</button><ProfileView lang={lang} profile={profile} photoEditor={profile?<ProfilePhotoSettings user={user} lang={lang}/>:undefined} authenticatedEmail={user.email || undefined} onSave={saveProfile}
             onLogout={logout} onSubscription={() => setTab("subscription")} onPublicProfile={()=>user&&setOwnerProfileUid(user.uid)} />{profile&&<CircleInvitePanel lang={lang} user={user}/>}</>}
           {tab === "subscription" && <SubscriptionView lang={lang} plan={listingPlan} billingDetails={currentOffer} portalUnavailable={portalUnavailableFor===user?.uid} used={listings.filter(item => item.owned).length} onBack={() => setTab("profile")} onUpgrade={() => setShowUpgrade(true)} onManage={() => billing("portal")} />}
         </section>
@@ -896,6 +888,7 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
         </DialogContent>}
       </Dialog>
 
+      <Dialog open={countryPickerOpen} onOpenChange={setCountryPickerOpen}><DialogContent className="country-picker-dialog"><DialogHeader><DialogTitle>Land</DialogTitle><DialogDescription>{lang==="sv"?"Välj land och språk.":lang==="nb"?"Velg land og språk.":"Vælg land og sprog."}</DialogDescription></DialogHeader><LanguageSwitcher flags countries lang={lang} disabled={languageSaving} onChange={value=>{void changeLanguage(value);setCountryPickerOpen(false);}}/></DialogContent></Dialog>
       <Dialog open={searchMapOpen} onOpenChange={setSearchMapOpen}><DialogContent className="search-map-dialog"><DialogHeader><DialogTitle>{lang==="sv"?"Sökresultat på karta":lang==="nb"?"Søkeresultater på kart":"Søgeresultater på kort"}</DialogTitle><DialogDescription>{lang==="sv"?"Samma sökning, område, period och filter som på förstasidan.":lang==="nb"?"Samme søk, område, periode og filtre som på forsiden.":"Samme søgning, område, periode og filtre som på forsiden."}</DialogDescription></DialogHeader>{listingsLoading||datePending?<p role="status">{lang==="sv"?"Hämtar resultat…":lang==="nb"?"Henter resultater…":"Henter resultater…"}</p>:listingsError||dateFailed?<p role="alert">{lang==="sv"?"Resultaten kunde inte hämtas. Försök igen.":lang==="nb"?"Resultatene kunne ikke hentes. Prøv igjen.":"Resultaterne kunne ikke hentes. Prøv igen."}</p>:filtered.length?<ListingResultsMap key={filtered.map(item=>item.id).join("|")} items={filtered} lang={lang} onOpen={id=>{const item=filtered.find(candidate=>candidate.id===id);if(item){setSearchMapOpen(false);setSelected(item);}}}/>:<p>{t.noResults}</p>}</DialogContent></Dialog>
       <Dialog open={!!ownerProfileUid} onOpenChange={open=>!open&&setOwnerProfileUid(null)}><DialogContent className="owner-profile-dialog"><DialogHeader><DialogTitle>{ownerProfileCopy[lang].title}</DialogTitle><DialogDescription>{ownerProfileCopy[lang].description}</DialogDescription></DialogHeader>{ownerProfileUid&&<CircleOwnerProfile key={ownerProfileUid} uid={ownerProfileUid} lang={lang} onListing={record=>{setOwnerProfileUid(null);setSelected(listingFromCloud(record,user?.uid??""));}}/>}</DialogContent></Dialog>
 
