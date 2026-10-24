@@ -761,12 +761,12 @@ function CircleHome({authState}:{authState:ReturnType<typeof useCircleAuth>}) {
 
   return (
     <main className="min-h-screen bg-[#F2F6F8] text-[#172936]">
-      <Toaster position="top-center" richColors /><svg width="0" height="0" aria-hidden="true" className="logo-filter-definitions"><defs><filter id="sidebar-logo-light" colorInterpolationFilters="sRGB"><feColorMatrix in="SourceGraphic" type="saturate" values="0" result="gray"/><feComponentTransfer in="gray" result="inverted"><feFuncR type="table" tableValues="1 1 0 0"/><feFuncG type="table" tableValues="1 1 0 0"/><feFuncB type="table" tableValues="1 1 0 0"/></feComponentTransfer><feColorMatrix in="SourceGraphic" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2 1 1 0 -0.28" result="chroma"/><feComponentTransfer in="chroma" result="mask"><feFuncA type="linear" slope="8" intercept="0"/></feComponentTransfer><feComposite in="SourceGraphic" in2="mask" operator="in" result="turquoise"/><feComposite in="inverted" in2="mask" operator="out" result="neutral"/><feComposite in="turquoise" in2="neutral" operator="over"/></filter></defs></svg>
+      <Toaster position="top-center" richColors />
       <div data-owner-map={tab === "map" && canViewOwnerMap ? "true" : undefined} className="app-main-grid mx-auto grid max-w-[1440px] gap-7 px-4 pb-28 pt-6 sm:px-6 md:pb-10 lg:grid-cols-[220px_minmax(0,1fr)] lg:px-10 xl:grid-cols-[220px_minmax(0,1fr)_260px]">
         <aside className={`app-sidebar ${sidebarOpen?"is-open":""}`}>
           <div className="sidebar-content space-y-6">
             <div className="sidebar-identity">          <button className="brand-lockup" onClick={openHome} aria-label={(lang === "nb" ? nbText["Veyro Circle hjem"] : (lang === "da" ? "Veyro Circle hjem" : "Veyro Circle hem"))}>
-            <img src="/branding/veyro-systems-logo.png" alt="Veyro Systems" /><span>Circle</span>
+            <img src="/branding/veyro-circle-brandkort.png" alt="Veyro Systems · Circle" />
           </button>
 <div className="sidebar-tools"><button className="sidebar-menu-toggle" type="button" aria-expanded={sidebarOpen} aria-label={lang==="sv"?"Visa meny":lang==="nb"?"Vis meny":"Vis menu"} onClick={()=>setSidebarOpen(value=>!value)}><Menu size={21}/></button></div></div>
             <nav className="side-navigation space-y-1" aria-label="Hovedmenu">
